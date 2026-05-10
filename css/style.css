@@ -382,6 +382,15 @@ input { font-family: inherit; }
   align-items: center;
   animation: feedIn 0.4s ease;
 }
+.feed-list li.feed-empty {
+  display: block;
+  text-align: center;
+  padding: 40px 14px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  border-bottom: none;
+}
 .feed-list li.win .payout { color: var(--accent); font-weight: 700; }
 .feed-list li.loss .payout { color: var(--danger); }
 .feed-list .game-tag {

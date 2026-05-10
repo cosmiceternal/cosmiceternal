@@ -65,7 +65,7 @@
     if (filter === 'high') visible = rows.filter(r => r.bet >= 100 || r.payout >= 500);
     else if (filter === 'me') visible = rows.filter(r => r.me);
     listEl.innerHTML = '';
-    // Show newest at top
+    if (visible.length === 0) { renderEmpty(); return; }
     visible.slice(-MAX_ROWS).reverse().forEach(r => listEl.appendChild(rowEl(r)));
   }
 
@@ -182,7 +182,12 @@
         render();
       });
     });
-    start();
+    renderEmpty();
+  }
+
+  function renderEmpty() {
+    if (!listEl) return;
+    listEl.innerHTML = '<li class="feed-empty">Your bets will appear here</li>';
   }
 
   // Player-originated bet
