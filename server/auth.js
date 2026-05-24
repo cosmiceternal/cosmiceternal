@@ -1,13 +1,14 @@
 'use strict';
 
 const crypto = require('crypto');
-const { db, sessionSecret } = require('./db');
+const db = require('./db');
 const { ensureFair } = require('./fair');
 
 const STARTING_CENTS = Math.round(Number(process.env.STARTING_BALANCE || 1000) * 100);
 const COOKIE = 'ns_session';
 const SECURE = process.env.SECURE_COOKIES === '1';
 const MAX_AGE_DAYS = 30;
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -21,7 +22,7 @@ function verifyPassword(password, salt, expectedHash) {
 
 // Stateless signed-cookie session: "userId.HMAC(userId)".
 function signToken(userId) {
-  const mac = crypto.createHmac('sha256', sessionSecret()).update(String(userId)).digest('hex');
+  const mac = crypto.createHmac('sha256', db.sessionSecret()).update(String(userId)).digest('hex');
   return `${userId}.${mac}`;
 }
 function verifyToken(token) {
@@ -30,9 +31,8 @@ function verifyToken(token) {
   if (idx < 0) return null;
   const id = token.slice(0, idx);
   const mac = token.slice(idx + 1);
-  const expected = crypto.createHmac('sha256', sessionSecret()).update(id).digest('hex');
-  const a = Buffer.from(mac);
-  const b = Buffer.from(expected);
+  const expected = crypto.createHmac('sha256', db.sessionSecret()).update(id).digest('hex');
+  const a = Buffer.from(mac), b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   const userId = Number(id);
   return Number.isInteger(userId) ? userId : null;
@@ -54,9 +54,7 @@ function setSessionCookie(res, userId) {
   const token = signToken(userId);
   const attrs = [
     `${COOKIE}=${encodeURIComponent(token)}`,
-    'HttpOnly',
-    'Path=/',
-    'SameSite=Lax',
+    'HttpOnly', 'Path=/', 'SameSite=Lax',
     `Max-Age=${MAX_AGE_DAYS * 24 * 60 * 60}`
   ];
   if (SECURE) attrs.push('Secure');
@@ -67,45 +65,53 @@ function clearSessionCookie(res) {
 }
 
 function publicUser(row) {
-  return { id: row.id, username: row.username, balance: row.balance_cents / 100 };
+  return { id: Number(row.id), username: row.username, balance: Number(row.balance_cents) / 100 };
 }
 
-const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+async function getUserById(id) {
+  const { rows } = await db.query('SELECT * FROM users WHERE id = ?', [id]);
+  return rows[0] || null;
+}
 
-function register(username, password) {
+async function register(username, password) {
   if (!USERNAME_RE.test(username || '')) {
     throw httpError(400, 'Username must be 3–20 chars: letters, numbers, underscore.');
   }
   if (typeof password !== 'string' || password.length < 6 || password.length > 200) {
     throw httpError(400, 'Password must be at least 6 characters.');
   }
-  const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-  if (exists) throw httpError(409, 'That username is taken.');
+  const existing = await db.query('SELECT id FROM users WHERE username = ?', [username]);
+  if (existing.rows.length) throw httpError(409, 'That username is taken.');
 
   const { hash, salt } = hashPassword(password);
-  const info = db.prepare(
-    'INSERT INTO users(username, pass_hash, pass_salt, balance_cents, created_at) VALUES(?,?,?,?,?)'
-  ).run(username, hash, salt, STARTING_CENTS, Date.now());
-  ensureFair(info.lastInsertRowid);
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+  const ins = await db.query(
+    'INSERT INTO users(username, pass_hash, pass_salt, balance_cents, created_at) VALUES(?,?,?,?,?) RETURNING id',
+    [username, hash, salt, STARTING_CENTS, Date.now()]
+  );
+  const id = ins.rows[0].id;
+  await ensureFair(id);
+  return getUserById(id);
 }
 
-function login(username, password) {
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+async function login(username, password) {
+  const { rows } = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+  const user = rows[0];
   if (!user || !verifyPassword(password, user.pass_salt, user.pass_hash)) {
     throw httpError(401, 'Invalid username or password.');
   }
   return user;
 }
 
-// Express middleware: attaches req.user (full row) or 401s if required.
-function authenticate(req, res, next) {
-  const cookies = parseCookies(req);
-  const userId = verifyToken(cookies[COOKIE]);
-  if (userId != null) {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-    if (user) req.user = user;
-  }
+// Express middleware: attaches req.user (full row) when a valid session exists.
+async function authenticate(req, res, next) {
+  try {
+    const cookies = parseCookies(req);
+    const userId = verifyToken(cookies[COOKIE]);
+    if (userId != null) {
+      const user = await getUserById(userId);
+      if (user) req.user = user;
+    }
+  } catch (e) { /* ignore — treated as logged out */ }
   next();
 }
 function requireAuth(req, res, next) {
@@ -120,6 +126,6 @@ function httpError(status, message) {
 }
 
 module.exports = {
-  register, login, authenticate, requireAuth,
+  register, login, authenticate, requireAuth, getUserById,
   setSessionCookie, clearSessionCookie, publicUser, httpError
 };

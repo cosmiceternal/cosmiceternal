@@ -1,7 +1,15 @@
 # Render blueprint — https://render.com
-# Deploy: push to GitHub, then either click the button in the README or go to
-# Render → New → Blueprint and point it at this repo. Gives a public HTTPS URL
-# like https://neonstake.onrender.com that you can share with a friend.
+# Deploy: push to GitHub, then Render → New → Blueprint and point it at this repo
+# (or click the "Deploy to Render" button in the README). This provisions a FREE
+# PostgreSQL database and a web service wired to it, so accounts/balances persist
+# across restarts — and gives you a public HTTPS URL to share.
+
+databases:
+  - name: neonstake-db
+    plan: free
+    databaseName: neonstake
+    user: neonstake
+
 services:
   - type: web
     name: neonstake
@@ -11,6 +19,11 @@ services:
     startCommand: npm start
     healthCheckPath: /api/me
     envVars:
+      # Persistent Postgres connection (data survives restarts/sleep).
+      - key: DATABASE_URL
+        fromDatabase:
+          name: neonstake-db
+          property: connectionString
       # Auto-generated, stable secret so sessions survive restarts.
       - key: SESSION_SECRET
         generateValue: true
@@ -19,15 +32,13 @@ services:
         value: "1"
       - key: NODE_VERSION
         value: "20"
-# NOTE: Render's free web service has an EPHEMERAL filesystem — the SQLite
-# database resets whenever the instance restarts or wakes from sleep, so
-# accounts/balances won't persist long-term on the free plan. That's fine for
-# letting a friend try it. To keep data, upgrade the plan and add a disk:
-#
-#     plan: starter
-#     disk:
-#       name: data
-#       mountPath: /data
-#       sizeGB: 1
-#
-# then add an env var DB_PATH=/data/neonstake.db
+
+# Notes:
+# - Render's FREE plans are perfect for letting friends try it. The free web
+#   service sleeps when idle (first hit ~30s to wake); the free Postgres has a
+#   limited lifetime (Render emails you before it expires) but persists data
+#   across restarts in the meantime. Upgrade either to a paid plan to remove
+#   those limits.
+# - Prefer Neon (https://neon.tech) for a longer-lived free Postgres? Skip the
+#   `databases:` block, create a Neon project, and set DATABASE_URL to its
+#   connection string in the service's environment instead.

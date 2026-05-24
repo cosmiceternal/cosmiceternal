@@ -48,18 +48,28 @@ The SQLite database is created automatically at `./data/neonstake.db` on first r
 
 ---
 
+## Storage
+
+The data layer is dual-mode and picks itself automatically:
+
+- **Local dev:** no setup — it uses **SQLite** (`./data/neonstake.db`).
+- **Production:** set **`DATABASE_URL`** and it uses **PostgreSQL** instead, so accounts
+  and balances persist across restarts. Works out of the box with free tiers like
+  [Neon](https://neon.tech) or Render Postgres. Schema is created automatically on boot.
+
 ## Configuration
 
 All optional — see `.env.example`. Copy it to `.env` and edit, or set real environment
 variables on your host.
 
-| Variable           | Default                 | Purpose                                                        |
-| ------------------ | ----------------------- | -------------------------------------------------------------- |
-| `PORT`             | `3000`                  | Port to listen on.                                             |
-| `DB_PATH`          | `./data/neonstake.db`   | SQLite file path. Point at a mounted disk in production.       |
-| `SESSION_SECRET`   | generated & stored      | Cookie-signing secret. **Set this explicitly in production.**  |
-| `STARTING_BALANCE` | `1000`                  | Starting play-money balance for new accounts.                  |
-| `SECURE_COOKIES`   | `0`                     | Set to `1` to require HTTPS-only cookies (enable in prod).     |
+| Variable           | Default                 | Purpose                                                            |
+| ------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `DATABASE_URL`     | _(unset)_               | Postgres connection string. If set, Postgres is used (else SQLite).|
+| `PORT`             | `3000`                  | Port to listen on.                                                 |
+| `DB_PATH`          | `./data/neonstake.db`   | SQLite file path (only when `DATABASE_URL` is unset).              |
+| `SESSION_SECRET`   | generated & stored      | Cookie-signing secret. **Set this explicitly in production.**      |
+| `STARTING_BALANCE` | `1000`                  | Starting play-money balance for new accounts.                      |
+| `SECURE_COOKIES`   | `0`                     | Set to `1` to require HTTPS-only cookies (enable in prod).         |
 
 ---
 
@@ -89,11 +99,15 @@ are running — great for a quick "check this out," not for permanent hosting.
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/cosmiceternal/cosmiceternal/tree/claude/casino-games-platform-GcKuO)
 
 Click the button (or Render → **New → Blueprint** on this repo). The included
-[`render.yaml`](render.yaml) wires up build/start, generates a session secret, and gives
-you a public URL like `https://neonstake.onrender.com` to share — HTTPS included, no domain
-needed. Heads-up: the free plan sleeps when idle (first hit takes ~30s to wake) and its disk
-is ephemeral, so accounts reset on restart. See `render.yaml` for the paid-plan tweak that
-adds a persistent disk.
+[`render.yaml`](render.yaml) provisions a **free PostgreSQL database**, wires it to the web
+service, generates a session secret, and gives you a public URL like
+`https://neonstake.onrender.com` to share — HTTPS included, no domain needed. Because it
+uses Postgres, **accounts and balances persist** across restarts.
+
+Heads-up on the free tier: the web service sleeps when idle (first hit takes ~30s to wake),
+and Render's free Postgres has a limited lifetime (they email you before it expires).
+Upgrade either to a paid plan to remove those limits, or point `DATABASE_URL` at a
+[Neon](https://neon.tech) free database for longer-lived storage.
 
 ## Deploying to your own domain
 
@@ -150,7 +164,7 @@ public/                 static front end (served by the API server)
 
 server/
   index.js              Express app: API routes + static hosting
-  db.js                 SQLite schema & connection (better-sqlite3, WAL)
+  db.js                 dual-driver async storage (Postgres if DATABASE_URL, else SQLite)
   auth.js               register/login, scrypt hashing, cookie sessions
   fair.js               per-user seeds, nonce, HMAC outcome draws
   games.js              all wager logic + atomic balance/history writes
