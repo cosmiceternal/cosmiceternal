@@ -1,0 +1,33 @@
+# Render blueprint — https://render.com
+# Deploy: push to GitHub, then either click the button in the README or go to
+# Render → New → Blueprint and point it at this repo. Gives a public HTTPS URL
+# like https://neonstake.onrender.com that you can share with a friend.
+services:
+  - type: web
+    name: neonstake
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/me
+    envVars:
+      # Auto-generated, stable secret so sessions survive restarts.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Render serves the public URL over HTTPS, so require secure cookies.
+      - key: SECURE_COOKIES
+        value: "1"
+      - key: NODE_VERSION
+        value: "20"
+# NOTE: Render's free web service has an EPHEMERAL filesystem — the SQLite
+# database resets whenever the instance restarts or wakes from sleep, so
+# accounts/balances won't persist long-term on the free plan. That's fine for
+# letting a friend try it. To keep data, upgrade the plan and add a disk:
+#
+#     plan: starter
+#     disk:
+#       name: data
+#       mountPath: /data
+#       sizeGB: 1
+#
+# then add an env var DB_PATH=/data/neonstake.db

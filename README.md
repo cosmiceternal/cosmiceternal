@@ -63,7 +63,39 @@ variables on your host.
 
 ---
 
-## Deploying to a domain
+## Let a friend try it
+
+### Fastest: share it right now with a tunnel
+
+If it's running locally (`npm start`), expose it with a temporary public URL — no deploy,
+no account. Pick one:
+
+```bash
+# Cloudflare (no install if you have it; gives a https://*.trycloudflare.com URL)
+cloudflared tunnel --url http://localhost:3000
+
+# or ngrok
+ngrok http 3000
+
+# or one-off via npx
+npx localtunnel --port 3000
+```
+
+Send the printed URL to your friend. It stays live only while your machine and the tunnel
+are running — great for a quick "check this out," not for permanent hosting.
+
+### Durable: one-click deploy to Render (free, public link)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/cosmiceternal/cosmiceternal/tree/claude/casino-games-platform-GcKuO)
+
+Click the button (or Render → **New → Blueprint** on this repo). The included
+[`render.yaml`](render.yaml) wires up build/start, generates a session secret, and gives
+you a public URL like `https://neonstake.onrender.com` to share — HTTPS included, no domain
+needed. Heads-up: the free plan sleeps when idle (first hit takes ~30s to wake) and its disk
+is ephemeral, so accounts reset on restart. See `render.yaml` for the paid-plan tweak that
+adds a persistent disk.
+
+## Deploying to your own domain
 
 It's one Node service that serves both the API and the static front end, so any Node host
 works. Three easy options:
