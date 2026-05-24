@@ -10,6 +10,9 @@ const games = require('./games');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Behind a hosting proxy (Render/Railway/Fly/Heroku/nginx) that terminates TLS.
+app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '32kb' }));
 app.use(auth.authenticate);
 
