@@ -1,14 +1,9 @@
-/* Mines — 5x5 grid. Choose mine count, click safe tiles to grow multiplier,
- * cash out any time. Hitting a mine ends the round and loses the bet.
- *
- * Multiplier formula: prod_{i=0..safe-1} (25 - i) / (25 - mines - i) * (1 - house),
- * with house = 0.01.
- */
+/* Mines — the server holds the secret board. Each tile reveal and the cashout
+ * are server calls; the client only animates what the server reports. */
 (function (global) {
   'use strict';
 
   const HOUSE = 0.01;
-
   function multForSafe(safe, mines) {
     let p = 1;
     for (let i = 0; i < safe; i++) p *= (25 - i) / (25 - mines - i);
@@ -20,7 +15,7 @@
       <div class="game-grid">
         <div class="controls">
           <div class="field">
-            <label>Bet Amount <span class="muted">USD</span></label>
+            <label>Bet Amount <span class="muted">FUN</span></label>
             <div class="bet-row">
               <input id="mBet" type="number" min="0.01" step="0.01" value="1.00" />
               <button class="btn" data-act="half">½</button>
@@ -43,7 +38,7 @@
           </div>
           <div class="divider"></div>
           <p class="muted" style="font-size:11px;line-height:1.5;margin:0;">
-            Reveal gems to grow your multiplier. One mine ends the round. Cash out any time to lock in your profit.
+            Reveal gems to grow your multiplier. One mine ends the round. Cash out any time to lock your profit.
           </p>
         </div>
         <div class="stage mines-stage">
@@ -63,10 +58,10 @@
 
     let mines = 3;
     let active = false;
-    let mineSet = null;
-    let revealed = new Set();
+    let busy = false;
+    let roundId = null;
+    let revealedCount = 0;
     let bet = 0;
-    let currentMult = 1;
 
     function buildGrid() {
       grid.innerHTML = '';
@@ -84,13 +79,9 @@
       mines = n;
       mineCountEl.textContent = n;
       pills.forEach(p => p.classList.toggle('active', +p.dataset.mines === n));
-      updateNext();
+      updateIdleStats();
     }
-    pills.forEach(p => p.addEventListener('click', () => {
-      if (active) return;
-      setMineCount(+p.dataset.mines);
-    }));
-
+    pills.forEach(p => p.addEventListener('click', () => { if (!active) setMineCount(+p.dataset.mines); }));
     container.querySelectorAll('[data-act]').forEach(btn => {
       btn.addEventListener('click', () => {
         const act = btn.dataset.act;
@@ -102,118 +93,122 @@
       });
     });
 
-    function updateNext() {
-      const safe = revealed.size;
-      const next = multForSafe(safe + 1, mines);
-      const cur = safe === 0 ? 1 : multForSafe(safe, mines);
-      currentMult = cur;
-      multEl.textContent = cur.toFixed(2) + '×';
-      nextEl.textContent = next.toFixed(2) + '×';
-      if (active) {
-        cashoutBtn.textContent = `Cashout — ${Bankroll.fmt(bet * cur)}`;
-        cashoutBtn.disabled = safe === 0;
-      }
+    function updateIdleStats() {
+      multEl.textContent = '1.00×';
+      nextEl.textContent = multForSafe(1, mines).toFixed(2) + '×';
+    }
+    function updateActiveStats(curMult, nextMult) {
+      multEl.textContent = curMult.toFixed(2) + '×';
+      nextEl.textContent = (nextMult != null ? nextMult.toFixed(2) : '—') + (nextMult != null ? '×' : '');
+      cashoutBtn.textContent = `Cashout — ${Bankroll.fmt(bet * curMult)}`;
+      cashoutBtn.disabled = revealedCount === 0;
     }
 
-    function startGame() {
+    async function startGame() {
+      if (busy) return;
       const amount = +betInput.value;
       if (!amount || amount <= 0) return Toast.warn('Enter a bet amount');
       if (!Bankroll.canAfford(amount)) return Toast.error('Insufficient balance');
-      Bankroll.add(-amount);
-      bet = amount;
-      const sample = Fair.sampleMines(mines);
-      mineSet = sample.mines;
-      revealed = new Set();
-      active = true;
-      Fair.recordRoll({
-        game: 'mines', nonce: sample.fair[0].nonce, hash: sample.fair[0].hash,
-        result: `${mines} mines`, ts: Date.now()
-      });
-
-      grid.querySelectorAll('.mine-cell').forEach(c => {
-        c.classList.remove('revealed','gem','bomb','dim','disabled');
-        c.textContent = '';
-      });
-
-      actionBtn.classList.add('hidden');
-      cashoutBtn.classList.remove('hidden');
-      updateNext();
-      pills.forEach(p => p.style.pointerEvents = 'none');
-      betInput.disabled = true;
+      busy = true;
+      try {
+        const res = await API.minesStart({ bet: amount, mines });
+        Bankroll.set(res.balance);
+        Fair.bumpNonce();
+        roundId = res.roundId;
+        bet = amount;
+        revealedCount = 0;
+        active = true;
+        grid.querySelectorAll('.mine-cell').forEach(c => {
+          c.classList.remove('revealed', 'gem', 'bomb', 'dim', 'disabled');
+          c.textContent = '';
+        });
+        actionBtn.classList.add('hidden');
+        cashoutBtn.classList.remove('hidden');
+        updateActiveStats(1, multForSafe(1, mines));
+        pills.forEach(p => p.style.pointerEvents = 'none');
+        betInput.disabled = true;
+      } catch (e) { Toast.error(e.message); }
+      finally { busy = false; }
     }
 
-    function endGame(win) {
-      active = false;
+    function revealAll(mineCells, exceptHit) {
       const cells = grid.querySelectorAll('.mine-cell');
       cells.forEach(c => c.classList.add('disabled'));
-      // Reveal everything
-      mineSet.forEach(idx => {
+      mineCells.forEach(idx => {
         const c = cells[idx];
         if (!c.classList.contains('revealed')) {
-          c.classList.add('revealed','bomb','dim');
+          c.classList.add('revealed', 'bomb', 'dim');
           c.textContent = '✸';
         }
       });
       for (let i = 0; i < 25; i++) {
-        if (!mineSet.has(i) && !revealed.has(i)) {
-          cells[i].classList.add('dim');
-        }
+        if (!mineCells.includes(i) && !cells[i].classList.contains('revealed')) cells[i].classList.add('dim');
       }
+    }
 
-      const finalMult = win ? multForSafe(revealed.size, mines) : 0;
-      const payout = win ? bet * finalMult : 0;
-      if (win) {
-        Bankroll.add(payout);
-        Toast.win(`+${Bankroll.fmt(payout - bet)} @ ${finalMult.toFixed(2)}×`);
-        Feed.recordPlayerBet({ game: 'mines', bet, mult: finalMult, win: true, payout });
-      } else {
-        Toast.loss(`Mine! Lost ${Bankroll.fmt(bet)}`);
-        Feed.recordPlayerBet({ game: 'mines', bet, mult: 0, win: false, payout: 0 });
-      }
-
+    function finishRound() {
+      active = false;
+      roundId = null;
       cashoutBtn.classList.add('hidden');
       actionBtn.classList.remove('hidden');
       actionBtn.textContent = 'Bet';
       betInput.disabled = false;
       pills.forEach(p => p.style.pointerEvents = '');
-      // Auto-clear after a moment
       setTimeout(() => {
-        if (!alive) return;
-        if (!active) {
-          grid.querySelectorAll('.mine-cell').forEach(c => {
-            c.classList.remove('revealed','gem','bomb','dim','disabled');
-            c.textContent = '';
-          });
-          updateNext();
-        }
+        if (!alive || active) return;
+        grid.querySelectorAll('.mine-cell').forEach(c => {
+          c.classList.remove('revealed', 'gem', 'bomb', 'dim', 'disabled');
+          c.textContent = '';
+        });
+        updateIdleStats();
       }, 2200);
     }
 
-    function onCell(i, cell) {
-      if (!active || revealed.has(i) || cell.classList.contains('revealed')) return;
-      if (mineSet.has(i)) {
-        cell.classList.add('revealed','bomb');
-        cell.textContent = '✸';
-        endGame(false);
-        return;
-      }
-      revealed.add(i);
-      cell.classList.add('revealed','gem');
-      cell.textContent = '◆';
-      updateNext();
-      const safeRemaining = 25 - mines - revealed.size;
-      if (safeRemaining === 0) {
-        // Cleared the board — auto cashout
-        endGame(true);
-      }
+    async function onCell(i, cell) {
+      if (!active || busy || cell.classList.contains('revealed')) return;
+      busy = true;
+      try {
+        const res = await API.minesReveal({ roundId, cell: i });
+        Bankroll.set(res.balance);
+        if (res.hit) {
+          cell.classList.add('revealed', 'bomb');
+          cell.textContent = '✸';
+          revealAll(res.mineCells);
+          Toast.loss(`Mine! Lost ${Bankroll.fmt(bet)}`);
+          Feed.recordPlayerBet({ game: 'mines', bet, mult: 0, win: false, payout: 0 });
+          finishRound();
+          return;
+        }
+        cell.classList.add('revealed', 'gem');
+        cell.textContent = '◆';
+        revealedCount = res.safeCount;
+        if (res.cleared) {
+          Toast.win(`Cleared! +${Bankroll.fmt(res.payout - bet)} @ ${res.mult.toFixed(2)}×`);
+          Feed.recordPlayerBet({ game: 'mines', bet, mult: res.mult, win: true, payout: res.payout });
+          finishRound();
+        } else {
+          updateActiveStats(res.mult, res.nextMult);
+        }
+      } catch (e) { Toast.error(e.message); }
+      finally { busy = false; }
+    }
+
+    async function cashout() {
+      if (!active || busy || revealedCount === 0) return;
+      busy = true;
+      try {
+        const res = await API.minesCashout({ roundId });
+        Bankroll.set(res.balance);
+        revealAll(res.mineCells);
+        Toast.win(`+${Bankroll.fmt(res.payout - bet)} @ ${res.mult.toFixed(2)}×`);
+        Feed.recordPlayerBet({ game: 'mines', bet, mult: res.mult, win: true, payout: res.payout });
+        finishRound();
+      } catch (e) { Toast.error(e.message); }
+      finally { busy = false; }
     }
 
     actionBtn.addEventListener('click', startGame);
-    cashoutBtn.addEventListener('click', () => {
-      if (!active || revealed.size === 0) return;
-      endGame(true);
-    });
-
+    cashoutBtn.addEventListener('click', cashout);
     setMineCount(3);
 
     let alive = true;

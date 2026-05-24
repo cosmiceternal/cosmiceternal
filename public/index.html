@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEONSTAKE — Provably Fair Casino</title>
+  <meta name="description" content="NEONSTAKE — a play-money, provably-fair casino. Crash, Mines, Plinko and Dice with server-verified fairness and persistent accounts." />
+  <meta property="og:title" content="NEONSTAKE — Provably Fair Casino" />
+  <meta property="og:description" content="Play-money Crash, Mines, Plinko and Dice with server-side provably-fair outcomes." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#00e676" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2222%22>♦</text></svg>" />
+</head>
+<body>
+  <!-- Auth gate -->
+  <div class="auth-gate" id="authGate">
+    <div class="auth-card">
+      <div class="auth-brand"><span class="brand-mark">◆</span> NEON<span class="accent">STAKE</span></div>
+      <p class="auth-tag">Play-money, provably-fair casino</p>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth="login">Sign In</button>
+        <button class="auth-tab" data-auth="register">Create Account</button>
+      </div>
+      <form id="authForm" autocomplete="off">
+        <div class="field">
+          <label>Username</label>
+          <input id="authUser" type="text" autocomplete="username" placeholder="3–20 chars" />
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input id="authPass" type="password" autocomplete="current-password" placeholder="min 6 chars" />
+        </div>
+        <div class="auth-error" id="authError"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="authSubmit">Sign In</button>
+      </form>
+      <p class="auth-foot muted">Free credits. No real money — just for fun.</p>
+    </div>
+  </div>
+
+  <div class="app hidden" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">◆</span>
+        <span class="brand-name">NEON<span class="accent">STAKE</span></span>
+      </div>
+      <nav class="game-tabs" id="gameTabs">
+        <button class="tab active" data-game="crash">Crash</button>
+        <button class="tab" data-game="mines">Mines</button>
+        <button class="tab" data-game="plinko">Plinko</button>
+        <button class="tab" data-game="dice">Dice</button>
+      </nav>
+      <div class="wallet">
+        <div class="balance">
+          <span class="balance-label">Balance</span>
+          <span class="balance-value" id="balanceValue">0.00</span>
+          <span class="balance-unit">FUN</span>
+        </div>
+        <button class="btn btn-ghost" id="btnStats" title="Your stats">Stats</button>
+        <button class="btn btn-ghost" id="btnFair" title="Provably Fair">Fair</button>
+        <div class="user-menu">
+          <button class="btn btn-ghost" id="btnUser"><span id="userName">player</span> ▾</button>
+          <div class="user-dropdown hidden" id="userDropdown">
+            <button id="btnLogout">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="game-pane" id="gamePane"></section>
+
+      <aside class="feed-pane">
+        <div class="feed-header">
+          <h3>Your Bets</h3>
+          <div class="feed-tabs">
+            <button class="feed-tab active" data-feed="all">All</button>
+            <button class="feed-tab" data-feed="high">Big</button>
+            <button class="feed-tab" data-feed="me">Wins</button>
+          </div>
+        </div>
+        <div class="feed-table-head">
+          <span>Game</span><span>Player</span><span>Bet</span><span>Mult</span><span>Profit</span>
+        </div>
+        <ul class="feed-list" id="feedList"></ul>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Provably Fair Modal -->
+  <div class="modal-backdrop hidden" id="fairModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Provably Fair</h2>
+        <button class="btn btn-ghost" id="fairClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted">
+          Outcomes are generated server-side by HMAC-SHA256(<em>server seed</em>, <em>client seed</em>:<em>nonce</em>).
+          The server seed is committed (its hash is shown) before you play. Rotate the seed to reveal the original — then
+          you can recompute every past roll and confirm nothing was tampered with.
+        </p>
+        <div class="kv">
+          <label>Server Seed Hash <small>(committed)</small></label>
+          <input id="fairServerHash" readonly />
+        </div>
+        <div class="kv">
+          <label>Server Seed <small>(revealed after rotation)</small></label>
+          <input id="fairServerSeed" readonly placeholder="hidden until rotated" />
+        </div>
+        <div class="kv">
+          <label>Client Seed</label>
+          <input id="fairClientSeed" />
+        </div>
+        <div class="kv">
+          <label>Nonce <small>(bets on this seed)</small></label>
+          <input id="fairNonce" readonly />
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="fairRotate">Rotate Server Seed</button>
+          <button class="btn btn-ghost" id="fairUpdateClient">Update Client Seed</button>
+        </div>
+        <div class="fair-history">
+          <h4>Recent Rolls</h4>
+          <ul id="fairHistory"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Modal -->
+  <div class="modal-backdrop hidden" id="statsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Your Stats</h2>
+        <button class="btn btn-ghost" id="statsClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="stat-grid stat-grid-wide">
+          <div class="stat"><span class="stat-label">Total Bets</span><span class="stat-value" id="stBets">0</span></div>
+          <div class="stat"><span class="stat-label">Total Wagered</span><span class="stat-value" id="stWagered">0.00</span></div>
+          <div class="stat"><span class="stat-label">Net Profit</span><span class="stat-value" id="stProfit">0.00</span></div>
+          <div class="stat"><span class="stat-label">Win Rate</span><span class="stat-value" id="stWinRate">0%</span></div>
+          <div class="stat"><span class="stat-label">Biggest Win</span><span class="stat-value" id="stBiggest">0.00</span></div>
+          <div class="stat"><span class="stat-label">Wins</span><span class="stat-value" id="stWins">0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toasts"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/fair.js"></script>
+  <script src="js/bankroll.js"></script>
+  <script src="js/feed.js"></script>
+  <script src="js/games/crash.js"></script>
+  <script src="js/games/mines.js"></script>
+  <script src="js/games/plinko.js"></script>
+  <script src="js/games/dice.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

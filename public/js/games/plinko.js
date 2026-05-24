@@ -1,15 +1,9 @@
-/* Plinko — ball drops through a peg pyramid, bouncing left/right at each row,
- * lands in one of (rows + 1) multiplier slots.
- *
- * The bounce sequence is provably-fair: rows of 0/1 bits drawn from the HMAC.
- * The animated ball follows that exact sequence, so what you see is the
- * outcome — not theatre layered on top.
- */
+/* Plinko — the server picks the ball's left/right path and pays out; the
+ * client animates the ball along exactly that path. */
 (function (global) {
   'use strict';
 
-  // Slot multipliers tuned per (rows, risk). House edge ~1%.
-  // Values inspired by Stake's plinko, scaled to keep RTP near 99%.
+  // Payout tables mirror the server (server is authoritative for payout).
   const SLOTS = {
     8:  { low:  [5.6, 2.1, 1.1, 1.0, 0.5, 1.0, 1.1, 2.1, 5.6],
           mid:  [13, 3, 1.3, 0.7, 0.4, 0.7, 1.3, 3, 13],
@@ -23,10 +17,10 @@
   };
 
   function colorForMult(m) {
-    if (m >= 10) return ['#ff5277', '#ffb3c5'];     // pink/red
-    if (m >= 2)  return ['#f5c542', '#ffe9a8'];     // gold
-    if (m >= 1)  return ['#00e676', '#aaffcc'];     // green
-    return ['#3b4756', '#7a8a9a'];                  // muted
+    if (m >= 10) return ['#ff5277', '#ffb3c5'];
+    if (m >= 2)  return ['#f5c542', '#ffe9a8'];
+    if (m >= 1)  return ['#00e676', '#aaffcc'];
+    return ['#3b4756', '#7a8a9a'];
   }
 
   function mountPlinko(container) {
@@ -34,7 +28,7 @@
       <div class="game-grid">
         <div class="controls">
           <div class="field">
-            <label>Bet Amount <span class="muted">USD</span></label>
+            <label>Bet Amount <span class="muted">FUN</span></label>
             <div class="bet-row">
               <input id="pBet" type="number" min="0.01" step="0.01" value="1.00" />
               <button class="btn" data-act="half">½</button>
@@ -69,7 +63,7 @@
           </div>
           <div class="divider"></div>
           <p class="muted" style="font-size:11px;line-height:1.5;margin:0;">
-            The ball's path is decided by HMAC-SHA256 before the drop. Higher risk = wider edge multipliers.
+            The ball's path is chosen by the server's provably-fair draw. Higher risk widens the edge multipliers.
           </p>
         </div>
         <div class="stage plinko-stage">
@@ -92,6 +86,7 @@
     let risk = 'low';
     let rows = 12;
     let autoRemaining = 0;
+    let activeBalls = 0;
 
     riskBtns.forEach(b => b.addEventListener('click', () => {
       riskBtns.forEach(x => x.classList.remove('active'));
@@ -106,7 +101,6 @@
       resize();
       renderMults();
     }));
-
     container.querySelectorAll('[data-act]').forEach(btn => {
       btn.addEventListener('click', () => {
         const act = btn.dataset.act;
@@ -128,16 +122,14 @@
         el.style.background = `linear-gradient(180deg, ${c1}33, ${c1}11)`;
         el.style.borderColor = c1 + '66';
         el.style.color = c2;
-        el.textContent = (m >= 100 ? m.toFixed(0) : m.toFixed(m < 1 ? 1 : 1)) + '×';
+        el.textContent = (m >= 100 ? m.toFixed(0) : m.toFixed(1)) + '×';
         el.dataset.idx = i;
         multsEl.appendChild(el);
       });
     }
     renderMults();
 
-    // ---- Geometry ----
-    let layout = { px: 0, py: 0, w: 0, h: 0, gap: 0, rows: 12, top: 0 };
-
+    let layout = {};
     function resize() {
       const dpr = window.devicePixelRatio || 1;
       const r = canvas.parentElement.getBoundingClientRect();
@@ -151,40 +143,31 @@
       computeLayout(cssW, cssH);
       drawBoard();
     }
-
     function computeLayout(w, h) {
       const padX = 30, padTop = 30, padBottom = 30;
       const usableW = w - padX * 2;
       const usableH = h - padTop - padBottom;
-      // Triangle of pegs: row r has r+3 pegs (3..rows+2). We want bottom row's
-      // gap to align with the slot count below the canvas, which is rows+1.
       const bottomPegs = rows + 2;
       const gapX = usableW / (bottomPegs - 1);
       const gapY = Math.min(gapX * 0.92, usableH / rows);
       const totalH = gapY * rows;
       const top = padTop + (usableH - totalH) / 2;
-      layout = { padX, padTop: top, w, h, gapX, gapY, rows, bottomPegs };
+      layout = { w, h, gapX, gapY, padTop: top };
     }
-
     function pegPos(row, idx) {
-      // row 0 has 3 pegs, row rows-1 has rows+2 pegs
       const pegsInRow = row + 3;
       const rowW = (pegsInRow - 1) * layout.gapX;
       const startX = (layout.w - rowW) / 2;
       return { x: startX + idx * layout.gapX, y: layout.padTop + row * layout.gapY };
     }
-
     function slotCenter(slotIdx) {
-      // Slots are spaced like the bottom peg row (rows+1 slots between rows+2 pegs)
       const pegsInRow = rows + 2;
       const rowW = (pegsInRow - 1) * layout.gapX;
       const startX = (layout.w - rowW) / 2;
       return startX + (slotIdx + 0.5) * layout.gapX;
     }
-
-    function drawBoard(highlightSlot = -1) {
+    function drawBoard() {
       ctx.clearRect(0, 0, layout.w, layout.h);
-      // Pegs
       for (let r = 0; r < rows; r++) {
         const pegs = r + 3;
         for (let i = 0; i < pegs; i++) {
@@ -195,47 +178,30 @@
           ctx.fill();
         }
       }
-      // Slot markers along the bottom of canvas
-      const slots = SLOTS[rows][risk];
-      const baseY = layout.padTop + rows * layout.gapY + 8;
-      for (let i = 0; i < slots.length; i++) {
-        const x = slotCenter(i);
-        ctx.beginPath();
-        ctx.arc(x, baseY, 4, 0, Math.PI * 2);
-        ctx.fillStyle = i === highlightSlot ? '#00e676' : 'rgba(255,255,255,0.2)';
-        ctx.fill();
-      }
     }
-
     const ro = new ResizeObserver(resize);
     ro.observe(canvas.parentElement);
     resize();
 
-    let dropping = false;
+    async function drop() {
+      const bet = +betInput.value;
+      if (!bet || bet <= 0) { Toast.warn('Enter a bet amount'); return; }
+      if (!Bankroll.canAfford(bet)) { Toast.error('Insufficient balance'); autoRemaining = 0; return; }
 
-    function drop() {
-      if (dropping) return;
-      const amount = +betInput.value;
-      if (!amount || amount <= 0) return Toast.warn('Enter a bet amount');
-      if (!Bankroll.canAfford(amount)) return Toast.error('Insufficient balance');
-      Bankroll.add(-amount);
+      const preBalance = Bankroll.get();
+      let res;
+      try {
+        res = await API.plinko({ bet, rows, risk });
+      } catch (e) { Toast.error(e.message); autoRemaining = 0; return; }
+      Bankroll.set(preBalance - bet); // deduct now; credit payout when the ball lands
+      Fair.bumpNonce();
 
-      const sample = Fair.samplePlinko(rows);
-      const dirs = sample.directions; // 0 = left, 1 = right
-      const slotIdx = dirs.reduce((a, b) => a + b, 0);
-      const slots = SLOTS[rows][risk];
-      const mult = slots[slotIdx];
+      const dirs = res.directions;
+      const slotIdx = res.slot;
+      const mult = res.mult;
       const win = mult >= 1;
-      const payout = amount * mult;
 
-      Fair.recordRoll({
-        game: 'plinko', nonce: sample.fair.nonce, hash: sample.fair.hash,
-        result: `${mult.toFixed(2)}× (slot ${slotIdx})`, ts: Date.now()
-      });
-
-      dropping = true;
-      // Build the ball's path. Each row pegs[r][col] is the peg the ball
-      // strikes; left bounce keeps col, right bounce advances col by 1.
+      // Build the path from the server's directions.
       const start = pegPos(0, 1);
       const path = [{ x: start.x, y: start.y - 30 }];
       let col = 1;
@@ -244,71 +210,51 @@
         path.push({ x: peg.x, y: peg.y - 5, kind: 'peg' });
         if (dirs[r] === 1) col += 1;
       }
-      // Land at slot center
       const finalY = layout.padTop + rows * layout.gapY + 6;
-      const finalX = slotCenter(slotIdx);
-      path.push({ x: finalX, y: finalY, kind: 'slot' });
+      path.push({ x: slotCenter(slotIdx), y: finalY, kind: 'slot' });
 
+      activeBalls++;
       animatePath(path, () => {
-        // flash slot
+        activeBalls--;
+        Bankroll.set(res.balance); // credit the payout as the ball lands
         const slotEls = multsEl.querySelectorAll('.plinko-mult');
         slotEls.forEach(el => el.classList.remove('flash'));
         const flashEl = slotEls[slotIdx];
-        if (flashEl) {
-          flashEl.classList.add('flash');
-          setTimeout(() => flashEl.classList.remove('flash'), 500);
-        }
-        if (win) Bankroll.add(payout);
-        if (mult >= 5) Toast.win(`${mult}× — +${Bankroll.fmt(payout - amount)}`);
-        else if (win) Toast.info(`${mult}× — +${Bankroll.fmt(payout - amount)}`);
-        else Toast.loss(`${mult}× — −${Bankroll.fmt(amount - payout)}`);
-        Feed.recordPlayerBet({ game: 'plinko', bet: amount, mult, win, payout });
-        dropping = false;
+        if (flashEl) { flashEl.classList.add('flash'); setTimeout(() => flashEl.classList.remove('flash'), 500); }
+        if (mult >= 5) Toast.win(`${mult}× — +${Bankroll.fmt(res.payout - bet)}`);
+        else if (win) Toast.info(`${mult}× — +${Bankroll.fmt(res.payout - bet)}`);
+        else Toast.loss(`${mult}× — −${Bankroll.fmt(bet - res.payout)}`);
+        Feed.recordPlayerBet({ game: 'plinko', bet, mult, win, payout: res.payout });
 
         if (autoRemaining > 0) {
           autoRemaining -= 1;
           autoInput.value = autoRemaining;
-          if (autoRemaining > 0 && Bankroll.canAfford(amount)) {
-            setTimeout(drop, 350);
-          }
+          if (autoRemaining > 0) setTimeout(drop, 320);
         }
       });
     }
 
     function animatePath(path, done) {
-      const segDur = 180; // ms per segment
+      const segDur = 170;
       let segIdx = 0;
       let segStart = performance.now();
-
       function frame() {
         const now = performance.now();
         const t = Math.min(1, (now - segStart) / segDur);
-        const a = path[segIdx];
-        const b = path[segIdx + 1];
+        const a = path[segIdx], b = path[segIdx + 1];
         if (!b) { done(); return; }
         const x = a.x + (b.x - a.x) * t;
-        // Parabolic bounce between pegs for visual flair
-        const arc = b.kind === 'peg' || b.kind === 'slot' ? Math.sin(Math.PI * t) * 6 : 0;
+        const arc = (b.kind === 'peg' || b.kind === 'slot') ? Math.sin(Math.PI * t) * 6 : 0;
         const y = a.y + (b.y - a.y) * t - arc;
         drawBoard();
-        // Trail
         ctx.beginPath();
         ctx.arc(x, y, 7, 0, Math.PI * 2);
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, 14);
-        grad.addColorStop(0, 'rgba(255,255,255,0.95)');
-        grad.addColorStop(1, 'rgba(0,230,118,0)');
-        ctx.fillStyle = grad;
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff';
-        ctx.fill();
-
-        if (t >= 1) {
-          segIdx++;
-          segStart = now;
-          if (segIdx >= path.length - 1) { done(); return; }
-        }
+        const g = ctx.createRadialGradient(x, y, 0, x, y, 14);
+        g.addColorStop(0, 'rgba(255,255,255,0.95)');
+        g.addColorStop(1, 'rgba(0,230,118,0)');
+        ctx.fillStyle = g; ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+        if (t >= 1) { segIdx++; segStart = now; if (segIdx >= path.length - 1) { done(); return; } }
         if (alive) requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);
@@ -322,10 +268,7 @@
     autoStop.addEventListener('click', () => { autoRemaining = 0; autoInput.value = 0; });
 
     let alive = true;
-    return function unmount() {
-      alive = false;
-      ro.disconnect();
-    };
+    return function unmount() { alive = false; ro.disconnect(); };
   }
 
   global.Games = global.Games || {};
