@@ -127,6 +127,41 @@ app.post('/api/play/mines/start',   auth.requireAuth, h((req) => games.minesStar
 app.post('/api/play/mines/reveal',  auth.requireAuth, h((req) => games.minesReveal(req.user.id, req.body || {})));
 app.post('/api/play/mines/cashout', auth.requireAuth, h((req) => games.minesCashout(req.user.id, req.body || {})));
 
+app.post('/api/play/limbo',  auth.requireAuth, h((req) => games.playLimbo(req.user.id, req.body || {})));
+app.post('/api/play/wheel',  auth.requireAuth, h((req) => games.playWheel(req.user.id, req.body || {})));
+app.get('/api/play/keno/table', auth.requireAuth, h((req) => games.kenoTable(req.query.picks)));
+app.post('/api/play/keno',   auth.requireAuth, h((req) => games.playKeno(req.user.id, req.body || {})));
+app.post('/api/play/roulette', auth.requireAuth, h((req) => games.playRoulette(req.user.id, req.body || {})));
+app.post('/api/play/diamonds', auth.requireAuth, h((req) => games.playDiamonds(req.user.id, req.body || {})));
+app.post('/api/play/slots',  auth.requireAuth, h((req) => games.playSlots(req.user.id, req.body || {})));
+app.post('/api/play/sicbo',  auth.requireAuth, h((req) => games.playSicbo(req.user.id, req.body || {})));
+app.post('/api/play/color',  auth.requireAuth, h((req) => games.playColor(req.user.id, req.body || {})));
+app.post('/api/play/scratch', auth.requireAuth, h((req) => games.playScratch(req.user.id, req.body || {})));
+
+app.post('/api/play/hilo/start',   auth.requireAuth, h((req) => games.hiloStart(req.user.id, req.body || {})));
+app.post('/api/play/hilo/guess',   auth.requireAuth, h((req) => games.hiloGuess(req.user.id, req.body || {})));
+app.post('/api/play/hilo/cashout', auth.requireAuth, h((req) => games.hiloCashout(req.user.id, req.body || {})));
+
+app.post('/api/play/towers/start',   auth.requireAuth, h((req) => games.towersStart(req.user.id, req.body || {})));
+app.post('/api/play/towers/reveal',  auth.requireAuth, h((req) => games.towersReveal(req.user.id, req.body || {})));
+app.post('/api/play/towers/cashout', auth.requireAuth, h((req) => games.towersCashout(req.user.id, req.body || {})));
+
+app.post('/api/play/pump/start',   auth.requireAuth, h((req) => games.pumpStart(req.user.id, req.body || {})));
+app.post('/api/play/pump/pump',    auth.requireAuth, h((req) => games.pumpPump(req.user.id, req.body || {})));
+app.post('/api/play/pump/cashout', auth.requireAuth, h((req) => games.pumpCashout(req.user.id, req.body || {})));
+
+app.post('/api/play/coin/start',   auth.requireAuth, h((req) => games.coinStart(req.user.id, req.body || {})));
+app.post('/api/play/coin/flip',    auth.requireAuth, h((req) => games.coinFlip(req.user.id, req.body || {})));
+app.post('/api/play/coin/cashout', auth.requireAuth, h((req) => games.coinCashout(req.user.id, req.body || {})));
+
+app.post('/api/play/videopoker/start', auth.requireAuth, h((req) => games.videoPokerStart(req.user.id, req.body || {})));
+app.post('/api/play/videopoker/draw',  auth.requireAuth, h((req) => games.videoPokerDraw(req.user.id, req.body || {})));
+
+app.post('/api/play/blackjack/start',  auth.requireAuth, h((req) => games.blackjackStart(req.user.id, req.body || {})));
+app.post('/api/play/blackjack/hit',    auth.requireAuth, h((req) => games.blackjackHit(req.user.id, req.body || {})));
+app.post('/api/play/blackjack/stand',  auth.requireAuth, h((req) => games.blackjackStand(req.user.id, req.body || {})));
+app.post('/api/play/blackjack/double', auth.requireAuth, h((req) => games.blackjackDouble(req.user.id, req.body || {})));
+
 // ---------------- History / stats ----------------
 app.get('/api/history', auth.requireAuth, h(async (req) => ({ bets: await games.history(req.user.id, req.query.limit) })));
 app.get('/api/stats',   auth.requireAuth, h((req) => games.stats(req.user.id)));

@@ -1,9 +1,11 @@
 # NEONSTAKE
 
-A **play-money**, provably-fair casino with four games — **Crash, Mines, Plinko, Dice** —
-real user accounts, and a server-authoritative backend. Built with vanilla JS on the
-front end and Node + Express + SQLite on the back end, so it deploys as a single service
-to any Node host.
+A **play-money**, provably-fair casino with **19 games** — Crash, Mines, Towers, Pump,
+Limbo, Plinko, Dice, Hi-Lo, Blackjack, Video Poker, Wheel, Roulette, Keno, Sic Bo,
+Diamonds, Slots, Coin Flip, Scratch and Color — real user accounts, and a
+server-authoritative backend. Built with vanilla JS on the front end and Node + Express
+on the back end (Postgres in production, SQLite for local dev), so it deploys as a single
+service to any Node host.
 
 > ⚠️ **Play money only.** Balances are fun credits with no cash value. This is a hobby /
 > learning project, not a real gambling service. Operating a real-money casino is
@@ -20,8 +22,11 @@ to any Node host.
 - **True provably-fair** — the server seed lives on the server; you only get its SHA-256
   hash (a commitment) up front. Rotate the seed any time to reveal the original and
   recompute every past roll yourself (see [Verifying fairness](#verifying-fairness)).
-- **Four games** — Crash (animated curve, auto-cashout), Mines (5×5, 1–24 mines), Plinko
-  (8/12/16 rows × low/med/high risk), Dice (over/under with live odds).
+- **19 games**, all provably fair and server-settled:
+  - *Multiplier & climb:* Crash, Limbo, Towers, Pump (escalating-risk meter), Plinko.
+  - *Cards:* Blackjack (3:2, double), Video Poker (Jacks or Better), Hi-Lo.
+  - *Wheels & tables:* Wheel (low/mid/high risk), Roulette (European), Sic Bo.
+  - *Picks & instants:* Mines, Keno, Dice, Diamonds, Slots, Coin Flip (streak), Scratch, Color.
 - **Stats & history** — per-account bet history feed and a stats panel (wagered, net
   profit, win rate, biggest win).
 - Sleek dark UI, green accents, canvas animations, toasts.
