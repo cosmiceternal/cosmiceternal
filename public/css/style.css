@@ -845,9 +845,59 @@ input { font-family: inherit; }
   .feed-pane { display: none; }
 }
 @media (max-width: 720px) {
-  .game-grid { grid-template-columns: 1fr; }
-  .controls { border-right: none; border-bottom: 1px solid var(--line); }
-  .game-tabs { gap: 2px; }
-  .tab { padding: 6px 10px; font-size: 12px; }
+  /* Switch the fixed-viewport desktop shell to natural document scrolling. */
+  html, body { overflow-y: auto; height: auto; }
+  .app { height: auto; min-height: 100vh; }
+  .layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+    padding: 10px;
+    gap: 10px;
+  }
+  .game-pane { height: auto; overflow: visible; }
+  .game-grid { grid-template-columns: 1fr; height: auto; }
+  .controls { border-right: none; border-bottom: 1px solid var(--line); overflow: visible; }
+
+  /* Topbar reflows: brand + wallet share a row, game tabs scroll horizontally below. */
+  .topbar { height: auto; flex-wrap: wrap; gap: 8px 10px; padding: 8px 12px; }
+  .brand { order: 1; min-width: 0; }
   .brand-name { display: none; }
+  .wallet { order: 2; margin-left: auto; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .balance { padding: 6px 10px; }
+  .balance-label { display: none; }
+  .game-tabs {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .game-tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; padding: 8px 14px; font-size: 13px; }
+
+  /* 16px inputs stop iOS Safari from zooming in on focus. */
+  .field input, .field select, .kv input, #authForm input { font-size: 16px; }
+
+  /* Stages need an explicit height now that the shell scrolls instead of filling the viewport. */
+  .crash-stage { min-height: 46vh; }
+  .plinko-stage { min-height: 50vh; padding: 12px; }
+  .dice-stage { min-height: 40vh; padding: 24px 16px; gap: 20px; }
+  .mines-stage { padding: 14px; }
+
+  /* Toasts span the bottom edge on narrow screens. */
+  .toast-stack { left: 10px; right: 10px; bottom: 10px; }
+  .toast { min-width: 0; }
+}
+
+@media (max-width: 420px) {
+  .tab { padding: 7px 12px; font-size: 12px; }
+  .btn { padding: 8px 11px; font-size: 12px; }
+  .crash-multiplier { font-size: clamp(44px, 13vw, 80px); }
+  .mines-grid { gap: 7px; }
+  .mine-cell { font-size: 22px; border-radius: 8px; }
+  .dice-result { font-size: clamp(40px, 14vw, 72px); }
 }

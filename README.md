@@ -96,7 +96,7 @@ are running — great for a quick "check this out," not for permanent hosting.
 
 ### Durable: one-click deploy to Render (free, public link)
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/cosmiceternal/cosmiceternal/tree/claude/casino-games-platform-GcKuO)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/cosmiceternal/cosmiceternal)
 
 Click the button (or Render → **New → Blueprint** on this repo). The included
 [`render.yaml`](render.yaml) provisions a **free PostgreSQL database**, wires it to the web
