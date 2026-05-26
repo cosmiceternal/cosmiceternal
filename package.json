@@ -1,7 +1,7 @@
 {
-  "name": "neonstake",
+  "name": "crypt-casino",
   "version": "1.0.0",
-  "description": "NEONSTAKE — a play-money provably-fair casino (Crash, Mines, Plinko, Dice) with accounts and a server-authoritative backend.",
+  "description": "Crypt Casino — a play-money provably-fair casino (19 games) with accounts and a server-authoritative backend.",
   "type": "commonjs",
   "main": "server/index.js",
   "engines": {

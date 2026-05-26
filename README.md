@@ -1,4 +1,4 @@
-# NEONSTAKE
+# Crypt Casino
 
 A **play-money**, provably-fair casino with **19 games** — Crash, Mines, Towers, Pump,
 Limbo, Plinko, Dice, Hi-Lo, Blackjack, Video Poker, Wheel, Roulette, Keno, Sic Bo,
@@ -141,7 +141,7 @@ service and enable TLS.
 ### Option C — Your own VPS
 
 ```bash
-git clone <your repo> && cd neonstake
+git clone <your repo> && cd crypt-casino
 npm install --omit=dev
 SESSION_SECRET="$(openssl rand -hex 32)" SECURE_COOKIES=1 PORT=3000 npm start
 ```

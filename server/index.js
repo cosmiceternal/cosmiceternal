@@ -176,7 +176,7 @@ app.get('*', (req, res) => res.sendFile(path.join(PUBLIC, 'index.html')));
 
 db.init()
   .then(() => {
-    app.listen(PORT, () => console.log(`NEONSTAKE listening on http://localhost:${PORT}`));
+    app.listen(PORT, () => console.log(`Crypt Casino listening on http://localhost:${PORT}`));
   })
   .catch((e) => {
     console.error('Failed to initialize storage:', e);
