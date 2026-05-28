@@ -1,12 +1,13 @@
 # Crypt Casino
 
-A **play-money**, provably-fair casino with **25 games** — including an **AI live table**
-(Blackjack with simulated, clearly-labeled AI table-mates) — real user accounts, and a
-server-authoritative backend. Built with vanilla JS on the front end and Node + Express
+A **play-money**, provably-fair casino with **25 games** — including an **AI Dealer**
+(personable AI croupiers hosting real provably-fair Blackjack, with switchable
+personalities and reactive banter) — real user accounts, and a server-authoritative
+backend. Built with vanilla JS on the front end and Node + Express
 on the back end (Postgres in production, SQLite for local dev), so it deploys as a single
 service to any Node host.
 
-Games: Crash, AI Table, Mines, Towers, Pump, Penalty Shootout, Cascade, Limbo, Plinko,
+Games: Crash, AI Dealer, Mines, Towers, Pump, Penalty Shootout, Cascade, Limbo, Plinko,
 Dice, Hi-Lo, Blackjack, Video Poker, Baccarat, Dragon Tiger, Andar Bahar, Wheel, Roulette,
 Keno, Sic Bo, Diamonds, Slots, Coin Flip, Scratch and Color.
 
