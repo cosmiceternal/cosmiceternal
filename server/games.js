@@ -960,6 +960,216 @@ function blackjackDouble(userId, { roundId }) {
   });
 }
 
+// ---------------------------------------------------------------- BACCARAT
+// Punto Banco. A=1, 2-9 face, 10/J/Q/K=0; hand value = sum mod 10.
+// Standard third-card rules. Bets: player 1:1, banker 0.95:1 (5% commission),
+// tie 8:1. Classic edges (player ~1.24%, banker ~1.06%, tie ~14.4%).
+function baccValue(cards) { return cards.reduce((s, c) => s + (c.rank >= 10 ? 0 : c.rank), 0) % 10; }
+function playBaccarat(userId, { bet, betType }) {
+  const betCents = toCents(bet);
+  if (!['player', 'banker', 'tie'].includes(betType)) throw httpError(400, 'Bet player, banker, or tie.');
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 6);
+    const cards = drawDistinctCards(floats, 6);
+    const player = [cards[0], cards[1]];
+    const banker = [cards[2], cards[3]];
+    let next = 4;
+    let pv = baccValue(player), bv = baccValue(banker);
+    const natural = pv >= 8 || bv >= 8;
+    let playerThird = null;
+    if (!natural) {
+      if (pv <= 5) { playerThird = cards[next++]; player.push(playerThird); }
+      const pt = playerThird ? (playerThird.rank >= 10 ? 0 : playerThird.rank) : null;
+      // Banker draw rules
+      let bankerDraws = false;
+      if (playerThird === null) { bankerDraws = bv <= 5; }
+      else if (bv <= 2) bankerDraws = true;
+      else if (bv === 3) bankerDraws = pt !== 8;
+      else if (bv === 4) bankerDraws = pt >= 2 && pt <= 7;
+      else if (bv === 5) bankerDraws = pt >= 4 && pt <= 7;
+      else if (bv === 6) bankerDraws = pt === 6 || pt === 7;
+      if (bankerDraws) banker.push(cards[next++]);
+      pv = baccValue(player); bv = baccValue(banker);
+    }
+    const result = pv > bv ? 'player' : (bv > pv ? 'banker' : 'tie');
+    let mult = 0;
+    if (betType === 'tie') mult = result === 'tie' ? 9 : 0;            // 8:1 win + stake
+    else if (result === 'tie') mult = 1;                               // player/banker push on tie
+    else if (betType === result) mult = betType === 'banker' ? 1.95 : 2;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    const win = payoutCents > betCents;
+    await recordBet(q, userId, { game: 'baccarat', betCents, mult: win ? mult : 0, payoutCents, win, nonce, detail: { betType, result, pv, bv } });
+    return { player, banker, pv, bv, result, betType, win, mult, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
+// ---------------------------------------------------------------- DRAGON TIGER
+// One card to Dragon, one to Tiger; higher rank wins (A low ... K high).
+// Dragon/Tiger pay 1:1 (lose on tie). Tie bet pays 11:1.
+function playDragonTiger(userId, { bet, betType }) {
+  const betCents = toCents(bet);
+  if (!['dragon', 'tiger', 'tie'].includes(betType)) throw httpError(400, 'Bet dragon, tiger, or tie.');
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 2);
+    // Independent (infinite-shoe) draws so P(tie) = 1/13, the standard rate.
+    const dragon = cardFromIndex(Math.min(51, Math.floor(floats[0] * 52)));
+    const tiger = cardFromIndex(Math.min(51, Math.floor(floats[1] * 52)));
+    if (dragon.rank === tiger.rank && dragon.suit === tiger.suit) tiger.suit = (tiger.suit + 1) % 4;
+    const result = dragon.rank > tiger.rank ? 'dragon' : (tiger.rank > dragon.rank ? 'tiger' : 'tie');
+    let mult = 0;
+    if (betType === 'tie') mult = result === 'tie' ? 12 : 0;
+    else if (result === 'tie') mult = 0.5;                              // half-back on tie
+    else if (betType === result) mult = 2;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    const win = payoutCents > betCents;
+    await recordBet(q, userId, { game: 'dragontiger', betCents, mult: win ? mult : 0, payoutCents, win, nonce, detail: { betType, result } });
+    return { dragon, tiger, result, betType, win, mult, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
+// ---------------------------------------------------------------- ANDAR BAHAR
+// A middle card is shown; cards are dealt alternately to Andar (first) and Bahar
+// until one matches the middle card's rank. Bet which side matches first.
+// Andar pays 0.9:1 (positionally favoured), Bahar pays 1:1.
+function playAndarBahar(userId, { bet, side }) {
+  const betCents = toCents(bet);
+  if (!['andar', 'bahar'].includes(side)) throw httpError(400, 'Bet andar or bahar.');
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 52);
+    const deck = drawDistinctCards(floats, 52);
+    const middle = deck[0];
+    const andar = [], bahar = [];
+    let winner = null, idx = 1;
+    while (idx < deck.length) {
+      const card = deck[idx++];
+      if (andar.length <= bahar.length) { andar.push(card); if (card.rank === middle.rank) { winner = 'andar'; break; } }
+      else { bahar.push(card); if (card.rank === middle.rank) { winner = 'bahar'; break; } }
+    }
+    const mult = winner === side ? (side === 'andar' ? 1.9 : 2) : 0;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    const win = payoutCents > betCents;
+    await recordBet(q, userId, { game: 'andarbahar', betCents, mult: win ? mult : 0, payoutCents, win, nonce, detail: { side, winner, count: andar.length + bahar.length } });
+    return { middle, andar, bahar, winner, side, win, mult, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
+// ---------------------------------------------------------------- CASCADE (original)
+// Energy cascades through 6 cells. Each cell "ignites" with probability p (set by
+// risk). The cascade stops at the first cell that fails; you're paid by how many
+// cells ignited in a row. Auto-revealed, no decisions. Paytables generated to a
+// disclosed ~3.5% edge.
+const CASCADE_CELLS = 6, CASCADE_EDGE = 0.035;
+const CASCADE_P = { low: 0.72, mid: 0.55, high: 0.40 };
+function buildCascadeTable(p) {
+  // weight by ignition count (more ignitions → exponentially bigger), normalized to edge.
+  const threshold = 2;
+  const probExactly = k => (k === CASCADE_CELLS ? Math.pow(p, k) : Math.pow(p, k) * (1 - p));
+  const weights = [];
+  let evRaw = 0;
+  for (let k = threshold; k <= CASCADE_CELLS; k++) {
+    const w = Math.pow(k - threshold + 1, 2.0);
+    weights.push([k, w]);
+    evRaw += probExactly(k) * w;
+  }
+  const alpha = evRaw > 0 ? (1 - CASCADE_EDGE) / evRaw : 0;
+  const table = new Array(CASCADE_CELLS + 1).fill(0);
+  weights.forEach(([k, w]) => { table[k] = +(alpha * w).toFixed(2); });
+  return table;
+}
+const CASCADE_TABLES = { low: buildCascadeTable(CASCADE_P.low), mid: buildCascadeTable(CASCADE_P.mid), high: buildCascadeTable(CASCADE_P.high) };
+function playCascade(userId, { bet, risk }) {
+  const betCents = toCents(bet);
+  if (!CASCADE_P[risk]) throw httpError(400, 'Invalid risk.');
+  const p = CASCADE_P[risk], table = CASCADE_TABLES[risk];
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, CASCADE_CELLS);
+    const cells = [];
+    let ignited = 0, broken = false;
+    for (let i = 0; i < CASCADE_CELLS; i++) {
+      const ok = !broken && floats[i] < p;
+      cells.push(ok);
+      if (ok) ignited++; else broken = true;
+    }
+    const mult = table[ignited] || 0;
+    const win = mult >= 1;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'cascade', betCents, mult, payoutCents, win, nonce, detail: { ignited, risk } });
+    return { cells, ignited, mult, risk, table, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
+// ---------------------------------------------------------------- PENALTY SHOOTOUT (original)
+// Round-based streak. Each round you shoot left/center/right; the keeper (server,
+// pre-drawn) dives to one spot. If it differs from your shot you score and climb;
+// cash out any time. Keeper blocks 1/3 → score chance 2/3 per shot.
+const PENALTY_ROUNDS = 5, PENALTY_EDGE = 0.03;
+function penaltyMult(goals) { return +Math.pow((3 / 2) * (1 - PENALTY_EDGE), goals).toFixed(4); }
+function penaltyStart(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, PENALTY_ROUNDS);
+    const dives = floats.map(f => Math.min(2, Math.floor(f * 3))); // 0=L,1=C,2=R per round
+    const id = crypto.randomUUID();
+    await q('INSERT INTO rounds(id, user_id, game, state, settled, created_at) VALUES(?,?,?,?,0,?)',
+      [id, userId, 'penalty', JSON.stringify({ betCents, dives, round: 0, nonce }), Date.now()]);
+    return { roundId: id, rounds: PENALTY_ROUNDS, nextMult: penaltyMult(1), serverHash, balance: await balanceOf(q, userId) / 100 };
+  });
+}
+function penaltyShoot(userId, { roundId, dir }) {
+  const shot = Number(dir);
+  if (![0, 1, 2].includes(shot)) throw httpError(400, 'Shoot left (0), center (1) or right (2).');
+  return db.tx(async (q) => {
+    const { rows } = await q('SELECT * FROM rounds WHERE id = ? AND user_id = ? AND game = ?', [roundId, userId, 'penalty']);
+    const round = rows[0];
+    if (!round) throw httpError(404, 'Round not found.');
+    if (Number(round.settled)) throw httpError(409, 'Round already over.');
+    const s = JSON.parse(round.state);
+    const keeper = s.dives[s.round];
+    const scored = keeper !== shot;
+    if (!scored) {
+      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await recordBet(q, userId, { game: 'penalty', betCents: s.betCents, mult: 0, payoutCents: 0, win: false, nonce: s.nonce, detail: { goals: s.round, savedRound: s.round + 1 } });
+      return { saved: true, keeper, shot, round: s.round, balance: await balanceOf(q, userId) / 100 };
+    }
+    s.round += 1;
+    const mult = penaltyMult(s.round);
+    if (s.round >= PENALTY_ROUNDS) {
+      const payoutCents = Math.round(s.betCents * mult);
+      await credit(q, userId, payoutCents);
+      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await recordBet(q, userId, { game: 'penalty', betCents: s.betCents, mult, payoutCents, win: true, nonce: s.nonce, detail: { goals: s.round, perfect: true } });
+      return { saved: false, keeper, shot, round: s.round, mult, perfect: true, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100 };
+    }
+    await q('UPDATE rounds SET state = ? WHERE id = ?', [JSON.stringify(s), roundId]);
+    return { saved: false, keeper, shot, round: s.round, mult, nextMult: penaltyMult(s.round + 1), cashout: (s.betCents * mult) / 100, balance: await balanceOf(q, userId) / 100 };
+  });
+}
+function penaltyCashout(userId, { roundId }) {
+  return db.tx(async (q) => {
+    const { rows } = await q('SELECT * FROM rounds WHERE id = ? AND user_id = ? AND game = ?', [roundId, userId, 'penalty']);
+    const round = rows[0];
+    if (!round) throw httpError(404, 'Round not found.');
+    if (Number(round.settled)) throw httpError(409, 'Round already over.');
+    const s = JSON.parse(round.state);
+    if (s.round < 1) throw httpError(400, 'Score at least one goal first.');
+    const mult = penaltyMult(s.round);
+    const payoutCents = Math.round(s.betCents * mult);
+    await credit(q, userId, payoutCents);
+    await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+    await recordBet(q, userId, { game: 'penalty', betCents: s.betCents, mult, payoutCents, win: true, nonce: s.nonce, detail: { goals: s.round } });
+    return { mult, payout: payoutCents / 100, goals: s.round, balance: await balanceOf(q, userId) / 100 };
+  });
+}
+
 // ---------------------------------------------------------------- HISTORY / STATS
 async function history(userId, limit = 30) {
   limit = Math.max(1, Math.min(100, Number(limit) || 30));
@@ -1011,7 +1221,10 @@ module.exports = {
   playSicbo, playColor, playScratch,
   videoPokerStart, videoPokerDraw,
   blackjackStart, blackjackHit, blackjackStand, blackjackDouble,
+  playBaccarat, playDragonTiger, playAndarBahar, playCascade,
+  penaltyStart, penaltyShoot, penaltyCashout,
   history, stats, PLINKO, minesMult,
   WHEEL, TOWERS, PUMP, DIAMOND_PAYS, SLOT_SYMBOLS, SLOT_TRIPLE, SLOT_PAIR_PAY,
-  COLOR_PAYS, VIDEO_POKER_PAYS, KENO_TABLES, SCRATCH_TABLE
+  COLOR_PAYS, VIDEO_POKER_PAYS, KENO_TABLES, SCRATCH_TABLE,
+  CASCADE_TABLES, CASCADE_P, penaltyMult
 };

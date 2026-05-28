@@ -70,6 +70,13 @@
     bjHit:        (b)      => request('POST', '/api/play/blackjack/hit', b),
     bjStand:      (b)      => request('POST', '/api/play/blackjack/stand', b),
     bjDouble:     (b)      => request('POST', '/api/play/blackjack/double', b),
+    baccarat:     (b)      => request('POST', '/api/play/baccarat', b),
+    dragontiger:  (b)      => request('POST', '/api/play/dragontiger', b),
+    andarbahar:   (b)      => request('POST', '/api/play/andarbahar', b),
+    cascade:      (b)      => request('POST', '/api/play/cascade', b),
+    penaltyStart:   (b)    => request('POST', '/api/play/penalty/start', b),
+    penaltyShoot:   (b)    => request('POST', '/api/play/penalty/shoot', b),
+    penaltyCashout: (b)    => request('POST', '/api/play/penalty/cashout', b),
 
     // Data
     history: (n)           => request('GET', '/api/history?limit=' + (n || 30)),

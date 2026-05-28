@@ -162,6 +162,15 @@ app.post('/api/play/blackjack/hit',    auth.requireAuth, h((req) => games.blackj
 app.post('/api/play/blackjack/stand',  auth.requireAuth, h((req) => games.blackjackStand(req.user.id, req.body || {})));
 app.post('/api/play/blackjack/double', auth.requireAuth, h((req) => games.blackjackDouble(req.user.id, req.body || {})));
 
+app.post('/api/play/baccarat',    auth.requireAuth, h((req) => games.playBaccarat(req.user.id, req.body || {})));
+app.post('/api/play/dragontiger', auth.requireAuth, h((req) => games.playDragonTiger(req.user.id, req.body || {})));
+app.post('/api/play/andarbahar',  auth.requireAuth, h((req) => games.playAndarBahar(req.user.id, req.body || {})));
+app.post('/api/play/cascade',     auth.requireAuth, h((req) => games.playCascade(req.user.id, req.body || {})));
+
+app.post('/api/play/penalty/start',   auth.requireAuth, h((req) => games.penaltyStart(req.user.id, req.body || {})));
+app.post('/api/play/penalty/shoot',   auth.requireAuth, h((req) => games.penaltyShoot(req.user.id, req.body || {})));
+app.post('/api/play/penalty/cashout', auth.requireAuth, h((req) => games.penaltyCashout(req.user.id, req.body || {})));
+
 // ---------------- History / stats ----------------
 app.get('/api/history', auth.requireAuth, h(async (req) => ({ bets: await games.history(req.user.id, req.query.limit) })));
 app.get('/api/stats',   auth.requireAuth, h((req) => games.stats(req.user.id)));
