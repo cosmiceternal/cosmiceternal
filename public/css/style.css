@@ -183,6 +183,12 @@ input { font-family: inherit; }
   transition: all 0.15s ease;
 }
 .btn:hover { background: var(--bg-4); }
+/* Marquee-bulb hover on the small bet-row chips: a touch of warm halo on the
+   [½ / 2× / Max] chips so they feel like neon lights instead of dull buttons. */
+.bet-row .btn:not(:disabled):hover {
+  border-color: rgba(255, 180, 73, 0.4);
+  box-shadow: 0 0 0 1px rgba(255, 180, 73, 0.18), 0 0 10px rgba(255, 94, 156, 0.18);
+}
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-ghost { background: transparent; }
 .btn-ghost:hover { background: var(--bg-3); }
