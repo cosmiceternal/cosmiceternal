@@ -43,6 +43,10 @@
     changePassword: (cur, n) => request('POST', '/api/auth/password', { current: cur, next: n }),
     auditLog:       (n)      => request('GET', '/api/auth/audit?limit=' + (n || 25)),
 
+    // Progression
+    progression:    ()     => request('GET', '/api/progression'),
+    claimDaily:     ()     => request('POST', '/api/progression/claim-daily'),
+
     // Fair
     fair:        ()        => request('GET', '/api/fair'),
     fairHistory: (n)       => request('GET', '/api/fair/history?limit=' + (n || 30)),

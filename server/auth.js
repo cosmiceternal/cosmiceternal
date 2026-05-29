@@ -112,7 +112,14 @@ function clearSessionCookie(res) {
 }
 
 function publicUser(row) {
-  return { id: Number(row.id), username: row.username, balance: Number(row.balance_cents) / 100 };
+  return {
+    id: Number(row.id),
+    username: row.username,
+    balance: Number(row.balance_cents) / 100,
+    xp: Number(row.xp || 0),
+    level: Number(row.level || 1),
+    streakDay: Number(row.streak_day || 0)
+  };
 }
 
 async function getUserById(id) {

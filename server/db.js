@@ -80,7 +80,11 @@ const SCHEMA_SQLITE = `
     pass_hash     TEXT NOT NULL,
     pass_salt     TEXT NOT NULL,
     balance_cents INTEGER NOT NULL,
-    created_at    INTEGER NOT NULL
+    created_at    INTEGER NOT NULL,
+    xp            INTEGER NOT NULL DEFAULT 0,
+    level         INTEGER NOT NULL DEFAULT 1,
+    streak_day    INTEGER NOT NULL DEFAULT 0,
+    last_bonus_at INTEGER
   );
   CREATE TABLE IF NOT EXISTS fair (
     user_id       INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -146,6 +150,14 @@ const SCHEMA_SQLITE = `
     created_at   INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_deposits_user ON deposits(user_id, id DESC);
+  CREATE TABLE IF NOT EXISTS achievements (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key         TEXT NOT NULL,
+    unlocked_at INTEGER NOT NULL,
+    UNIQUE(user_id, key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id, unlocked_at DESC);
 `;
 
 const SCHEMA_PG = `
@@ -155,7 +167,11 @@ const SCHEMA_PG = `
     pass_hash     TEXT NOT NULL,
     pass_salt     TEXT NOT NULL,
     balance_cents BIGINT NOT NULL,
-    created_at    BIGINT NOT NULL
+    created_at    BIGINT NOT NULL,
+    xp            BIGINT NOT NULL DEFAULT 0,
+    level         INTEGER NOT NULL DEFAULT 1,
+    streak_day    INTEGER NOT NULL DEFAULT 0,
+    last_bonus_at BIGINT
   );
   CREATE TABLE IF NOT EXISTS fair (
     user_id       BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -221,7 +237,25 @@ const SCHEMA_PG = `
     created_at   BIGINT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_deposits_user ON deposits(user_id, id DESC);
+  CREATE TABLE IF NOT EXISTS achievements (
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key         TEXT NOT NULL,
+    unlocked_at BIGINT NOT NULL,
+    UNIQUE(user_id, key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id, unlocked_at DESC);
 `;
+
+// Idempotent migrations for already-deployed installs. SQLite doesn't support
+// IF NOT EXISTS on ADD COLUMN, so we rely on catching the duplicate-column
+// error in init() instead.
+const MIGRATIONS = [
+  "ALTER TABLE users ADD COLUMN xp BIGINT NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN level INTEGER NOT NULL DEFAULT 1",
+  "ALTER TABLE users ADD COLUMN streak_day INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN last_bonus_at BIGINT"
+];
 
 async function init() {
   if (USE_PG) {
@@ -249,6 +283,14 @@ async function init() {
     sqlite.pragma('foreign_keys = ON');
     sqlite.exec(SCHEMA_SQLITE);
     console.log('Storage: SQLite at ' + DB_PATH);
+  }
+  // Run idempotent migrations after the base schema. Both engines throw a
+  // recognisable duplicate-column message when the column already exists;
+  // anything else is real and should bubble up.
+  const dupRe = /duplicate column|already exists/i;
+  for (const sql of MIGRATIONS) {
+    try { await query(sql); }
+    catch (e) { if (!dupRe.test(String(e?.message))) throw e; }
   }
   await ensureSecret();
 }

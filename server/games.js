@@ -9,6 +9,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const fair = require('./fair');
+const progression = require('./progression');
 const { httpError } = require('./auth');
 
 const HOUSE = 0.01;
@@ -245,6 +246,24 @@ async function recordBet(q, userId, b) {
            VALUES(?,?,?,?,?,?,?,?,?)`,
     [userId, b.game, b.betCents, b.mult, b.payoutCents, b.win ? 1 : 0, b.nonce,
      b.detail ? JSON.stringify(b.detail) : null, Date.now()]);
+  // Award XP + check achievements + bump level inside the same tx. The delta
+  // is stashed in the request-scoped store so the `h()` wrapper in index.js
+  // can merge it into the response without every game touching its return.
+  try {
+    const delta = await progression.awardForBet(q, userId, {
+      bet_cents: b.betCents, payout_cents: b.payoutCents, mult: b.mult, win: b.win ? 1 : 0, game: b.game
+    });
+    const store = progression.requestStore.getStore();
+    if (store) {
+      // If multiple bets fire in one request (e.g. a round game's reveal +
+      // cashout), accumulate the deltas instead of replacing them.
+      if (!store.progress) store.progress = { xpGained: 0, leveledUp: false, oldLevel: delta.oldLevel, newLevel: delta.newLevel, unlocked: [] };
+      store.progress.xpGained += delta.xpGained;
+      store.progress.leveledUp = store.progress.leveledUp || delta.leveledUp;
+      store.progress.newLevel = delta.newLevel;
+      store.progress.unlocked.push(...delta.unlocked);
+    }
+  } catch (_) { /* progression failures must never break a settled bet */ }
 }
 
 // ---------------------------------------------------------------- DICE

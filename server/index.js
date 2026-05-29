@@ -10,6 +10,7 @@ const fair = require('./fair');
 const games = require('./games');
 const vault = require('./vault');
 const dealer = require('./dealer');
+const progression = require('./progression');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -121,11 +122,19 @@ function csrf(req, res, next) {
 app.use(csrf);
 app.use(auth.authenticate);
 
-// Wrap handlers so thrown/rejected httpErrors become JSON responses.
+// Wrap handlers so thrown/rejected httpErrors become JSON responses, and any
+// progression delta the request accumulates (XP gained, level-ups, achievement
+// unlocks) is merged into the response body automatically.
 const h = (fn) => async (req, res) => {
+  const store = { progress: null };
   try {
-    const out = await fn(req, res);
-    if (out !== undefined && !res.headersSent) res.json(out);
+    const out = await progression.requestStore.run(store, () => fn(req, res));
+    if (out !== undefined && !res.headersSent) {
+      const merged = store.progress && typeof out === 'object'
+        ? Object.assign({ progress: store.progress }, out)
+        : out;
+      res.json(merged);
+    }
   } catch (e) {
     const status = e.status || 500;
     if (status === 500) console.error(e);
@@ -236,6 +245,10 @@ app.post('/api/vault/deposit', auth.requireAuth, h((req) => vault.createDeposit(
 app.post('/api/vault/confirm', auth.requireAuth, h((req) => vault.confirmDeposit(req, req.user.id, req.body || {})));
 app.post('/api/vault/cancel',  auth.requireAuth, h((req) => vault.cancelDeposit(req, req.user.id, req.body || {})));
 app.get('/api/vault/history',  auth.requireAuth, h(async (req) => ({ deposits: await vault.listDeposits(req.user.id, req.query.limit) })));
+
+// ---------------- Progression (XP, levels, streak, achievements) ----------------
+app.get('/api/progression',                auth.requireAuth, h((req) => progression.snapshot(req.user.id)));
+app.post('/api/progression/claim-daily',   auth.requireAuth, h((req) => progression.claimDaily(req.user.id)));
 
 // ---------------- AI Dealer (live banter; falls back to scripted client-side when no API key) ----------------
 const dealerLimiter = limiter(60_000, Number(process.env.RATE_DEALER_MAX || 30));
