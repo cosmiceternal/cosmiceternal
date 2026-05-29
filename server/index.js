@@ -13,7 +13,9 @@ const dealer = require('./dealer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SECURE = process.env.SECURE_COOKIES === '1';
+// SECURE is owned by auth.js so the session, CSRF, and HSTS branches share
+// one source of truth — surface it locally for readability.
+const SECURE = auth.SECURE;
 
 // Behind a hosting proxy (Render/Railway/Fly/Heroku/nginx) that terminates TLS.
 app.set('trust proxy', 1);
@@ -95,17 +97,19 @@ app.use(express.json({ limit: '32kb' }));
 // the session cookie already blocks cross-site POSTs in modern browsers; this
 // is defence-in-depth and an explicit bar for any forged-form attack.
 const CSRF_COOKIE = 'csrf';
+const CSRF_TOKEN_RE = /^[a-f0-9]{32,128}$/;
+const STATE_CHANGING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 function csrf(req, res, next) {
   const cookies = auth.parseCookies(req);
   let token = cookies[CSRF_COOKIE];
-  if (!token || !/^[a-f0-9]{32,128}$/.test(token)) {
+  if (!token || !CSRF_TOKEN_RE.test(token)) {
     token = crypto.randomBytes(32).toString('hex');
     const attrs = [`${CSRF_COOKIE}=${token}`, 'Path=/', 'SameSite=Lax', `Max-Age=${30 * 86400}`];
-    if (auth.SECURE) attrs.push('Secure');
+    if (SECURE) attrs.push('Secure');
     res.append('Set-Cookie', attrs.join('; '));
     cookies[CSRF_COOKIE] = token; // make available within this request
   }
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+  if (STATE_CHANGING.has(req.method)) {
     const header = req.headers['x-csrf-token'];
     if (!header || header !== cookies[CSRF_COOKIE]) {
       auth.logAudit(req, 'security.csrf_fail', req.user?.id, { path: req.path });

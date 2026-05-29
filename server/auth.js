@@ -46,6 +46,25 @@ function verifyLegacyScrypt(password, salt, expectedHash) {
   const expected = Buffer.from(expectedHash, 'hex');
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
+// Returns true if the password matches the user's stored hash (argon2 or legacy
+// scrypt). False on missing user, missing hash, or any verify failure.
+async function checkPassword(user, password) {
+  if (!user || !user.pass_hash) return false;
+  if (user.pass_hash.startsWith('$argon2')) return verifyPassword(user.pass_hash, password);
+  return verifyLegacyScrypt(password, user.pass_salt, user.pass_hash);
+}
+// Enforce the shared password policy. Throws an httpError; otherwise returns.
+function validatePasswordPolicy(password, username) {
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD || password.length > 200) {
+    throw httpError(400, `Password must be at least ${MIN_PASSWORD} characters.`);
+  }
+  if (PASSWORD_BLOCKLIST.has(password.toLowerCase())) {
+    throw httpError(400, 'That password is too common — pick something less guessable.');
+  }
+  if (username && password.toLowerCase().includes(username.toLowerCase())) {
+    throw httpError(400, 'Password must not contain your username.');
+  }
+}
 
 // Stateless signed-cookie session: "userId.HMAC(userId)".
 function signToken(userId) {
@@ -131,15 +150,7 @@ async function register(req, username, password) {
   if (!USERNAME_RE.test(username || '')) {
     throw httpError(400, 'Username must be 3–20 chars: letters, numbers, underscore.');
   }
-  if (typeof password !== 'string' || password.length < MIN_PASSWORD || password.length > 200) {
-    throw httpError(400, `Password must be at least ${MIN_PASSWORD} characters.`);
-  }
-  if (PASSWORD_BLOCKLIST.has(password.toLowerCase())) {
-    throw httpError(400, 'That password is too common — pick something less guessable.');
-  }
-  if (username && password.toLowerCase().includes(username.toLowerCase())) {
-    throw httpError(400, 'Password must not contain your username.');
-  }
+  validatePasswordPolicy(password, username);
   const existing = await db.query('SELECT id FROM users WHERE username = ?', [username]);
   if (existing.rows.length) throw httpError(409, 'That username is taken.');
 
@@ -150,7 +161,7 @@ async function register(req, username, password) {
   );
   const id = ins.rows[0].id;
   await ensureFair(id);
-  await logAudit(req, 'user.register', id, { username });
+  logAudit(req, 'user.register', id, { username });
   return getUserById(id);
 }
 
@@ -161,7 +172,7 @@ async function login(req, username, password) {
   if (USERNAME_RE.test(username)) {
     const fails = await recentFailedLogins(username);
     if (fails >= LOCKOUT_THRESHOLD) {
-      await logAudit(req, 'auth.lockout_hit', null, { username, fails });
+      logAudit(req, 'auth.lockout_hit', null, { username, fails });
       throw httpError(429, `Too many failed attempts. Try again in ${Math.ceil(LOCKOUT_WINDOW_MS / 60000)} minutes.`);
     }
   }
@@ -169,58 +180,40 @@ async function login(req, username, password) {
   const user = rows[0];
   let ok = false;
   if (user) {
-    if (user.pass_hash && user.pass_hash.startsWith('$argon2')) {
-      ok = await verifyPassword(user.pass_hash, password);
-    } else {
-      ok = verifyLegacyScrypt(password, user.pass_salt, user.pass_hash);
-      if (ok) {
-        // Transparent upgrade: rehash with argon2id.
-        try {
-          const upgraded = await hashPassword(password);
-          await db.query('UPDATE users SET pass_hash = ?, pass_salt = ? WHERE id = ?', [upgraded, '', user.id]);
-        } catch (_) {}
-      }
+    ok = await checkPassword(user, password);
+    // Transparent rehash to argon2id whenever a legacy scrypt account logs in.
+    if (ok && !user.pass_hash.startsWith('$argon2')) {
+      try {
+        const upgraded = await hashPassword(password);
+        await db.query('UPDATE users SET pass_hash = ?, pass_salt = ? WHERE id = ?', [upgraded, '', user.id]);
+      } catch (_) {}
     }
   } else {
     // Burn time so timing doesn't leak whether the username exists.
     try { await argon2.verify('$argon2id$v=19$m=19456,t=2,p=1$YWFhYWFhYWFhYWFhYWFhYQ$Yu0YyVN05F5cV6PvoKjklj0z4j1uTl1z3a9JxRZ3X7M', password); } catch (_) {}
   }
-  await logLoginAttempt(username, ip, ok);
+  logLoginAttempt(username, ip, ok);
   if (!ok) {
-    await logAudit(req, 'auth.login_fail', user?.id, { username });
+    logAudit(req, 'auth.login_fail', user?.id, { username });
     throw httpError(401, 'Invalid username or password.');
   }
-  await logAudit(req, 'auth.login_success', user.id, { username });
+  logAudit(req, 'auth.login_success', user.id, { username });
   return user;
 }
 
 async function changePassword(req, userId, currentPassword, newPassword) {
-  if (typeof newPassword !== 'string' || newPassword.length < MIN_PASSWORD || newPassword.length > 200) {
-    throw httpError(400, `Password must be at least ${MIN_PASSWORD} characters.`);
-  }
-  if (PASSWORD_BLOCKLIST.has(newPassword.toLowerCase())) {
-    throw httpError(400, 'That password is too common — pick something less guessable.');
-  }
   const { rows } = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
   const user = rows[0];
   if (!user) throw httpError(404, 'User not found.');
+  validatePasswordPolicy(newPassword, user.username);
   // Re-verify the current password to prove the session is the real owner.
-  let ok = false;
-  if (user.pass_hash && user.pass_hash.startsWith('$argon2')) {
-    ok = await verifyPassword(user.pass_hash, currentPassword);
-  } else {
-    ok = verifyLegacyScrypt(currentPassword, user.pass_salt, user.pass_hash);
-  }
-  if (!ok) {
-    await logAudit(req, 'auth.password_change_fail', userId, null);
+  if (!await checkPassword(user, currentPassword)) {
+    logAudit(req, 'auth.password_change_fail', userId, null);
     throw httpError(401, 'Current password is incorrect.');
-  }
-  if (user.username && newPassword.toLowerCase().includes(user.username.toLowerCase())) {
-    throw httpError(400, 'Password must not contain your username.');
   }
   const hash = await hashPassword(newPassword);
   await db.query('UPDATE users SET pass_hash = ?, pass_salt = ? WHERE id = ?', [hash, '', userId]);
-  await logAudit(req, 'auth.password_change', userId, null);
+  logAudit(req, 'auth.password_change', userId, null);
   return true;
 }
 

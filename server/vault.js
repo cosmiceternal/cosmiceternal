@@ -78,9 +78,10 @@ async function dailyTotal(userId) {
 }
 
 async function publicSnapshot(userId) {
+  const p = processor();
   return {
-    processor: processor().name,
-    processorLabel: processor().label,
+    processor: p.name,
+    processorLabel: p.label,
     playmoney: isPlaymoney(),
     currencies: Object.entries(CURRENCIES).map(([code, cfg]) => ({
       code, presets: cfg.presets, decimals: cfg.decimals,
@@ -101,7 +102,8 @@ async function createDeposit(req, userId, { currency, amount }) {
   if (funCents <= 0) throw httpError(400, 'Amount too small to credit any FUN.');
 
   // Daily cap (applied across all completed deposits today + this in-flight one).
-  const usedCents = (await dailyTotal(userId)) * 100;
+  // dailyTotal() returns cents — same units as DEFAULT_CAP_CENTS and funCents.
+  const usedCents = await dailyTotal(userId);
   if (usedCents + funCents > DEFAULT_CAP_CENTS) {
     const remaining = Math.max(0, (DEFAULT_CAP_CENTS - usedCents) / 100);
     throw httpError(429, `Daily deposit cap reached. Remaining today: ${remaining.toFixed(2)} FUN.`);

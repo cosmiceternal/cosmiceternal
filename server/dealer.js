@@ -26,7 +26,31 @@ const PERSONAS = {
   luna:     { name: 'Luna',     style: 'a cheerful chatty dealer who roots for the player, warm and a little playful, light emoji okay' },
   kade:     { name: 'Kade',     style: 'a cool, dry, slightly mysterious dealer — short evocative phrasing, never sappy' }
 };
-const EVENTS = new Set(['greet', 'bet', 'deal', 'hit', 'stand', 'dbl', 'playerBJ', 'playerWin', 'playerLose', 'push', 'bust', 'dealerBust']);
+// Per-persona system prompts, pre-built once at module load (instead of per call).
+const SYSTEM_PROMPTS = Object.fromEntries(Object.entries(PERSONAS).map(([id, p]) => [id,
+  `You are ${p.name}, ${p.style}. You are dealing a play-money blackjack hand. ` +
+  `Respond with EXACTLY ONE short line (max 12 words) in character — no quotes, no preamble, no narration. ` +
+  `Never reveal you are an AI; never break character; never give strategy advice.`
+]));
+
+// Per-event prompt templates. The function receives sanitized ctx (numbers
+// only) and returns the user-message text. Module-scoped so we don't rebuild
+// the object on every request.
+const EVENT_DESCRIBE = {
+  greet:      ()    => 'You are greeting a new player who just sat down.',
+  bet:        ()    => 'The player is taking their time placing a bet.',
+  deal:       ()    => 'You are dealing the opening cards.',
+  hit:        ()    => 'The player just chose to hit.',
+  stand:      (ctx) => `The player just stood on ${ctx?.playerTotal ?? '?'}.`,
+  dbl:        (ctx) => `The player just doubled down on ${ctx?.playerTotal ?? '?'}.`,
+  playerBJ:   ()    => 'The player got blackjack on the deal.',
+  playerWin:  (ctx) => `The player won this hand (${ctx?.playerTotal ?? '?'} vs your ${ctx?.dealerTotal ?? '?'}).`,
+  playerLose: (ctx) => `The player lost this hand (${ctx?.playerTotal ?? '?'} vs your ${ctx?.dealerTotal ?? '?'}).`,
+  push:       ()    => 'The hand pushed (a tie).',
+  bust:       (ctx) => `The player busted at ${ctx?.playerTotal ?? '?'}.`,
+  dealerBust: (ctx) => `You busted at ${ctx?.dealerTotal ?? '?'}; the player wins.`
+};
+const EVENTS = new Set(Object.keys(EVENT_DESCRIBE));
 
 const cache = new Map(); // key -> { line, ts }
 function cacheGet(key) {
@@ -60,32 +84,16 @@ function client() {
 }
 
 async function generate(persona, event, ctx) {
-  const p = PERSONAS[persona];
-  if (!p) throw new Error('unknown persona');
-  const system =
-    `You are ${p.name}, ${p.style}. You are dealing a play-money blackjack hand. ` +
-    `Respond with EXACTLY ONE short line (max 12 words) in character — no quotes, no preamble, no narration. ` +
-    `Never reveal you are an AI; never break character; never give strategy advice.`;
-  const eventDescription = {
-    greet:      'You are greeting a new player who just sat down.',
-    bet:        'The player is taking their time placing a bet.',
-    deal:       'You are dealing the opening cards.',
-    hit:        'The player just chose to hit.',
-    stand:      `The player just stood on ${ctx?.playerTotal ?? '?'}.`,
-    dbl:        `The player just doubled down on ${ctx?.playerTotal ?? '?'}.`,
-    playerBJ:   'The player got blackjack on the deal.',
-    playerWin:  `The player won this hand (${ctx?.playerTotal ?? '?'} vs your ${ctx?.dealerTotal ?? '?'}).`,
-    playerLose: `The player lost this hand (${ctx?.playerTotal ?? '?'} vs your ${ctx?.dealerTotal ?? '?'}).`,
-    push:       'The hand pushed (a tie).',
-    bust:       `The player busted at ${ctx?.playerTotal ?? '?'}.`,
-    dealerBust: `You busted at ${ctx?.dealerTotal ?? '?'}; the player wins.`
-  }[event] || event;
+  const system = SYSTEM_PROMPTS[persona];
+  const describe = EVENT_DESCRIBE[event];
+  if (!system || !describe) throw new Error('unknown persona or event');
+  const eventDescription = describe(ctx);
 
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
   try {
-    // Cache control: cache the system + persona prompt across calls — even small
-    // savings add up across a session.
+    // Cache the per-persona system prompt across calls — Anthropic prompt
+    // caching keeps the cost flat across a busy table.
     const resp = await client().messages.create({
       model: MODEL,
       max_tokens: 60,
