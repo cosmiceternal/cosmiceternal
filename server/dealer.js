@@ -107,11 +107,20 @@ async function line(req, { dealer, event, ctx }) {
   if (!PERSONAS[dealer]) throw httpError(400, 'Unknown dealer.');
   if (!EVENTS.has(event)) throw httpError(400, 'Unknown event.');
   if (!ENABLED) return { line: null, source: 'disabled' };
-  const key = `${dealer}|${event}|${bucketState(ctx)}`;
+  // Hard-coerce every ctx field that ends up in the prompt to a small bounded
+  // integer. Defence against client-driven prompt injection — only numbers
+  // ever reach the system/user messages.
+  const safeCtx = {};
+  if (ctx && typeof ctx === 'object') {
+    const p = Number(ctx.playerTotal), d = Number(ctx.dealerTotal);
+    if (Number.isFinite(p) && p >= 0 && p <= 30) safeCtx.playerTotal = Math.floor(p);
+    if (Number.isFinite(d) && d >= 0 && d <= 30) safeCtx.dealerTotal = Math.floor(d);
+  }
+  const key = `${dealer}|${event}|${bucketState(safeCtx)}`;
   const cached = cacheGet(key);
   if (cached) return { line: cached, source: 'cache' };
   try {
-    const generated = await generate(dealer, event, ctx);
+    const generated = await generate(dealer, event, safeCtx);
     if (generated) {
       // Stash a small batch of variant entries so the same key returns variety
       // across hits (we cache under a salted sub-key so different hits look

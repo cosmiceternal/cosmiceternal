@@ -194,6 +194,50 @@ async function login(req, username, password) {
   return user;
 }
 
+async function changePassword(req, userId, currentPassword, newPassword) {
+  if (typeof newPassword !== 'string' || newPassword.length < MIN_PASSWORD || newPassword.length > 200) {
+    throw httpError(400, `Password must be at least ${MIN_PASSWORD} characters.`);
+  }
+  if (PASSWORD_BLOCKLIST.has(newPassword.toLowerCase())) {
+    throw httpError(400, 'That password is too common — pick something less guessable.');
+  }
+  const { rows } = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
+  const user = rows[0];
+  if (!user) throw httpError(404, 'User not found.');
+  // Re-verify the current password to prove the session is the real owner.
+  let ok = false;
+  if (user.pass_hash && user.pass_hash.startsWith('$argon2')) {
+    ok = await verifyPassword(user.pass_hash, currentPassword);
+  } else {
+    ok = verifyLegacyScrypt(currentPassword, user.pass_salt, user.pass_hash);
+  }
+  if (!ok) {
+    await logAudit(req, 'auth.password_change_fail', userId, null);
+    throw httpError(401, 'Current password is incorrect.');
+  }
+  if (user.username && newPassword.toLowerCase().includes(user.username.toLowerCase())) {
+    throw httpError(400, 'Password must not contain your username.');
+  }
+  const hash = await hashPassword(newPassword);
+  await db.query('UPDATE users SET pass_hash = ?, pass_salt = ? WHERE id = ?', [hash, '', userId]);
+  await logAudit(req, 'auth.password_change', userId, null);
+  return true;
+}
+
+async function userAuditLog(userId, limit = 25) {
+  limit = Math.max(1, Math.min(100, Number(limit) || 25));
+  const { rows } = await db.query(
+    'SELECT event, ip, ua, meta, created_at FROM audit_log WHERE user_id = ? ORDER BY id DESC LIMIT ?',
+    [userId, limit]
+  );
+  return rows.map(r => ({
+    event: r.event, ip: r.ip, ua: r.ua,
+    meta: r.meta ? safeJSON(r.meta) : null,
+    ts: Number(r.created_at)
+  }));
+}
+function safeJSON(s) { try { return JSON.parse(s); } catch { return null; } }
+
 // Express middleware: attaches req.user (full row) when a valid session exists.
 async function authenticate(req, res, next) {
   try {
@@ -219,7 +263,8 @@ function httpError(status, message) {
 }
 
 module.exports = {
-  register, login, authenticate, requireAuth, getUserById,
+  register, login, changePassword, userAuditLog,
+  authenticate, requireAuth, getUserById,
   setSessionCookie, clearSessionCookie, publicUser, httpError,
   logAudit, clientIp,
   COOKIE, LEGACY_COOKIE, SECURE,

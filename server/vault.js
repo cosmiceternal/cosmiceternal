@@ -31,6 +31,7 @@ const CURRENCIES = {
   SOL:  { rate:    150, decimals: 4, presets: [0.1, 0.5, 1, 5],           min: 0.05 }
 };
 const DEFAULT_CAP_CENTS = Math.round(Number(process.env.DAILY_DEPOSIT_CAP_FUN || 5000) * 100);
+const MAX_PENDING = Number(process.env.MAX_PENDING_DEPOSITS || 5);
 
 function fmtCurrency(currency, units) {
   const cfg = CURRENCIES[currency];
@@ -105,6 +106,13 @@ async function createDeposit(req, userId, { currency, amount }) {
     const remaining = Math.max(0, (DEFAULT_CAP_CENTS - usedCents) / 100);
     throw httpError(429, `Daily deposit cap reached. Remaining today: ${remaining.toFixed(2)} FUN.`);
   }
+  // Limit the number of in-flight pending deposits so a user can't spam orphan rows.
+  const { rows: pendingRows } = await db.query(
+    "SELECT COUNT(*) AS n FROM deposits WHERE user_id = ? AND status = 'pending'", [userId]
+  );
+  if (Number(pendingRows[0]?.n || 0) >= MAX_PENDING) {
+    throw httpError(429, `You have ${MAX_PENDING} pending deposits — confirm or cancel one first.`);
+  }
 
   const proc = processor();
   // Insert the pending row first so we have an id to pass to the processor.
@@ -159,6 +167,16 @@ async function confirmDeposit(req, userId, { depositId }) {
   });
 }
 
+async function cancelDeposit(req, userId, { depositId }) {
+  const r = await db.query(
+    "UPDATE deposits SET status = 'cancelled' WHERE id = ? AND user_id = ? AND status = 'pending'",
+    [depositId, userId]
+  );
+  if (!r.rowCount) throw httpError(404, 'No pending deposit with that id.');
+  await logAudit(req, 'vault.deposit_cancelled', userId, { depositId });
+  return { depositId: Number(depositId), status: 'cancelled' };
+}
+
 async function listDeposits(userId, limit = 25) {
   limit = Math.max(1, Math.min(100, Number(limit) || 25));
   const { rows } = await db.query(
@@ -173,6 +191,6 @@ async function listDeposits(userId, limit = 25) {
 }
 
 module.exports = {
-  publicSnapshot, createDeposit, confirmDeposit, listDeposits,
-  CURRENCIES, DEFAULT_CAP_CENTS, isPlaymoney
+  publicSnapshot, createDeposit, confirmDeposit, cancelDeposit, listDeposits,
+  CURRENCIES, DEFAULT_CAP_CENTS, MAX_PENDING, isPlaymoney
 };

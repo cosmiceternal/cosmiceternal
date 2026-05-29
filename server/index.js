@@ -36,8 +36,12 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  if (SECURE) res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  res.setHeader('X-Download-Options', 'noopen');
+  if (SECURE) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   next();
 });
 
@@ -72,6 +76,16 @@ const authLimiter = limiter(
 );
 app.use('/api', apiLimiter);
 app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
+
+// Lightweight health check for uptime monitors (must be before CSRF; GET only).
+app.get('/healthz', async (req, res) => {
+  try {
+    await db.query('SELECT 1 AS ok');
+    res.set('Cache-Control', 'no-store').json({ ok: true, ts: Date.now() });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: 'db-unhealthy' });
+  }
+});
 
 app.use(express.json({ limit: '32kb' }));
 
@@ -140,6 +154,16 @@ app.get('/api/me', (req, res) => {
   res.json({ user: req.user ? auth.publicUser(req.user) : null });
 });
 
+app.post('/api/auth/password', auth.requireAuth, h(async (req) => {
+  const { current, next } = req.body || {};
+  await auth.changePassword(req, req.user.id, current, next);
+  return { ok: true };
+}));
+
+app.get('/api/auth/audit', auth.requireAuth, h(async (req) => ({
+  events: await auth.userAuditLog(req.user.id, req.query.limit)
+})));
+
 // ---------------- Provably fair ----------------
 app.get('/api/fair', auth.requireAuth, h((req) => fair.publicState(req.user.id)));
 app.post('/api/fair/client', auth.requireAuth, h((req) => fair.setClientSeed(req.user.id, (req.body || {}).clientSeed)));
@@ -206,6 +230,7 @@ app.post('/api/play/penalty/cashout', auth.requireAuth, h((req) => games.penalty
 app.get('/api/vault',          auth.requireAuth, h((req) => vault.publicSnapshot(req.user.id)));
 app.post('/api/vault/deposit', auth.requireAuth, h((req) => vault.createDeposit(req, req.user.id, req.body || {})));
 app.post('/api/vault/confirm', auth.requireAuth, h((req) => vault.confirmDeposit(req, req.user.id, req.body || {})));
+app.post('/api/vault/cancel',  auth.requireAuth, h((req) => vault.cancelDeposit(req, req.user.id, req.body || {})));
 app.get('/api/vault/history',  auth.requireAuth, h(async (req) => ({ deposits: await vault.listDeposits(req.user.id, req.query.limit) })));
 
 // ---------------- AI Dealer (live banter; falls back to scripted client-side when no API key) ----------------
@@ -221,8 +246,20 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 
 // ---------------- Static frontend ----------------
 const PUBLIC = path.join(__dirname, '..', 'public');
-app.use(express.static(PUBLIC));
-app.get('*', (req, res) => res.sendFile(path.join(PUBLIC, 'index.html')));
+// Browsers cache versioned-ish assets aggressively (1 day); index.html stays
+// fresh-revalidated so the rest of the SPA picks up new builds quickly.
+app.use(express.static(PUBLIC, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.set('Cache-Control', 'no-cache');
+    } else if (/\.(svg|png|jpg|jpeg|webp|ico|woff2?|ttf)$/.test(filePath)) {
+      res.set('Cache-Control', 'public, max-age=86400');
+    } else if (/\.(css|js)$/.test(filePath)) {
+      res.set('Cache-Control', 'public, max-age=600, must-revalidate');
+    }
+  }
+}));
+app.get('*', (req, res) => res.set('Cache-Control', 'no-cache').sendFile(path.join(PUBLIC, 'index.html')));
 
 db.init()
   .then(() => {

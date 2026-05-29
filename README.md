@@ -71,14 +71,28 @@ The data layer is dual-mode and picks itself automatically:
 All optional — see `.env.example`. Copy it to `.env` and edit, or set real environment
 variables on your host.
 
-| Variable           | Default                 | Purpose                                                            |
-| ------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `DATABASE_URL`     | _(unset)_               | Postgres connection string. If set, Postgres is used (else SQLite).|
-| `PORT`             | `3000`                  | Port to listen on.                                                 |
-| `DB_PATH`          | `./data/neonstake.db`   | SQLite file path (only when `DATABASE_URL` is unset).              |
-| `SESSION_SECRET`   | generated & stored      | Cookie-signing secret. **Set this explicitly in production.**      |
-| `STARTING_BALANCE` | `1000`                  | Starting play-money balance for new accounts.                      |
-| `SECURE_COOKIES`   | `0`                     | Set to `1` to require HTTPS-only cookies (enable in prod).         |
+| Variable                  | Default               | Purpose                                                                  |
+| ------------------------- | --------------------- | ------------------------------------------------------------------------ |
+| `DATABASE_URL`            | _(unset)_             | Postgres connection string. If set, Postgres is used (else SQLite).      |
+| `PORT`                    | `3000`                | Port to listen on.                                                       |
+| `DB_PATH`                 | `./data/neonstake.db` | SQLite file path (only when `DATABASE_URL` is unset).                    |
+| `SESSION_SECRET`          | generated & stored    | Cookie-signing secret. **Set this explicitly in production.**            |
+| `STARTING_BALANCE`        | `1000`                | Starting play-money balance for new accounts.                            |
+| `SECURE_COOKIES`          | `0`                   | Set to `1` to require HTTPS-only cookies (enable in prod).               |
+| `LOCKOUT_THRESHOLD`       | `5`                   | Failed logins before per-username lockout fires.                         |
+| `LOCKOUT_WINDOW_MS`       | `900000` (15 min)     | Lockout window length.                                                   |
+| `RATE_API_MAX`            | `300`                 | Per-IP API requests per minute.                                          |
+| `RATE_AUTH_MAX`           | `40`                  | Per-IP login/register attempts per 15 min.                               |
+| `RATE_DEALER_MAX`         | `30`                  | Per-IP AI-dealer line requests per minute.                               |
+| `ANTHROPIC_API_KEY`       | _(unset)_             | If set, AI Dealer generates live banter via Claude (falls back when unset).|
+| `DEALER_MODEL`            | `claude-haiku-4-5-…`  | Model id for the AI Dealer.                                              |
+| `VAULT_PROCESSOR`         | `playmoney`           | Crypto-vault adapter. Real processors plug in by config.                 |
+| `DAILY_DEPOSIT_CAP_FUN`   | `5000`                | Per-user per-day cap (in FUN) on play-money deposits.                    |
+| `MAX_PENDING_DEPOSITS`    | `5`                   | Per-user limit on in-flight (pending) deposits.                          |
+
+See [`SECURITY.md`](SECURITY.md) for the full security model (argon2id, account
+lockout, CSRF, CSP/HSTS, audit log, server-authoritative wagers, prompt-injection
+guarding on the AI dealer).
 
 ---
 
