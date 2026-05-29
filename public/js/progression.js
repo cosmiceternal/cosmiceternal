@@ -134,9 +134,24 @@
     if (!modal) return;
     const d = state.daily;
     if (!d) return;
-    modal.querySelector('#dailyAmount').textContent = (d.amountCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmt = c => (c / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const totalCents = d.amountCents + (d.cashbackCents || 0);
+    modal.querySelector('#dailyAmount').textContent = (totalCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     modal.querySelector('#dailyStreak').textContent = d.streakIfClaimed;
     modal.querySelector('#dailyTitle').textContent = state.streakDay > 0 ? `Day ${state.streakDay + 1} — keep your streak alive` : 'Welcome back!';
+
+    // Cashback breakdown — only show when there's something to redeem so the
+    // modal stays uncluttered for first-time players.
+    const cb = modal.querySelector('#dailyCashback');
+    if (d.cashbackCents > 0) {
+      modal.querySelector('#dailyBonusLine').textContent    = fmt(d.amountCents);
+      modal.querySelector('#dailyCashbackLine').textContent = '+ ' + fmt(d.cashbackCents);
+      modal.querySelector('#dailyTotalLine').textContent    = fmt(totalCents);
+      modal.querySelector('#dailyCbRate').textContent       = `(${(d.cashbackRatePct || 0).toFixed(1)}% of ${d.cashbackOnLossFun.toFixed(2)} FUN lost)`;
+      cb.classList.remove('hidden');
+    } else {
+      cb.classList.add('hidden');
+    }
     modal.classList.remove('hidden');
   }
   function hideDailyModal() {
@@ -150,7 +165,7 @@
       state.streakDay = r.streakDay;
       state.xp = r.xp;
       state.level = r.level;
-      state.daily = { available: false, streakIfClaimed: r.streakDay + 1, amountCents: 0, hoursUntilNext: 24 };
+      state.daily = { available: false, streakIfClaimed: r.streakDay + 1, amountCents: 0, hoursUntilNext: 24, cashbackCents: 0 };
       recomputeLevelDerived();
       if (global.Bankroll) Bankroll.set(r.balance);
       if (Array.isArray(r.unlocked)) {
@@ -161,7 +176,12 @@
           if (global.Toast) Toast.win(`🏆 ${label} unlocked`);
         });
       }
-      if (global.Toast) Toast.win(`+${(r.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} FUN — Day ${r.streakDay} streak 🔥`);
+      if (global.Toast) {
+        const total = (r.amount || 0) + (r.cashback || 0);
+        const bits = [`+${total.toLocaleString(undefined, { minimumFractionDigits: 2 })} FUN`, `Day ${r.streakDay} streak 🔥`];
+        if (r.cashback > 0) bits.splice(1, 0, `(${r.amount.toFixed(2)} bonus + ${r.cashback.toFixed(2)} cashback)`);
+        Toast.win(bits.join(' — '));
+      }
       hideDailyModal();
       notify();
       return r;

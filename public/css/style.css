@@ -1167,6 +1167,18 @@ input { font-family: inherit; }
 .daily-amount-label { font-size: 10px; letter-spacing: 1.5px; color: var(--muted); font-weight: 800; }
 .daily-amount { font-size: 36px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); text-shadow: 0 0 16px var(--accent-glow); }
 .daily-streak-line { text-align: center; font-size: 12px; margin: 0; }
+.daily-cashback {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px;
+  background: var(--bg-3); border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.daily-cb-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+.daily-cb-row.total { padding-top: 8px; border-top: 1px solid var(--line); font-weight: 800; }
+.daily-cb-row.total .daily-cb-value { color: var(--gold); text-shadow: 0 0 10px var(--gold-glow); }
+.daily-cb-label { color: var(--muted); }
+.daily-cb-label small { display: block; font-size: 9px; margin-top: 2px; font-weight: 500; }
+.daily-cb-value { font-variant-numeric: tabular-nums; font-weight: 700; }
 
 /* Achievements section in the Stats modal */
 .achievement-section { margin-top: 10px; }

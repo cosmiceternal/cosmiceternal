@@ -31,6 +31,15 @@ const STREAK_CAP_CENTS  = Number(process.env.DAILY_BONUS_CAP_FUN  || 500) * 100;
 const STREAK_WINDOW_MS  = 36 * 60 * 60 * 1000;
 const STREAK_COOLDOWN_MS = 20 * 60 * 60 * 1000; // can claim once per ~day
 
+// Daily cashback: a small % of net losses since the last claim. Scales lightly
+// with level so high-volume players feel a little extra loyalty.
+const CASHBACK_RATE_BASE = Number(process.env.CASHBACK_RATE || 0.03);   // 3%
+const CASHBACK_RATE_STEP = Number(process.env.CASHBACK_RATE_PER_LEVEL || 0.002); // +0.2% / level
+const CASHBACK_RATE_CAP  = Number(process.env.CASHBACK_RATE_CAP || 0.10);  // 10%
+const CASHBACK_MIN_CENTS = Number(process.env.CASHBACK_MIN_FUN || 1)  * 100;
+const CASHBACK_MAX_CENTS = Number(process.env.CASHBACK_MAX_FUN || 500) * 100;
+const CASHBACK_LOOKBACK_MS = 24 * 60 * 60 * 1000; // fallback window if never claimed
+
 function cumulativeXp(level) { return LEVEL_STEP * (level * (level - 1)) / 2; }
 function levelFromXp(xp) {
   // Inverse of cumulativeXp: solve xp = STEP * L*(L-1)/2 → L = (1 + sqrt(1 + 8*xp/STEP)) / 2.
@@ -189,6 +198,24 @@ function bonusState(user, now = Date.now()) {
   return { available, streakIfClaimed, amountCents: amount, hoursUntilNext };
 }
 
+// Cashback computation: % of net losses on bets settled since the user last
+// claimed (or, if never claimed, the lookback window). Capped above and
+// below; rate scales lightly with level.
+async function computeCashback(q, user) {
+  const level = Number(user.level || 1);
+  const rate = Math.min(CASHBACK_RATE_CAP, CASHBACK_RATE_BASE + Math.max(0, level - 1) * CASHBACK_RATE_STEP);
+  const lastClaim = Number(user.last_bonus_at || 0);
+  const since = Math.max(lastClaim || 0, Date.now() - CASHBACK_LOOKBACK_MS);
+  const { rows } = await q(
+    'SELECT COALESCE(SUM(bet_cents - payout_cents), 0) AS net FROM bets WHERE user_id = ? AND created_at >= ?',
+    [user.id, since]
+  );
+  const netLossCents = Math.max(0, Number(rows[0]?.net || 0));
+  const raw = Math.floor(netLossCents * rate);
+  if (raw < CASHBACK_MIN_CENTS) return { amountCents: 0, netLossCents, ratePct: rate * 100 };
+  return { amountCents: Math.min(CASHBACK_MAX_CENTS, raw), netLossCents, ratePct: rate * 100 };
+}
+
 async function claimDaily(userId) {
   return db.tx(async (q) => {
     const user = await fetchUser(q, userId);
@@ -197,9 +224,13 @@ async function claimDaily(userId) {
     if (!state.available) {
       throw httpError(409, `Daily bonus already claimed. Next claim in ${state.hoursUntilNext.toFixed(1)}h.`);
     }
+    // Cashback is computed against the same window as the bonus and credited
+    // in the same row update so the two land atomically.
+    const cashback = await computeCashback(q, user);
     const now = Date.now();
+    const total = state.amountCents + cashback.amountCents;
     await q('UPDATE users SET balance_cents = balance_cents + ?, streak_day = ?, last_bonus_at = ? WHERE id = ?',
-      [state.amountCents, state.streakIfClaimed, now, userId]);
+      [total, state.streakIfClaimed, now, userId]);
     // Streak achievements check.
     const userAfter = await fetchUser(q, userId);
     const totals = await fetchTotals(q, userId);
@@ -225,6 +256,10 @@ async function claimDaily(userId) {
     return {
       claimed: true,
       amount: state.amountCents / 100,
+      cashback: cashback.amountCents / 100,
+      cashbackRatePct: cashback.ratePct,
+      cashbackOnLossFun: cashback.netLossCents / 100,
+      total: total / 100,
       streakDay: Number(final.streak_day),
       balance: Number(final.balance_cents) / 100,
       level: Number(final.level),
@@ -237,12 +272,14 @@ async function claimDaily(userId) {
 async function snapshot(userId) {
   const user = await fetchUser(db.query, userId);
   if (!user) throw httpError(404, 'User not found.');
-  const [unlocked, totals] = await Promise.all([
+  const [unlocked, totals, cashback] = await Promise.all([
     fetchUnlocked(db.query, userId),
-    fetchTotals(db.query, userId)
+    fetchTotals(db.query, userId),
+    computeCashback(db.query, user)
   ]);
   const xp = Number(user.xp || 0);
   const lvl = xpForNext(xp);
+  const daily = bonusState(user);
   return {
     level: Number(user.level || 1),
     xp,
@@ -250,7 +287,12 @@ async function snapshot(userId) {
     xpPerLevel: lvl.xpPerLevel,
     nextLevelXp: lvl.nextLevelXp,
     streakDay: Number(user.streak_day || 0),
-    daily: bonusState(user),
+    daily: {
+      ...daily,
+      cashbackCents: cashback.amountCents,
+      cashbackRatePct: cashback.ratePct,
+      cashbackOnLossFun: cashback.netLossCents / 100
+    },
     totals: {
       bets: totals.bets,
       wins: totals.wins,

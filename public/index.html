@@ -192,10 +192,24 @@
             <span class="daily-amount" id="dailyAmount">0</span>
           </div>
         </div>
+        <div class="daily-cashback hidden" id="dailyCashback">
+          <div class="daily-cb-row">
+            <span class="daily-cb-label">Daily Bonus</span>
+            <span class="daily-cb-value" id="dailyBonusLine">0.00</span>
+          </div>
+          <div class="daily-cb-row">
+            <span class="daily-cb-label">Loss Cashback <small id="dailyCbRate" class="muted"></small></span>
+            <span class="daily-cb-value accent" id="dailyCashbackLine">0.00</span>
+          </div>
+          <div class="daily-cb-row total">
+            <span class="daily-cb-label">Total</span>
+            <span class="daily-cb-value" id="dailyTotalLine">0.00</span>
+          </div>
+        </div>
         <p class="daily-streak-line muted">
           Day <span id="dailyStreak" class="accent">1</span> of your streak — come back tomorrow to keep it growing.
         </p>
-        <button class="btn btn-primary btn-block" id="dailyClaim">Claim Bonus</button>
+        <button class="btn btn-primary btn-block" id="dailyClaim">Claim</button>
         <p class="muted" style="font-size:10px;line-height:1.5;margin:0;text-align:center;">
           Claim window resets every ~20 hours. Streak resets if you miss a day.
         </p>
