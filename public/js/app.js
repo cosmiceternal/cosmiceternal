@@ -177,9 +177,32 @@
   statsModal.addEventListener('click', (e) => { if (e.target === statsModal) statsModal.classList.add('hidden'); });
 
   document.addEventListener('keydown', e => {
+    // Don't hijack typing in form fields.
+    const t = e.target;
+    const isFormField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+
     if (e.key === 'Escape') {
       fairModal.classList.add('hidden');
       statsModal.classList.add('hidden');
+      const daily = document.getElementById('dailyModal');
+      if (daily) daily.classList.add('hidden');
+      return;
+    }
+    // Space / Enter trigger the primary action of the currently mounted game,
+    // or claim the daily bonus if its modal is up. Instant gratification.
+    if (!isFormField && (e.key === ' ' || e.key === 'Enter')) {
+      const daily = document.getElementById('dailyModal');
+      if (daily && !daily.classList.contains('hidden')) {
+        e.preventDefault();
+        const claim = document.getElementById('dailyClaim');
+        if (claim && !claim.disabled) claim.click();
+        return;
+      }
+      const primary = document.querySelector('#gamePane .btn-primary:not([disabled])');
+      if (primary) {
+        e.preventDefault();
+        primary.click();
+      }
     }
   });
 

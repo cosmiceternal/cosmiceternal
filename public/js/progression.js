@@ -67,6 +67,7 @@
     if (progress.xpGained) {
       state.xp += progress.xpGained;
       recomputeLevelDerived();
+      floatXp(progress.xpGained);
     }
     const announcedLevel = Number(progress.newLevel || state.level);
     const prevLevel = Number(progress.oldLevel || state.level);
@@ -84,6 +85,19 @@
       });
     }
     notify();
+  }
+
+  // Spawn a small "+N XP" sprite that floats up and fades off the level badge.
+  // Cheap and joyful — every bet feels like it gave you something.
+  function floatXp(amount) {
+    const badge = document.getElementById('lvlBadge');
+    if (!badge || !amount) return;
+    const fx = document.createElement('div');
+    fx.className = 'xp-float';
+    fx.textContent = '+' + amount.toLocaleString() + ' XP';
+    badge.appendChild(fx);
+    // Auto-remove after the animation so the DOM doesn't accumulate.
+    setTimeout(() => { if (fx.parentNode) fx.parentNode.removeChild(fx); }, 1100);
   }
 
   function flashLevelBadge() {
