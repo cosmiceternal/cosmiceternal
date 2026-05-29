@@ -115,6 +115,37 @@ const SCHEMA_SQLITE = `
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS login_attempts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    username   TEXT NOT NULL,
+    ip         TEXT,
+    success    INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_login_attempts ON login_attempts(username, created_at DESC);
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    event      TEXT NOT NULL,
+    user_id    INTEGER,
+    ip         TEXT,
+    ua         TEXT,
+    meta       TEXT,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, id DESC);
+  CREATE INDEX IF NOT EXISTS idx_audit_event ON audit_log(event, id DESC);
+  CREATE TABLE IF NOT EXISTS deposits (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    processor    TEXT NOT NULL,
+    currency     TEXT NOT NULL,
+    amount_units REAL NOT NULL,
+    fun_credited INTEGER NOT NULL,
+    status       TEXT NOT NULL,
+    txid         TEXT,
+    created_at   INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_deposits_user ON deposits(user_id, id DESC);
 `;
 
 const SCHEMA_PG = `
@@ -159,6 +190,37 @@ const SCHEMA_PG = `
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS login_attempts (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    username   TEXT NOT NULL,
+    ip         TEXT,
+    success    INTEGER NOT NULL,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_login_attempts ON login_attempts(username, created_at DESC);
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    event      TEXT NOT NULL,
+    user_id    BIGINT,
+    ip         TEXT,
+    ua         TEXT,
+    meta       TEXT,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, id DESC);
+  CREATE INDEX IF NOT EXISTS idx_audit_event ON audit_log(event, id DESC);
+  CREATE TABLE IF NOT EXISTS deposits (
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    processor    TEXT NOT NULL,
+    currency     TEXT NOT NULL,
+    amount_units DOUBLE PRECISION NOT NULL,
+    fun_credited BIGINT NOT NULL,
+    status       TEXT NOT NULL,
+    txid         TEXT,
+    created_at   BIGINT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_deposits_user ON deposits(user_id, id DESC);
 `;
 
 async function init() {

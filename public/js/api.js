@@ -2,12 +2,24 @@
 (function (global) {
   'use strict';
 
-  async function request(method, path, body) {
+  function getCsrf() {
+    const m = document.cookie.match(/(?:^|;\s*)csrf=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  async function request(method, path, body, opts) {
+    const headers = {};
+    if (body) headers['Content-Type'] = 'application/json';
+    if (method !== 'GET' && method !== 'HEAD') {
+      const t = getCsrf();
+      if (t) headers['X-CSRF-Token'] = t;
+    }
     const res = await fetch(path, {
       method,
       credentials: 'same-origin',
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
-      body: body ? JSON.stringify(body) : undefined
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: opts && opts.signal
     });
     let data = null;
     try { data = await res.json(); } catch (e) {}
@@ -66,6 +78,7 @@
     coinCashout:  (b)      => request('POST', '/api/play/coin/cashout', b),
     vpStart:      (b)      => request('POST', '/api/play/videopoker/start', b),
     vpDraw:       (b)      => request('POST', '/api/play/videopoker/draw', b),
+    dealerLine: (b, opts)  => request('POST', '/api/dealer/line', b, opts),
     bjStart:      (b)      => request('POST', '/api/play/blackjack/start', b),
     bjHit:        (b)      => request('POST', '/api/play/blackjack/hit', b),
     bjStand:      (b)      => request('POST', '/api/play/blackjack/stand', b),

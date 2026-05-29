@@ -10,7 +10,7 @@
 
   const DEALERS = [
     {
-      id: 'vivienne', name: 'Vivienne', emoji: '🎭', color: '#f48fb1',
+      id: 'vivienne', name: 'Vivienne', img: 'img/dealers/vivienne.svg', color: '#f48fb1',
       bio: 'Smooth, unflappable',
       lines: {
         greet:      ['Welcome, darling.', 'Take a seat — fortune favors the bold.', 'Pleasure to deal for you tonight.'],
@@ -28,7 +28,7 @@
       }
     },
     {
-      id: 'rocco', name: 'Rocco', emoji: '🎩', color: '#ff8a65',
+      id: 'rocco', name: 'Rocco', img: 'img/dealers/rocco.svg', color: '#ff8a65',
       bio: 'Old-school, gruff but fair',
       lines: {
         greet:      ['Sit. Let’s play cards.', 'Money up.', 'Hope you brought your luck.'],
@@ -46,7 +46,7 @@
       }
     },
     {
-      id: 'luna', name: 'Luna', emoji: '🌙', color: '#80d8ff',
+      id: 'luna', name: 'Luna', img: 'img/dealers/luna.svg', color: '#80d8ff',
       bio: 'Cheerful and chatty',
       lines: {
         greet:      ['Hi there! Ready to win some?', 'Yay, a player! Let’s go!', 'Hope you brought good vibes ✨'],
@@ -64,7 +64,7 @@
       }
     },
     {
-      id: 'kade', name: 'Kade', emoji: '🃏', color: '#b39ddb',
+      id: 'kade', name: 'Kade', img: 'img/dealers/kade.svg', color: '#b39ddb',
       bio: 'Cool, dry, a little mysterious',
       lines: {
         greet:      ['Welcome.', 'A player. Interesting.', 'The cards have been waiting.'],
@@ -107,7 +107,7 @@
       <div class="field">
         <label>Your Dealer</label>
         <select id="adPicker" class="ad-picker">
-          ${DEALERS.map(d => `<option value="${d.id}">${d.emoji}  ${d.name} — ${d.bio}</option>`).join('')}
+          ${DEALERS.map(d => `<option value="${d.id}">${d.name} — ${d.bio}</option>`).join('')}
         </select>
       </div>
       <div class="divider"></div>
@@ -121,7 +121,7 @@
       <div class="ad-log" id="adLog"></div>
     `, `<div class="ad-dealer">
           <div class="ad-avatar" id="adAvatar" style="border-color:${dealer.color}">
-            <span class="ad-emoji">${dealer.emoji}</span>
+            <img class="ad-portrait" id="adPortrait" src="${dealer.img}" alt="${dealer.name}" />
             <span class="ai-badge">AI</span>
           </div>
           <div class="ad-info">
@@ -157,24 +157,48 @@
     const pvEl = container.querySelector('#adPV');
     const statusEl = container.querySelector('#adStatus');
     const logEl = container.querySelector('#adLog');
-    let roundId = null, bet = 0, stake = 0, busy = false, alive = true;
+    let roundId = null, bet = 0, stake = 0, busy = false, alive = true, inflight = null;
     GameKit.wireBet(container, betInput);
 
-    function say(key, vars) {
-      const lines = dealer.lines[key]; if (!lines) return;
-      const text = fill(pick(lines), vars || {});
+    function showBubble(text, ai) {
       bubble.classList.remove('show'); void bubble.offsetWidth;
       bubble.textContent = text; bubble.classList.add('show');
+      bubble.classList.toggle('ai-live', !!ai);
+    }
+    function entryHTML(text, ai) {
+      const pill = ai ? ` <span class="ai-pill">LIVE</span>` : '';
+      return `<span class="ai-who" style="color:${dealer.color}">${dealer.name}</span> ${text}${pill}`;
+    }
+    // Show a scripted line instantly (no perceived latency), then try the live
+    // AI endpoint in the background and silently upgrade if it returns in time.
+    function say(key, vars) {
+      const lines = dealer.lines[key]; if (!lines) return;
+      const scripted = fill(pick(lines), vars || {});
+      showBubble(scripted, false);
       const entry = document.createElement('div');
       entry.className = 'ai-line';
-      entry.innerHTML = `<span class="ai-who" style="color:${dealer.color}">${dealer.name}</span> ${text}`;
+      entry.innerHTML = entryHTML(scripted, false);
       logEl.prepend(entry);
       while (logEl.children.length > 12) logEl.lastChild.remove();
+
+      if (inflight) { inflight.abort(); inflight = null; }
+      const ac = new AbortController(); inflight = ac;
+      API.dealerLine({ dealer: dealer.id, event: key, ctx: vars || {} }, { signal: ac.signal })
+        .then(r => {
+          if (!alive || ac.signal.aborted) return;
+          if (r && r.line && (r.source === 'ai' || r.source === 'cache')) {
+            showBubble(r.line, true);
+            entry.innerHTML = entryHTML(r.line, true);
+          }
+        })
+        .catch(() => { /* silently fall back to the scripted line */ })
+        .finally(() => { if (inflight === ac) inflight = null; });
     }
     function repaintDealer() {
       picker.value = dealer.id;
       avatar.style.borderColor = dealer.color;
-      avatar.querySelector('.ad-emoji').textContent = dealer.emoji;
+      const portrait = avatar.querySelector('.ad-portrait');
+      portrait.src = dealer.img; portrait.alt = dealer.name;
       nameEl.style.color = dealer.color;
       nameEl.textContent = dealer.name;
     }
@@ -248,7 +272,7 @@
 
     repaintDealer();
     say('greet');
-    return function () { alive = false; };
+    return function () { alive = false; if (inflight) inflight.abort(); };
   }
   global.Games = global.Games || {};
   global.Games.aidealer = mount;

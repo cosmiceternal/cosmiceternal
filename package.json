@@ -12,6 +12,10 @@
     "dev": "node --watch server/index.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.0",
+    "@dicebear/collection": "^9.4.2",
+    "@dicebear/core": "^9.4.2",
+    "argon2": "^0.44.0",
     "better-sqlite3": "^11.3.0",
     "express": "^4.21.0",
     "pg": "^8.21.0"

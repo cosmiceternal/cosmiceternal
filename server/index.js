@@ -3,10 +3,13 @@
 const path = require('path');
 const express = require('express');
 
+const crypto = require('crypto');
 const db = require('./db');
 const auth = require('./auth');
 const fair = require('./fair');
 const games = require('./games');
+const vault = require('./vault');
+const dealer = require('./dealer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -71,6 +74,33 @@ app.use('/api', apiLimiter);
 app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
 
 app.use(express.json({ limit: '32kb' }));
+
+// ---------------- CSRF (double-submit cookie) ----------------
+// Every visitor gets a random `csrf` cookie (readable by JS so the client can
+// echo it back in X-CSRF-Token on state-changing requests). SameSite=Lax on
+// the session cookie already blocks cross-site POSTs in modern browsers; this
+// is defence-in-depth and an explicit bar for any forged-form attack.
+const CSRF_COOKIE = 'csrf';
+function csrf(req, res, next) {
+  const cookies = auth.parseCookies(req);
+  let token = cookies[CSRF_COOKIE];
+  if (!token || !/^[a-f0-9]{32,128}$/.test(token)) {
+    token = crypto.randomBytes(32).toString('hex');
+    const attrs = [`${CSRF_COOKIE}=${token}`, 'Path=/', 'SameSite=Lax', `Max-Age=${30 * 86400}`];
+    if (auth.SECURE) attrs.push('Secure');
+    res.append('Set-Cookie', attrs.join('; '));
+    cookies[CSRF_COOKIE] = token; // make available within this request
+  }
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    const header = req.headers['x-csrf-token'];
+    if (!header || header !== cookies[CSRF_COOKIE]) {
+      auth.logAudit(req, 'security.csrf_fail', req.user?.id, { path: req.path });
+      return res.status(403).json({ error: 'Invalid or missing CSRF token.' });
+    }
+  }
+  next();
+}
+app.use(csrf);
 app.use(auth.authenticate);
 
 // Wrap handlers so thrown/rejected httpErrors become JSON responses.
@@ -88,19 +118,20 @@ const h = (fn) => async (req, res) => {
 // ---------------- Auth ----------------
 app.post('/api/auth/register', h(async (req, res) => {
   const { username, password } = req.body || {};
-  const user = await auth.register(username, password);
+  const user = await auth.register(req, username, password);
   auth.setSessionCookie(res, user.id);
   res.json({ user: auth.publicUser(user) });
 }));
 
 app.post('/api/auth/login', h(async (req, res) => {
   const { username, password } = req.body || {};
-  const user = await auth.login(username, password);
+  const user = await auth.login(req, username, password);
   auth.setSessionCookie(res, user.id);
   res.json({ user: auth.publicUser(user) });
 }));
 
 app.post('/api/auth/logout', (req, res) => {
+  auth.logAudit(req, 'auth.logout', req.user?.id, null);
   auth.clearSessionCookie(res);
   res.json({ ok: true });
 });
@@ -170,6 +201,16 @@ app.post('/api/play/cascade',     auth.requireAuth, h((req) => games.playCascade
 app.post('/api/play/penalty/start',   auth.requireAuth, h((req) => games.penaltyStart(req.user.id, req.body || {})));
 app.post('/api/play/penalty/shoot',   auth.requireAuth, h((req) => games.penaltyShoot(req.user.id, req.body || {})));
 app.post('/api/play/penalty/cashout', auth.requireAuth, h((req) => games.penaltyCashout(req.user.id, req.body || {})));
+
+// ---------------- Vault (crypto deposits — backend only, no UI yet) ----------------
+app.get('/api/vault',          auth.requireAuth, h((req) => vault.publicSnapshot(req.user.id)));
+app.post('/api/vault/deposit', auth.requireAuth, h((req) => vault.createDeposit(req, req.user.id, req.body || {})));
+app.post('/api/vault/confirm', auth.requireAuth, h((req) => vault.confirmDeposit(req, req.user.id, req.body || {})));
+app.get('/api/vault/history',  auth.requireAuth, h(async (req) => ({ deposits: await vault.listDeposits(req.user.id, req.query.limit) })));
+
+// ---------------- AI Dealer (live banter; falls back to scripted client-side when no API key) ----------------
+const dealerLimiter = limiter(60_000, Number(process.env.RATE_DEALER_MAX || 30));
+app.post('/api/dealer/line', dealerLimiter, auth.requireAuth, h((req) => dealer.line(req, req.body || {})));
 
 // ---------------- History / stats ----------------
 app.get('/api/history', auth.requireAuth, h(async (req) => ({ bets: await games.history(req.user.id, req.query.limit) })));
