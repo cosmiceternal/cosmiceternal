@@ -1225,6 +1225,94 @@ async function globalFeed(limit = 30, minPayoutCents = 0) {
   }));
 }
 
+// Top players for a given metric. Returns the top N + the requesting user's
+// own rank for the same metric (so they always see where they stand even
+// when they're not in the top). All usernames anonymised.
+const LEADERBOARD_METRICS = {
+  xp:      { col: 'xp',                     table: 'users', having: 'xp > 0',                    asc: false, valueLabel: 'XP' },
+  level:   { col: 'level',                  table: 'users', having: '1 = 1',                     asc: false, valueLabel: 'Level' },
+  wins:    { col: 'wins',                   table: 'bets_wins',                                  asc: false, valueLabel: 'Wins' },
+  biggest: { col: 'biggest_payout_cents',   table: 'bets_biggest',                               asc: false, valueLabel: 'Biggest Payout (FUN)' }
+};
+
+async function leaderboard(userId, metric = 'xp', limit = 10) {
+  metric = String(metric).toLowerCase();
+  if (!LEADERBOARD_METRICS[metric]) metric = 'xp';
+  limit = Math.max(1, Math.min(50, Number(limit) || 10));
+
+  if (metric === 'xp' || metric === 'level') {
+    const orderCol = metric === 'level' ? 'level DESC, xp DESC' : 'xp DESC';
+    const filter = metric === 'xp' ? 'WHERE xp > 0' : '';
+    const top = (await db.query(
+      `SELECT id, username, xp, level FROM users ${filter} ORDER BY ${orderCol} LIMIT ?`,
+      [limit]
+    )).rows;
+    // Rank for the requesting user — count users strictly above them.
+    const me = (await db.query('SELECT xp, level FROM users WHERE id = ?', [userId])).rows[0];
+    let myRank = null, myValue = null;
+    if (me) {
+      myValue = metric === 'level' ? Number(me.level) : Number(me.xp);
+      const { rows } = metric === 'level'
+        ? await db.query('SELECT COUNT(*) AS n FROM users WHERE level > ? OR (level = ? AND xp > ?)',
+            [Number(me.level), Number(me.level), Number(me.xp)])
+        : await db.query('SELECT COUNT(*) AS n FROM users WHERE xp > ?', [Number(me.xp)]);
+      myRank = Number(rows[0]?.n || 0) + 1;
+    }
+    return {
+      metric, label: LEADERBOARD_METRICS[metric].valueLabel,
+      top: top.map((r, i) => ({ rank: i + 1, player: anonName(r.username), isYou: Number(r.id) === Number(userId), value: metric === 'level' ? Number(r.level) : Number(r.xp), level: Number(r.level) })),
+      you: me ? { rank: myRank, value: myValue, level: Number(me.level) } : null
+    };
+  }
+  if (metric === 'wins') {
+    const top = (await db.query(
+      `SELECT u.id, u.username, u.level, COUNT(*) AS wins
+         FROM users u JOIN bets b ON b.user_id = u.id
+        WHERE b.win = 1
+        GROUP BY u.id, u.username, u.level
+        ORDER BY wins DESC LIMIT ?`,
+      [limit]
+    )).rows;
+    const my = (await db.query(
+      `SELECT COUNT(*) AS wins FROM bets WHERE user_id = ? AND win = 1`, [userId]
+    )).rows[0];
+    const myWins = Number(my?.wins || 0);
+    const above = (await db.query(
+      `SELECT COUNT(*) AS n FROM (
+         SELECT user_id, COUNT(*) AS wins FROM bets WHERE win = 1 GROUP BY user_id
+       ) t WHERE wins > ?`, [myWins]
+    )).rows[0];
+    return {
+      metric, label: 'Wins',
+      top: top.map((r, i) => ({ rank: i + 1, player: anonName(r.username), isYou: Number(r.id) === Number(userId), value: Number(r.wins), level: Number(r.level) })),
+      you: { rank: Number(above?.n || 0) + 1, value: myWins }
+    };
+  }
+  // biggest single payout (profit on one bet)
+  const top = (await db.query(
+    `SELECT u.id, u.username, u.level, MAX(b.payout_cents - b.bet_cents) AS biggest
+       FROM users u JOIN bets b ON b.user_id = u.id
+      GROUP BY u.id, u.username, u.level
+      HAVING MAX(b.payout_cents - b.bet_cents) > 0
+      ORDER BY biggest DESC LIMIT ?`,
+    [limit]
+  )).rows;
+  const my = (await db.query(
+    `SELECT COALESCE(MAX(payout_cents - bet_cents), 0) AS biggest FROM bets WHERE user_id = ?`, [userId]
+  )).rows[0];
+  const myBiggest = Number(my?.biggest || 0);
+  const above = (await db.query(
+    `SELECT COUNT(*) AS n FROM (
+       SELECT user_id, MAX(payout_cents - bet_cents) AS biggest FROM bets GROUP BY user_id
+     ) t WHERE biggest > ?`, [myBiggest]
+  )).rows[0];
+  return {
+    metric, label: 'Biggest Single Payout (FUN)',
+    top: top.map((r, i) => ({ rank: i + 1, player: anonName(r.username), isYou: Number(r.id) === Number(userId), value: Number(r.biggest) / 100, level: Number(r.level) })),
+    you: { rank: Number(above?.n || 0) + 1, value: myBiggest / 100 }
+  };
+}
+
 async function history(userId, limit = 30) {
   limit = Math.max(1, Math.min(100, Number(limit) || 30));
   const { rows } = await db.query(
@@ -1277,7 +1365,7 @@ module.exports = {
   blackjackStart, blackjackHit, blackjackStand, blackjackDouble,
   playBaccarat, playDragonTiger, playAndarBahar, playCascade,
   penaltyStart, penaltyShoot, penaltyCashout,
-  history, stats, globalFeed, anonName, PLINKO, minesMult,
+  history, stats, globalFeed, anonName, leaderboard, PLINKO, minesMult,
   WHEEL, TOWERS, PUMP, DIAMOND_PAYS, SLOT_SYMBOLS, SLOT_TRIPLE, SLOT_PAIR_PAY,
   COLOR_PAYS, VIDEO_POKER_PAYS, KENO_TABLES, SCRATCH_TABLE,
   CASCADE_TABLES, CASCADE_P, penaltyMult

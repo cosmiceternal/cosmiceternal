@@ -261,6 +261,7 @@ app.get('/api/stats',   auth.requireAuth, h((req) => games.stats(req.user.id)));
 app.get('/api/feed/global', auth.requireAuth, h(async (req) => ({
   wins: await games.globalFeed(req.query.limit, req.query.min_payout_cents)
 })));
+app.get('/api/leaderboard', auth.requireAuth, h((req) => games.leaderboard(req.user.id, req.query.metric, req.query.limit)));
 
 // Unmatched API routes return JSON, not the SPA shell.
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));

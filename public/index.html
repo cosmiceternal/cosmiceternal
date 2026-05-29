@@ -79,6 +79,7 @@
           <span class="balance-unit">FUN</span>
         </div>
         <button class="btn btn-ghost" id="btnStats" title="Your stats">Stats</button>
+        <button class="btn btn-ghost" id="btnLeaders" title="Leaderboard">🏆</button>
         <button class="btn btn-ghost" id="btnFair" title="Provably Fair">Fair</button>
         <div class="user-menu">
           <button class="btn btn-ghost" id="btnUser"><span id="userName">player</span> ▾</button>
@@ -173,6 +174,26 @@
           </div>
           <ul class="ach-list" id="achList"></ul>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard Modal -->
+  <div class="modal-backdrop hidden" id="leadersModal">
+    <div class="modal lb-modal">
+      <div class="modal-header">
+        <h2>Leaderboard</h2>
+        <button class="btn btn-ghost" id="leadersClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="lb-tabs">
+          <button class="lb-tab active" data-metric="xp">XP</button>
+          <button class="lb-tab" data-metric="level">Level</button>
+          <button class="lb-tab" data-metric="wins">Wins</button>
+          <button class="lb-tab" data-metric="biggest">Biggest Hit</button>
+        </div>
+        <ol class="lb-list" id="lbList"></ol>
+        <div class="lb-you hidden" id="lbYou"></div>
       </div>
     </div>
   </div>

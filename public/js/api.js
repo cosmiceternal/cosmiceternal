@@ -105,6 +105,7 @@
     // Data
     history:    (n)        => request('GET', '/api/history?limit=' + (n || 30)),
     stats:      ()         => request('GET', '/api/stats'),
-    globalFeed: (n, mp)    => request('GET', '/api/feed/global?limit=' + (n || 30) + (mp ? '&min_payout_cents=' + mp : ''))
+    globalFeed: (n, mp)    => request('GET', '/api/feed/global?limit=' + (n || 30) + (mp ? '&min_payout_cents=' + mp : '')),
+    leaderboard:(metric, n)=> request('GET', '/api/leaderboard?metric=' + (metric || 'xp') + '&limit=' + (n || 10))
   };
 })(window);

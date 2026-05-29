@@ -121,18 +121,32 @@
     setTimeout(() => el.classList.add('hidden'), 1700);
   }
 
-  // Render the topbar level badge whenever state changes.
+  // Render the topbar level badge whenever state changes. Build the static
+  // structure once and mutate sub-elements on subsequent renders so the CSS
+  // width transition on the XP bar actually animates.
   function bindBadge() {
     const badge = document.getElementById('lvlBadge');
     if (!badge) return;
+    badge.innerHTML = `
+      <span class="lvl-tag">LVL</span>
+      <span class="lvl-num" data-role="num">1</span>
+      <span class="lvl-bar"><span class="lvl-bar-fill" data-role="fill" style="width:0%"></span></span>
+      <span class="lvl-streak hidden" data-role="streak"></span>
+    `;
+    const numEl   = badge.querySelector('[data-role="num"]');
+    const fillEl  = badge.querySelector('[data-role="fill"]');
+    const streakEl= badge.querySelector('[data-role="streak"]');
     function render(s) {
       const pct = Math.max(0, Math.min(100, s.xpPerLevel > 0 ? (s.xpIntoLevel / s.xpPerLevel) * 100 : 0));
-      badge.innerHTML = `
-        <span class="lvl-tag">LVL</span>
-        <span class="lvl-num">${s.level}</span>
-        <span class="lvl-bar"><span class="lvl-bar-fill" style="width:${pct.toFixed(1)}%"></span></span>
-        ${s.streakDay > 0 ? `<span class="lvl-streak" title="${s.streakDay}-day streak">🔥 ${s.streakDay}</span>` : ''}
-      `;
+      numEl.textContent = s.level;
+      fillEl.style.width = pct.toFixed(1) + '%';
+      if (s.streakDay > 0) {
+        streakEl.textContent = '🔥 ' + s.streakDay;
+        streakEl.title = s.streakDay + '-day streak';
+        streakEl.classList.remove('hidden');
+      } else {
+        streakEl.classList.add('hidden');
+      }
       badge.title = `Level ${s.level} — ${s.xpIntoLevel.toLocaleString()} / ${s.xpPerLevel.toLocaleString()} XP to next`;
     }
     subscribe(render);

@@ -176,6 +176,53 @@
   document.getElementById('statsClose').addEventListener('click', () => statsModal.classList.add('hidden'));
   statsModal.addEventListener('click', (e) => { if (e.target === statsModal) statsModal.classList.add('hidden'); });
 
+  // ----- Leaderboard modal -----
+  const leadersModal = document.getElementById('leadersModal');
+  let lbMetric = 'xp';
+  function fmtLbValue(v, metric) {
+    if (metric === 'biggest') return (+v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (metric === 'xp')      return (+v).toLocaleString();
+    return v;
+  }
+  async function loadLeaderboard(metric) {
+    try {
+      const r = await API.leaderboard(metric, 10);
+      const list = document.getElementById('lbList');
+      list.innerHTML = r.top.length
+        ? r.top.map(row => `
+            <li class="lb-row ${row.isYou ? 'you' : ''}">
+              <span class="lb-rank">${row.rank}</span>
+              <span class="lb-player">${row.player}${row.isYou ? ' <span class="muted">(you)</span>' : ''}</span>
+              <span class="lb-level">L${row.level}</span>
+              <span class="lb-value">${fmtLbValue(row.value, metric)}</span>
+            </li>`).join('')
+        : `<li class="feed-empty">No data yet — be the first.</li>`;
+      const youEl = document.getElementById('lbYou');
+      if (r.you && r.top.every(t => !t.isYou)) {
+        youEl.innerHTML = `
+          <span class="lb-rank">#${r.you.rank}</span>
+          <span class="lb-player">You</span>
+          ${r.you.level ? `<span class="lb-level">L${r.you.level}</span>` : ''}
+          <span class="lb-value">${fmtLbValue(r.you.value, metric)}</span>`;
+        youEl.classList.remove('hidden');
+      } else {
+        youEl.classList.add('hidden');
+      }
+    } catch (e) { Toast.error(e.message); }
+  }
+  document.getElementById('btnLeaders').addEventListener('click', () => {
+    leadersModal.classList.remove('hidden');
+    loadLeaderboard(lbMetric);
+  });
+  document.getElementById('leadersClose').addEventListener('click', () => leadersModal.classList.add('hidden'));
+  leadersModal.addEventListener('click', e => { if (e.target === leadersModal) leadersModal.classList.add('hidden'); });
+  document.querySelectorAll('.lb-tab').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.lb-tab').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    lbMetric = b.dataset.metric;
+    loadLeaderboard(lbMetric);
+  }));
+
   document.addEventListener('keydown', e => {
     // Don't hijack typing in form fields.
     const t = e.target;
@@ -186,6 +233,8 @@
       statsModal.classList.add('hidden');
       const daily = document.getElementById('dailyModal');
       if (daily) daily.classList.add('hidden');
+      const leaders = document.getElementById('leadersModal');
+      if (leaders) leaders.classList.add('hidden');
       return;
     }
     // Space / Enter trigger the primary action of the currently mounted game,
