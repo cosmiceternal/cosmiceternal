@@ -72,6 +72,7 @@
         <button class="tab" data-game="color">Color</button>
       </nav>
       <div class="wallet">
+        <div class="level-badge" id="lvlBadge" title="Level"></div>
         <div class="balance">
           <span class="balance-label">Balance</span>
           <span class="balance-value" id="balanceValue">0.00</span>
@@ -165,6 +166,39 @@
           <div class="stat"><span class="stat-label">Biggest Win</span><span class="stat-value" id="stBiggest">0.00</span></div>
           <div class="stat"><span class="stat-label">Wins</span><span class="stat-value" id="stWins">0</span></div>
         </div>
+        <div class="achievement-section">
+          <div class="ach-head">
+            <h4>Achievements</h4>
+            <span class="ach-count muted" id="achCount">0 / 0</span>
+          </div>
+          <ul class="ach-list" id="achList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Bonus Modal -->
+  <div class="modal-backdrop hidden" id="dailyModal">
+    <div class="modal daily-modal">
+      <div class="modal-header">
+        <h2 id="dailyTitle">Daily Bonus</h2>
+        <button class="btn btn-ghost" id="dailySkip">✕</button>
+      </div>
+      <div class="modal-body daily-body">
+        <div class="daily-prize">
+          <div class="daily-coin">✦</div>
+          <div class="daily-amount-wrap">
+            <span class="daily-amount-label">FUN</span>
+            <span class="daily-amount" id="dailyAmount">0</span>
+          </div>
+        </div>
+        <p class="daily-streak-line muted">
+          Day <span id="dailyStreak" class="accent">1</span> of your streak — come back tomorrow to keep it growing.
+        </p>
+        <button class="btn btn-primary btn-block" id="dailyClaim">Claim Bonus</button>
+        <p class="muted" style="font-size:10px;line-height:1.5;margin:0;text-align:center;">
+          Claim window resets every ~20 hours. Streak resets if you miss a day.
+        </p>
       </div>
     </div>
   </div>
@@ -201,6 +235,7 @@
   <script src="js/games/cascade.js"></script>
   <script src="js/games/penalty.js"></script>
   <script src="js/games/aidealer.js"></script>
+  <script src="js/progression.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

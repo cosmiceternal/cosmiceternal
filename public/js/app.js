@@ -151,6 +151,25 @@
       document.getElementById('stWinRate').textContent = (s.winRate * 100).toFixed(1) + '%';
       document.getElementById('stBiggest').textContent = Bankroll.fmt(s.biggestWin);
       document.getElementById('stWins').textContent = s.wins;
+      // Refresh progression snapshot so the achievements list is current,
+      // then render unlocked + locked rows with short descriptions and XP rewards.
+      try {
+        const ps = await Progression.refresh();
+        const ul = document.getElementById('achList');
+        const cnt = document.getElementById('achCount');
+        const unlocked = ps.achievements.filter(a => a.unlocked).length;
+        cnt.textContent = `${unlocked} / ${ps.achievements.length}`;
+        ul.innerHTML = ps.achievements.map(a => `
+          <li class="ach-row ${a.unlocked ? 'unlocked' : 'locked'}">
+            <div class="ach-icon">${a.unlocked ? '🏆' : '·'}</div>
+            <div class="ach-body">
+              <div class="ach-name">${a.name}</div>
+              <div class="ach-desc muted">${a.desc}</div>
+            </div>
+            <div class="ach-xp ${a.unlocked ? 'unlocked' : 'muted'}">${a.xp ? '+' + a.xp + ' XP' : ''}</div>
+          </li>
+        `).join('');
+      } catch (_) {}
       statsModal.classList.remove('hidden');
     } catch (e) { Toast.error(e.message); }
   });
@@ -189,6 +208,10 @@
     Bankroll.bindElement(document.getElementById('balanceValue'));
     Feed.init(document.getElementById('feedList'));
     Fair.refresh();
+    // Seed progression UI from the cheap fields on /api/me, then init() pulls
+    // the full snapshot (achievements list + daily state) and pops the bonus
+    // modal if today's claim is available.
+    if (global.Progression) { Progression.seed(user); Progression.init(); }
 
     authGate.classList.add('hidden');
     appEl.classList.remove('hidden');

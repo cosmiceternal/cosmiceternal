@@ -1106,6 +1106,80 @@ input { font-family: inherit; }
 .stat-grid-wide { grid-template-columns: 1fr 1fr 1fr; }
 @media (max-width: 520px) { .stat-grid-wide { grid-template-columns: 1fr 1fr; } }
 
+/* ===================== Progression (level badge, daily modal, achievements) ===================== */
+.level-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--gold);
+  padding: 5px 9px 6px;
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+  min-height: 36px;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+}
+.lvl-tag { font-size: 9px; letter-spacing: 1px; color: var(--muted); font-weight: 800; }
+.lvl-num { font-size: 16px; font-weight: 800; color: var(--gold); text-shadow: 0 0 8px var(--gold-glow); }
+.lvl-bar { display: inline-block; width: 56px; height: 5px; background: var(--bg-1); border-radius: 3px; overflow: hidden; align-self: center; }
+.lvl-bar-fill { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--gold)); transition: width 0.4s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.lvl-streak { font-size: 11px; font-weight: 700; color: var(--gold); margin-left: 2px; }
+.level-badge.levelup {
+  animation: lvlBurst 1.1s ease;
+}
+@keyframes lvlBurst {
+  0%   { transform: scale(1);   box-shadow: 0 0 0 0 var(--gold-glow); border-color: var(--gold); }
+  30%  { transform: scale(1.12); box-shadow: 0 0 0 6px transparent; border-color: var(--accent); }
+  100% { transform: scale(1);   box-shadow: 0 0 0 0 transparent; border-color: var(--line); border-left-color: var(--gold); }
+}
+
+/* Daily Bonus Modal */
+.daily-modal { width: min(420px, 92vw); }
+.daily-body { gap: 16px; }
+.daily-prize {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  padding: 14px 12px;
+  background:
+    radial-gradient(140% 100% at 50% 0%, rgba(255, 180, 73, 0.18), transparent 60%),
+    radial-gradient(140% 100% at 50% 100%, rgba(255, 94, 156, 0.16), transparent 60%),
+    var(--bg-2);
+  border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 180, 73, 0.08);
+}
+.daily-coin {
+  font-size: 44px; color: var(--gold);
+  text-shadow: 0 0 18px var(--gold-glow), 0 0 36px rgba(255, 94, 156, 0.3);
+  animation: marqueePulse 3s ease-in-out infinite;
+}
+.daily-amount-wrap { display: flex; flex-direction: column; gap: 2px; }
+.daily-amount-label { font-size: 10px; letter-spacing: 1.5px; color: var(--muted); font-weight: 800; }
+.daily-amount { font-size: 36px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); text-shadow: 0 0 16px var(--accent-glow); }
+.daily-streak-line { text-align: center; font-size: 12px; margin: 0; }
+
+/* Achievements section in the Stats modal */
+.achievement-section { margin-top: 10px; }
+.ach-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.ach-head h4 { margin: 0; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.ach-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+.ach-row {
+  display: grid; grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s;
+}
+.ach-row:last-child { border-bottom: none; }
+.ach-row.locked { opacity: 0.55; }
+.ach-row.unlocked { background: rgba(255, 180, 73, 0.04); }
+.ach-icon { font-size: 18px; text-align: center; }
+.ach-row.unlocked .ach-icon { filter: drop-shadow(0 0 6px var(--gold-glow)); }
+.ach-name { font-size: 13px; font-weight: 700; }
+.ach-row.unlocked .ach-name { color: var(--gold); }
+.ach-desc { font-size: 11px; line-height: 1.4; }
+.ach-xp { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; }
+.ach-xp.unlocked { color: var(--accent); }
+
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 1fr; }
   .feed-pane { display: none; }

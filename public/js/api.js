@@ -28,6 +28,11 @@
       err.status = res.status;
       throw err;
     }
+    // Auto-apply any progression delta the server attached. Defined in
+    // progression.js which loads after api.js, so it's safe at request time.
+    if (data && data.progress && global.Progression) {
+      try { global.Progression.apply(data.progress); } catch (_) {}
+    }
     return data;
   }
 
