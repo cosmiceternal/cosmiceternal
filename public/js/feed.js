@@ -1,21 +1,37 @@
-/* Bet feed. Shows the signed-in player's real bet history from the server,
- * newest first, and prepends new results as they happen. */
+/* Bet feed. Has two modes:
+ *   - "Yours" (default): your own bet history from /api/history; new bets get
+ *     prepended live as you play.
+ *   - "Live": recent wins across all players (anonymised). Polls every 8s so
+ *     it actually feels like a ticker. For a single-user deploy this is your
+ *     own highlight reel — for a busier table it's the social-proof ticker. */
 (function (global) {
   'use strict';
 
   const MAX_ROWS = 60;
-  let rows = [];
+  const POLL_MS = 8000;
+  let yoursRows = [];
+  let liveRows  = [];
   let listEl = null;
-  let filter = 'all';
+  let mode = 'all';            // 'all' | 'high' | 'me' | 'live'
+  let pollTimer = null;
 
   function fmtMoney(n) {
     if (Math.abs(n) >= 10000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
     return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
+  function fmtAgo(ts) {
+    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (s < 5)    return 'now';
+    if (s < 60)   return s + 's';
+    if (s < 3600) return Math.floor(s / 60) + 'm';
+    if (s < 86400) return Math.floor(s / 3600) + 'h';
+    return Math.floor(s / 86400) + 'd';
+  }
 
-  function rowEl(r) {
+  function rowEl(r, isLive) {
     const li = document.createElement('li');
-    li.classList.add(r.win ? 'win' : 'loss', 'me-row');
+    li.classList.add(r.win ? 'win' : 'loss');
+    if (!isLive) li.classList.add('me-row');
 
     const game = document.createElement('span');
     const tag = document.createElement('span');
@@ -25,7 +41,7 @@
 
     const player = document.createElement('span');
     player.className = 'player';
-    player.textContent = 'you';
+    player.textContent = isLive ? (r.player || '???') : 'you';
 
     const bet = document.createElement('span');
     bet.textContent = fmtMoney(r.bet);
@@ -38,43 +54,63 @@
     payout.className = 'payout';
     const profit = (typeof r.profit === 'number') ? r.profit : (r.win ? r.payout - r.bet : -r.bet);
     payout.textContent = (profit >= 0 ? '+' : '−') + fmtMoney(Math.abs(profit));
+    if (isLive && r.ts) payout.title = fmtAgo(r.ts) + ' ago';
 
     li.append(game, player, bet, mult, payout);
     return li;
   }
 
-  function renderEmpty() {
-    if (listEl) listEl.innerHTML = '<li class="feed-empty">Your bets will appear here</li>';
+  function emptyMsg() { return mode === 'live' ? 'No live wins yet — be the first.' : 'Your bets will appear here'; }
+  function renderEmpty() { if (listEl) listEl.innerHTML = `<li class="feed-empty">${emptyMsg()}</li>`; }
+
+  function visibleRows() {
+    if (mode === 'live') return liveRows;
+    if (mode === 'high') return yoursRows.filter(r => r.bet >= 100 || r.payout >= 500);
+    return yoursRows;
   }
 
   function render() {
     if (!listEl) return;
-    let visible = rows;
-    if (filter === 'high') visible = rows.filter(r => r.bet >= 100 || r.payout >= 500);
-    else if (filter === 'me') visible = rows; // all rows are already "me"
+    const visible = visibleRows();
     listEl.innerHTML = '';
     if (visible.length === 0) { renderEmpty(); return; }
-    visible.slice(0, MAX_ROWS).forEach(r => listEl.appendChild(rowEl(r)));
+    visible.slice(0, MAX_ROWS).forEach(r => listEl.appendChild(rowEl(r, mode === 'live')));
   }
 
-  // Load existing history (newest first from the server).
-  async function load() {
+  async function loadYours() {
     try {
       const r = await API.history(MAX_ROWS);
-      rows = r.bets || [];
-      render();
-    } catch (e) { renderEmpty(); }
+      yoursRows = r.bets || [];
+      if (mode !== 'live') render();
+    } catch (e) { if (mode !== 'live') renderEmpty(); }
   }
+  async function loadLive() {
+    try {
+      const r = await API.globalFeed(MAX_ROWS);
+      liveRows = r.wins || [];
+      if (mode === 'live') render();
+    } catch (e) { if (mode === 'live') renderEmpty(); }
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(() => { if (mode === 'live') loadLive(); }, POLL_MS);
+  }
+  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
   function prepend(r) {
-    rows.unshift(r);
-    if (rows.length > MAX_ROWS * 2) rows = rows.slice(0, MAX_ROWS);
-    render();
+    yoursRows.unshift(r);
+    if (yoursRows.length > MAX_ROWS * 2) yoursRows = yoursRows.slice(0, MAX_ROWS);
+    if (mode !== 'live') render();
   }
-
-  // Called by games after a settled bet. profit is signed.
   function recordPlayerBet({ game, bet, mult, win, payout }) {
     prepend({ game, bet, mult: win ? mult : 0, win, payout, profit: win ? payout - bet : -bet, ts: Date.now() });
+  }
+
+  function setMode(m) {
+    mode = m;
+    if (mode === 'live') { loadLive(); startPolling(); }
+    else { stopPolling(); render(); }
   }
 
   function init(el) {
@@ -83,13 +119,12 @@
       btn.addEventListener('click', () => {
         document.querySelectorAll('.feed-tab').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        filter = btn.dataset.feed;
-        render();
+        setMode(btn.dataset.feed);
       });
     });
     renderEmpty();
-    load();
+    loadYours();
   }
 
-  global.Feed = { init, recordPlayerBet, load };
+  global.Feed = { init, recordPlayerBet, load: loadYours };
 })(window);

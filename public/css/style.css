@@ -388,6 +388,18 @@ input { font-family: inherit; }
   color: var(--accent);
   border-color: var(--accent);
 }
+/* Live tab: tiny pulsing crimson dot, the universal "going live" visual. */
+.live-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); margin-right: 5px;
+  box-shadow: 0 0 0 0 var(--accent-glow);
+  animation: liveDot 1.6s ease-in-out infinite;
+  vertical-align: middle;
+}
+@keyframes liveDot {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); transform: scale(1); }
+  50%      { box-shadow: 0 0 0 6px transparent;       transform: scale(1.15); }
+}
 
 .feed-table-head {
   display: grid;

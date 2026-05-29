@@ -1190,6 +1190,41 @@ function penaltyCashout(userId, { roundId }) {
 }
 
 // ---------------------------------------------------------------- HISTORY / STATS
+// Anonymise usernames for the public feed. Keeps the first letter + last digit
+// so consecutive wins from the same player still look like a streak from one
+// person, without leaking the full handle.
+function anonName(u) {
+  if (!u) return '???';
+  const s = String(u);
+  if (s.length <= 2) return s[0] + '*';
+  return s[0] + '***' + s[s.length - 1];
+}
+
+// Recent winning bets across ALL users. For a single-user deploy this is your
+// own highlight reel; for a busy table it's the live wins ticker that drives
+// FOMO and social proof. Capped at 50 and indexed by id DESC so it's cheap.
+async function globalFeed(limit = 30, minPayoutCents = 0) {
+  limit = Math.max(1, Math.min(50, Number(limit) || 30));
+  minPayoutCents = Math.max(0, Number(minPayoutCents) || 0);
+  const { rows } = await db.query(
+    `SELECT b.game, b.bet_cents, b.mult, b.payout_cents, b.created_at, u.username
+       FROM bets b
+       JOIN users u ON u.id = b.user_id
+      WHERE b.win = 1 AND b.payout_cents >= ?
+      ORDER BY b.id DESC LIMIT ?`,
+    [minPayoutCents, limit]
+  );
+  return rows.map(r => ({
+    game: r.game,
+    player: anonName(r.username),
+    bet: Number(r.bet_cents) / 100,
+    mult: Number(r.mult),
+    payout: Number(r.payout_cents) / 100,
+    profit: (Number(r.payout_cents) - Number(r.bet_cents)) / 100,
+    ts: Number(r.created_at)
+  }));
+}
+
 async function history(userId, limit = 30) {
   limit = Math.max(1, Math.min(100, Number(limit) || 30));
   const { rows } = await db.query(
@@ -1242,7 +1277,7 @@ module.exports = {
   blackjackStart, blackjackHit, blackjackStand, blackjackDouble,
   playBaccarat, playDragonTiger, playAndarBahar, playCascade,
   penaltyStart, penaltyShoot, penaltyCashout,
-  history, stats, PLINKO, minesMult,
+  history, stats, globalFeed, anonName, PLINKO, minesMult,
   WHEEL, TOWERS, PUMP, DIAMOND_PAYS, SLOT_SYMBOLS, SLOT_TRIPLE, SLOT_PAIR_PAY,
   COLOR_PAYS, VIDEO_POKER_PAYS, KENO_TABLES, SCRATCH_TABLE,
   CASCADE_TABLES, CASCADE_P, penaltyMult
