@@ -16,6 +16,8 @@
     achievements: []
   };
   const subs = new Set();
+  let inited = false;          // init() is idempotent — guards against re-mount.
+  let badgeUnsub = null;       // remembered so bindBadge can detach the old render.
 
   function snapshot() { return Object.assign({}, state); }
   function subscribe(fn) { subs.add(fn); try { fn(snapshot()); } catch (_) {} return () => subs.delete(fn); }
@@ -123,10 +125,13 @@
 
   // Render the topbar level badge whenever state changes. Build the static
   // structure once and mutate sub-elements on subsequent renders so the CSS
-  // width transition on the XP bar actually animates.
+  // width transition on the XP bar actually animates. Idempotent so a
+  // double-init (e.g. logout/login on the same page) doesn't strand a stale
+  // render closure on a detached DOM tree.
   function bindBadge() {
     const badge = document.getElementById('lvlBadge');
     if (!badge) return;
+    if (badgeUnsub) { try { badgeUnsub(); } catch (_) {} badgeUnsub = null; }
     badge.innerHTML = `
       <span class="lvl-tag">LVL</span>
       <span class="lvl-num" data-role="num">1</span>
@@ -149,7 +154,7 @@
       }
       badge.title = `Level ${s.level} — ${s.xpIntoLevel.toLocaleString()} / ${s.xpPerLevel.toLocaleString()} XP to next`;
     }
-    subscribe(render);
+    badgeUnsub = subscribe(render);
   }
 
   // Daily bonus modal: pops up automatically on the first session of the day
