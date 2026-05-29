@@ -73,6 +73,7 @@
     if (announcedLevel > prevLevel && global.Toast) {
       Toast.win(`✨ Level Up! ${prevLevel} → ${announcedLevel}`);
       flashLevelBadge();
+      showLevelUpOverlay(announcedLevel);
     }
     if (Array.isArray(progress.unlocked) && progress.unlocked.length) {
       progress.unlocked.forEach(key => {
@@ -92,6 +93,18 @@
     void el.offsetWidth;
     el.classList.add('levelup');
     setTimeout(() => el.classList.remove('levelup'), 1200);
+  }
+  function showLevelUpOverlay(level) {
+    const el = document.getElementById('levelupOverlay');
+    if (!el) return;
+    const num = document.getElementById('luNum');
+    const label = document.getElementById('luLabel');
+    if (num) num.textContent = level;
+    if (label) label.textContent = level;
+    el.classList.remove('hidden');
+    // Restart the animation by re-adding the class on the next frame.
+    el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+    setTimeout(() => el.classList.add('hidden'), 1700);
   }
 
   // Render the topbar level badge whenever state changes.

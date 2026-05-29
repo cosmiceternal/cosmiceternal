@@ -51,22 +51,41 @@ function xpForNext(xp) {
 // the bets table; `bet` is the row just recorded (so achievements can react to
 // the bet that triggered the check).
 const ACHIEVEMENTS = [
-  { key: 'first_bet',     name: 'First Hand',      desc: 'Place your first wager.',                xp: 250,  test: ({ totals }) => totals.bets >= 1 },
-  { key: 'first_win',     name: 'First Win',       desc: 'Win any bet for the first time.',         xp: 500,  test: ({ totals }) => totals.wins >= 1 },
-  { key: 'high_roller',   name: 'High Roller',     desc: 'Wager 1,000 FUN total.',                  xp: 1000, test: ({ totals }) => totals.wagered_cents >= 100_000 },
-  { key: 'whale',         name: 'Whale',           desc: 'Wager 10,000 FUN total.',                 xp: 3000, test: ({ totals }) => totals.wagered_cents >= 1_000_000 },
-  { key: 'big_payout',    name: 'Big Payout',      desc: 'Land a payout of 100+ FUN on one bet.',   xp: 500,  test: ({ bet }) => Number(bet.payout_cents) >= 10_000 },
-  { key: 'mega_payout',   name: 'Mega Payout',     desc: 'Land a payout of 1,000+ FUN on one bet.', xp: 2000, test: ({ bet }) => Number(bet.payout_cents) >= 100_000 },
-  { key: 'multiplier_50', name: 'Multiplier 50×',  desc: 'Hit a 50× or higher multiplier.',         xp: 1000, test: ({ bet }) => Number(bet.mult) >= 50 },
-  { key: 'multiplier_500',name: 'Jackpot Hunter',  desc: 'Hit a 500× or higher multiplier.',        xp: 5000, test: ({ bet }) => Number(bet.mult) >= 500 },
-  { key: 'explorer',      name: 'Explorer',        desc: 'Play 5 different games.',                 xp: 750,  test: ({ totals }) => totals.distinct_games >= 5 },
-  { key: 'globetrotter',  name: 'Globetrotter',    desc: 'Play 15 different games.',                xp: 2000, test: ({ totals }) => totals.distinct_games >= 15 },
-  { key: 'level_5',       name: 'Level 5',         desc: 'Reach level 5.',                          xp: 0,    test: ({ user }) => Number(user.level) >= 5 },
-  { key: 'level_10',      name: 'Level 10',        desc: 'Reach level 10.',                         xp: 0,    test: ({ user }) => Number(user.level) >= 10 },
-  { key: 'level_25',      name: 'Level 25',        desc: 'Reach level 25.',                         xp: 0,    test: ({ user }) => Number(user.level) >= 25 },
-  { key: 'streak_3',      name: 'Heating Up',      desc: 'Claim a daily bonus for 3 days in a row.', xp: 500,  test: ({ user }) => Number(user.streak_day) >= 3 },
-  { key: 'streak_7',      name: 'Week Warrior',    desc: '7-day login streak.',                     xp: 1500, test: ({ user }) => Number(user.streak_day) >= 7 },
-  { key: 'streak_30',     name: 'Diehard',         desc: '30-day login streak.',                    xp: 7500, test: ({ user }) => Number(user.streak_day) >= 30 }
+  // First-time milestones — the easy onboarding wins.
+  { key: 'first_bet',     name: 'First Hand',      desc: 'Place your first wager.',                  xp: 250,  test: ({ totals }) => totals.bets >= 1 },
+  { key: 'first_win',     name: 'First Win',       desc: 'Win any bet for the first time.',           xp: 500,  test: ({ totals }) => totals.wins >= 1 },
+
+  // Wagering totals — long-term grind targets.
+  { key: 'marathon',      name: 'Marathon',        desc: 'Place 100 bets.',                           xp: 750,  test: ({ totals }) => totals.bets >= 100 },
+  { key: 'centurion',     name: 'Centurion',       desc: 'Place 500 bets.',                           xp: 2500, test: ({ totals }) => totals.bets >= 500 },
+  { key: 'high_roller',   name: 'High Roller',     desc: 'Wager 1,000 FUN total.',                    xp: 1000, test: ({ totals }) => totals.wagered_cents >= 100_000 },
+  { key: 'whale',         name: 'Whale',           desc: 'Wager 10,000 FUN total.',                   xp: 3000, test: ({ totals }) => totals.wagered_cents >= 1_000_000 },
+  { key: 'kraken',        name: 'Kraken',          desc: 'Wager 100,000 FUN total.',                  xp: 10000, test: ({ totals }) => totals.wagered_cents >= 10_000_000 },
+
+  // Big-payout / big-multiplier moments — sticky highlights.
+  { key: 'big_payout',    name: 'Big Payout',      desc: 'Land a payout of 100+ FUN on one bet.',     xp: 500,  test: ({ bet }) => Number(bet.payout_cents) >= 10_000 },
+  { key: 'mega_payout',   name: 'Mega Payout',     desc: 'Land a payout of 1,000+ FUN on one bet.',   xp: 2000, test: ({ bet }) => Number(bet.payout_cents) >= 100_000 },
+  { key: 'colossal',      name: 'Colossal Win',    desc: 'Land a payout of 10,000+ FUN on one bet.',  xp: 8000, test: ({ bet }) => Number(bet.payout_cents) >= 1_000_000 },
+  { key: 'multiplier_10', name: 'Double Digits',   desc: 'Hit a 10× or higher multiplier.',           xp: 500,  test: ({ bet }) => Number(bet.mult) >= 10 },
+  { key: 'multiplier_50', name: 'Multiplier 50×',  desc: 'Hit a 50× or higher multiplier.',           xp: 1000, test: ({ bet }) => Number(bet.mult) >= 50 },
+  { key: 'multiplier_500',name: 'Jackpot Hunter',  desc: 'Hit a 500× or higher multiplier.',          xp: 5000, test: ({ bet }) => Number(bet.mult) >= 500 },
+  { key: 'underdog',      name: 'Underdog',        desc: 'Win a bet with a multiplier of 100× or higher.', xp: 3000, test: ({ bet }) => Number(bet.mult) >= 100 && Number(bet.win) === 1 },
+
+  // Variety — incentive to try every game.
+  { key: 'explorer',      name: 'Explorer',        desc: 'Play 5 different games.',                   xp: 750,  test: ({ totals }) => totals.distinct_games >= 5 },
+  { key: 'globetrotter',  name: 'Globetrotter',    desc: 'Play 15 different games.',                  xp: 2000, test: ({ totals }) => totals.distinct_games >= 15 },
+  { key: 'completionist', name: 'Completionist',   desc: 'Play all 25 games.',                        xp: 7500, test: ({ totals }) => totals.distinct_games >= 25 },
+
+  // Level milestones.
+  { key: 'level_5',       name: 'Level 5',         desc: 'Reach level 5.',                            xp: 0,    test: ({ user }) => Number(user.level) >= 5 },
+  { key: 'level_10',      name: 'Level 10',        desc: 'Reach level 10.',                           xp: 0,    test: ({ user }) => Number(user.level) >= 10 },
+  { key: 'level_25',      name: 'Level 25',        desc: 'Reach level 25.',                           xp: 0,    test: ({ user }) => Number(user.level) >= 25 },
+  { key: 'level_50',      name: 'Half-Century',    desc: 'Reach level 50.',                           xp: 0,    test: ({ user }) => Number(user.level) >= 50 },
+
+  // Streak milestones.
+  { key: 'streak_3',      name: 'Heating Up',      desc: 'Claim a daily bonus for 3 days in a row.',  xp: 500,  test: ({ user }) => Number(user.streak_day) >= 3 },
+  { key: 'streak_7',      name: 'Week Warrior',    desc: '7-day login streak.',                       xp: 1500, test: ({ user }) => Number(user.streak_day) >= 7 },
+  { key: 'streak_30',     name: 'Diehard',         desc: '30-day login streak.',                      xp: 7500, test: ({ user }) => Number(user.streak_day) >= 30 }
 ];
 const ACHIEVEMENT_BY_KEY = Object.fromEntries(ACHIEVEMENTS.map(a => [a.key, a]));
 
