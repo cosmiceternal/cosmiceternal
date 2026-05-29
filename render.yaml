@@ -17,7 +17,7 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /api/me
+    healthCheckPath: /healthz
     envVars:
       # Persistent Postgres connection (data survives restarts/sleep).
       - key: DATABASE_URL
@@ -32,6 +32,21 @@ services:
         value: "1"
       - key: NODE_VERSION
         value: "20"
+      # ----- Optional: live AI dealer banter -----
+      # Set ANTHROPIC_API_KEY in the Render dashboard to enable Claude-driven
+      # AI Dealer lines (falls back to the built-in scripted persona library
+      # when unset). Leave the next line as a sync: false placeholder so Render
+      # surfaces it as a manual-fill env var without overwriting it on deploy.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # ----- Optional: crypto vault processor -----
+      # Default 'playmoney' settles deposits in-app (no real funds). Swap to a
+      # licensed processor (e.g. 'coinpayments', 'nowpayments') after wiring
+      # its webhook to /api/vault/webhook in a follow-up change.
+      - key: VAULT_PROCESSOR
+        value: playmoney
+      - key: DAILY_DEPOSIT_CAP_FUN
+        value: "5000"
 
 # Notes:
 # - Render's FREE plans are perfect for letting friends try it. The free web
