@@ -205,12 +205,13 @@ async function changePassword(req, userId, currentPassword, newPassword) {
   const { rows } = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
   const user = rows[0];
   if (!user) throw httpError(404, 'User not found.');
-  validatePasswordPolicy(newPassword, user.username);
-  // Re-verify the current password to prove the session is the real owner.
+  // Prove session ownership FIRST so a user who fat-fingers their current
+  // password sees that error before being told their new one is too common.
   if (!await checkPassword(user, currentPassword)) {
     logAudit(req, 'auth.password_change_fail', userId, null);
     throw httpError(401, 'Current password is incorrect.');
   }
+  validatePasswordPolicy(newPassword, user.username);
   const hash = await hashPassword(newPassword);
   await db.query('UPDATE users SET pass_hash = ?, pass_salt = ? WHERE id = ?', [hash, '', userId]);
   logAudit(req, 'auth.password_change', userId, null);

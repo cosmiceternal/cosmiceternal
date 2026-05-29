@@ -126,7 +126,7 @@ async function createDeposit(req, userId, { currency, amount }) {
   const depositId = Number(ins.rows[0].id);
   const procResp = await proc.createDeposit({ id: depositId, userId, currency, units, funCents });
   await db.query('UPDATE deposits SET txid = ? WHERE id = ?', [procResp.txid || null, depositId]);
-  await logAudit(req, 'vault.deposit_created', userId, { depositId, currency, units, funCents });
+  logAudit(req, 'vault.deposit_created', userId, { depositId, currency, units, funCents });
 
   return {
     depositId, currency, amount: units, funCredited: funCents / 100,
@@ -160,7 +160,7 @@ async function confirmDeposit(req, userId, { depositId }) {
     await q('UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?', [Number(dep.fun_credited), userId]);
     await q("UPDATE deposits SET status = 'completed' WHERE id = ?", [depositId]);
     const { rows: balRow } = await q('SELECT balance_cents FROM users WHERE id = ?', [userId]);
-    await logAudit(req, 'vault.deposit_completed', userId, { depositId, funCredited: Number(dep.fun_credited) });
+    logAudit(req, 'vault.deposit_completed', userId, { depositId, funCredited: Number(dep.fun_credited) });
     return {
       depositId, status: 'completed',
       funCredited: Number(dep.fun_credited) / 100,
@@ -175,7 +175,7 @@ async function cancelDeposit(req, userId, { depositId }) {
     [depositId, userId]
   );
   if (!r.rowCount) throw httpError(404, 'No pending deposit with that id.');
-  await logAudit(req, 'vault.deposit_cancelled', userId, { depositId });
+  logAudit(req, 'vault.deposit_cancelled', userId, { depositId });
   return { depositId: Number(depositId), status: 'cancelled' };
 }
 
@@ -192,7 +192,18 @@ async function listDeposits(userId, limit = 25) {
   }));
 }
 
+// Throws at startup if VAULT_PROCESSOR points at something this build doesn't
+// know about. Surfaces the typo at deploy instead of on the first user request.
+function validate() {
+  if (!PROCESSORS[PROCESSOR_NAME]) {
+    throw new Error(
+      `Unknown VAULT_PROCESSOR '${PROCESSOR_NAME}'. Available: ${Object.keys(PROCESSORS).join(', ')}.`
+    );
+  }
+}
+
 module.exports = {
   publicSnapshot, createDeposit, confirmDeposit, cancelDeposit, listDeposits,
+  validate,
   CURRENCIES, DEFAULT_CAP_CENTS, MAX_PENDING, isPlaymoney
 };

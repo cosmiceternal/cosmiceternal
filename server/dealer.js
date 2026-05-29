@@ -66,12 +66,12 @@ function cacheSet(key, line) {
   while (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
 }
 
+// Bucket player/dealer totals so similar hands share cache entries. Optional
+// chaining makes the function safe for any ctx (null, undefined, {}, populated).
 function bucketState(ctx) {
-  if (!ctx) return '';
-  // Bucket player/dealer totals so similar hands share cache entries.
   const buckets = [];
-  if (ctx.playerTotal != null) buckets.push('p' + (ctx.playerTotal >= 21 ? 21 : Math.floor(ctx.playerTotal / 3) * 3));
-  if (ctx.dealerTotal != null) buckets.push('d' + (ctx.dealerTotal >= 21 ? 21 : Math.floor(ctx.dealerTotal / 3) * 3));
+  if (ctx?.playerTotal != null) buckets.push('p' + (ctx.playerTotal >= 21 ? 21 : Math.floor(ctx.playerTotal / 3) * 3));
+  if (ctx?.dealerTotal != null) buckets.push('d' + (ctx.dealerTotal >= 21 ? 21 : Math.floor(ctx.dealerTotal / 3) * 3));
   return buckets.join(':');
 }
 

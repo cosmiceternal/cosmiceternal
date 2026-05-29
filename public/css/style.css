@@ -566,7 +566,7 @@ input { font-family: inherit; }
 }
 .crash-multiplier.cashed {
   color: var(--gold);
-  text-shadow: 0 0 30px rgba(245,197,66,0.5);
+  text-shadow: 0 0 30px rgba(255,180,73,0.5);
 }
 @keyframes shake {
   0%,100% { transform: translate(-50%,-60%); }
@@ -599,7 +599,7 @@ input { font-family: inherit; }
 }
 .crash-chip.lo { color: var(--danger); border-color: rgba(255,77,109,0.25); }
 .crash-chip.md { color: var(--teal); border-color: rgba(109,217,184,0.25); }
-.crash-chip.hi { color: var(--gold); border-color: rgba(245,197,66,0.4); }
+.crash-chip.hi { color: var(--gold); border-color: rgba(255,180,73,0.4); }
 
 /* ---------- Mines ---------- */
 .mines-stage {
@@ -908,7 +908,7 @@ input { font-family: inherit; }
 .slots-reels { display: flex; gap: 12px; }
 .slot-reel { width: 96px; height: 110px; border-radius: 12px; background: linear-gradient(180deg, var(--bg-3), var(--bg-2)); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 56px; overflow: hidden; }
 .slot-reel.land { animation: pop 0.3s ease; }
-.slot-reel.win { border-color: var(--gold); box-shadow: 0 0 24px rgba(245,197,66,0.4); }
+.slot-reel.win { border-color: var(--gold); box-shadow: 0 0 24px rgba(255,180,73,0.4); }
 
 /* Diamonds */
 .diamonds-row { display: flex; gap: 10px; }
@@ -919,7 +919,7 @@ input { font-family: inherit; }
 .scratch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: min(320px, 80%); }
 .scratch-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; border-radius: 10px; background: linear-gradient(135deg, #2a3a4a, #1c2733); border: 1px solid var(--line); color: var(--muted); transition: all 0.2s; }
 .scratch-cell.revealed { animation: pop 0.3s ease; }
-.scratch-cell.gold { background: radial-gradient(circle at 30% 30%, rgba(245,197,66,0.5), rgba(245,197,66,0.1)); color: var(--gold); border-color: var(--gold); }
+.scratch-cell.gold { background: radial-gradient(circle at 30% 30%, rgba(255,180,73,0.5), rgba(255,180,73,0.1)); color: var(--gold); border-color: var(--gold); }
 .scratch-cell.blank { color: var(--muted); opacity: 0.5; }
 
 /* Wheel */
@@ -929,7 +929,7 @@ input { font-family: inherit; }
 .wheel-seg { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; border-right: 1px solid var(--bg-1); font-variant-numeric: tabular-nums; }
 .wheel-seg.lo { background: rgba(255,77,109,0.12); color: var(--danger); }
 .wheel-seg.md { background: rgba(109,217,184,0.12); color: var(--teal); }
-.wheel-seg.hi { background: rgba(245,197,66,0.16); color: var(--gold); }
+.wheel-seg.hi { background: rgba(255,180,73,0.16); color: var(--gold); }
 .wheel-pointer { position: absolute; top: calc(50% - 60px); left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 14px solid var(--text); z-index: 3; }
 
 /* Sic Bo + dice */

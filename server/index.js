@@ -267,9 +267,12 @@ app.get('*', (req, res) => res.set('Cache-Control', 'no-cache').sendFile(path.jo
 
 db.init()
   .then(() => {
+    // Fail-fast on misconfigured VAULT_PROCESSOR — surfacing at boot is
+    // friendlier than 500-ing every /api/vault request.
+    vault.validate();
     app.listen(PORT, () => console.log(`Crypt Casino listening on http://localhost:${PORT}`));
   })
   .catch((e) => {
-    console.error('Failed to initialize storage:', e);
+    console.error('Failed to initialize:', e.message);
     process.exit(1);
   });
