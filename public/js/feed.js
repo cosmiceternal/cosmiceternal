@@ -16,8 +16,7 @@
   let pollTimer = null;
 
   function fmtMoney(n) {
-    if (Math.abs(n) >= 10000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (global.Bankroll && Bankroll.fmtCompact) ? Bankroll.fmtCompact(n) : n.toFixed(2);
   }
   function fmtAgo(ts) {
     const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));

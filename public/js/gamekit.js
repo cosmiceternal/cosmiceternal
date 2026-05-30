@@ -58,6 +58,7 @@
     Feed.recordPlayerBet({ game, bet: betAmt, mult, win, payout: res.payout || 0 });
     if (win) Toast.win(`+${Bankroll.fmt((res.payout || 0) - betAmt)} @ ${mult.toFixed(2)}×`);
     else Toast.loss(`−${Bankroll.fmt(betAmt)}`);
+    if (win && mult >= 10 && global.Confetti) Confetti.burst({ count: mult >= 50 ? 140 : 90 });
   }
 
   function cardLabel(rank) { return RANKS[rank] || String(rank); }

@@ -180,8 +180,8 @@
   const leadersModal = document.getElementById('leadersModal');
   let lbMetric = 'xp';
   function fmtLbValue(v, metric) {
-    if (metric === 'biggest') return (+v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (metric === 'xp')      return (+v).toLocaleString();
+    if (metric === 'biggest') return Bankroll.fmtCompact(+v);
+    if (metric === 'xp')      return Bankroll.fmtCompact(+v);
     return v;
   }
   async function loadLeaderboard(metric) {
