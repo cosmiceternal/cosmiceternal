@@ -158,6 +158,9 @@
     const statusEl = container.querySelector('#adStatus');
     const logEl = container.querySelector('#adLog');
     let roundId = null, bet = 0, stake = 0, busy = false, alive = true, inflight = null;
+    let sayGen = 0;       // monotonic counter — defends every .then() callback from being applied after a later say() supersedes it.
+    let portraitLoader = null; // pending Image() preload so unmount can null its onload.
+    playerEl.dataset.cards = '[]'; // initialise so a fast-fired act() can't read undefined.
     GameKit.wireBet(container, betInput);
 
     function showBubble(text, ai) {
@@ -165,9 +168,11 @@
       bubble.textContent = text; bubble.classList.add('show');
       bubble.classList.toggle('ai-live', !!ai);
     }
-    function entryHTML(text, ai) {
+    // Capture dealer-at-the-time-of-say so the entry doesn't get re-coloured if
+    // the player swaps dealers mid-request.
+    function entryHTML(text, ai, who) {
       const pill = ai ? ` <span class="ai-pill">LIVE</span>` : '';
-      return `<span class="ai-who" style="color:${dealer.color}">${dealer.name}</span> ${text}${pill}`;
+      return `<span class="ai-who" style="color:${who.color}">${who.name}</span> ${text}${pill}`;
     }
     // Show a scripted line instantly (no perceived latency), then try the live
     // AI endpoint in the background and silently upgrade if it returns in time.
@@ -175,20 +180,24 @@
       const lines = dealer.lines[key]; if (!lines) return;
       const scripted = fill(pick(lines), vars || {});
       showBubble(scripted, false);
+      const who = dealer;          // freeze persona reference for this entry
+      const myGen = ++sayGen;      // generation token: stale callbacks bail.
       const entry = document.createElement('div');
       entry.className = 'ai-line';
-      entry.innerHTML = entryHTML(scripted, false);
+      entry.innerHTML = entryHTML(scripted, false, who);
       logEl.prepend(entry);
       while (logEl.children.length > 12) logEl.lastChild.remove();
 
       if (inflight) { inflight.abort(); inflight = null; }
       const ac = new AbortController(); inflight = ac;
-      API.dealerLine({ dealer: dealer.id, event: key, ctx: vars || {} }, { signal: ac.signal })
+      API.dealerLine({ dealer: who.id, event: key, ctx: vars || {} }, { signal: ac.signal })
         .then(r => {
-          if (!alive || ac.signal.aborted) return;
+          // Three guards: unmounted, this controller aborted, or a later say()
+          // already superseded us (sayGen has moved on). Any one => bail.
+          if (!alive || ac.signal.aborted || myGen !== sayGen) return;
           if (r && r.line && (r.source === 'ai' || r.source === 'cache')) {
             showBubble(r.line, true);
-            entry.innerHTML = entryHTML(r.line, true);
+            entry.innerHTML = entryHTML(r.line, true, who);
           }
         })
         .catch(() => { /* silently fall back to the scripted line */ })
@@ -197,13 +206,29 @@
     function repaintDealer() {
       picker.value = dealer.id;
       avatar.style.borderColor = dealer.color;
-      const portrait = avatar.querySelector('.ad-portrait');
-      portrait.src = dealer.img; portrait.alt = dealer.name;
       nameEl.style.color = dealer.color;
       nameEl.textContent = dealer.name;
+      // Preload the new portrait before swapping `src`, so the 84px circle never
+      // briefly shows a broken-image placeholder on slow connections / cache miss.
+      const portrait = avatar.querySelector('.ad-portrait');
+      const target = dealer.img;
+      if (portraitLoader) portraitLoader.onload = null;
+      const loader = new Image();
+      portraitLoader = loader;
+      loader.onload = () => {
+        if (!alive || portraitLoader !== loader) return;
+        portrait.src = target;
+        portrait.alt = dealer.name;
+        portraitLoader = null;
+      };
+      loader.onerror = () => { if (portraitLoader === loader) portraitLoader = null; };
+      loader.src = target;
     }
     picker.addEventListener('change', () => {
       if (busy) { picker.value = dealer.id; return; }
+      // Belt and braces — abort any in-flight AI request for the OLD persona
+      // BEFORE we swap so its .then() can never paint under the new dealer.
+      if (inflight) { inflight.abort(); inflight = null; }
       dealer = DEALERS.find(d => d.id === picker.value) || dealer;
       repaintDealer();
       say('greet');
@@ -272,7 +297,11 @@
 
     repaintDealer();
     say('greet');
-    return function () { alive = false; if (inflight) inflight.abort(); };
+    return function () {
+      alive = false;
+      if (inflight) inflight.abort();
+      if (portraitLoader) { portraitLoader.onload = null; portraitLoader = null; }
+    };
   }
   global.Games = global.Games || {};
   global.Games.aidealer = mount;

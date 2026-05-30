@@ -63,7 +63,11 @@ function cacheGet(key) {
 }
 function cacheSet(key, line) {
   cache.set(key, { line, ts: Date.now() });
-  while (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+  while (cache.size > CACHE_MAX) {
+    const oldest = cache.keys().next();
+    if (oldest.done) break; // empty map guard — never infinite-loop on stale stats.
+    cache.delete(oldest.value);
+  }
 }
 
 // Bucket player/dealer totals so similar hands share cache entries. Optional
@@ -112,6 +116,11 @@ async function generate(persona, event, ctx) {
 }
 
 async function line(req, { dealer, event, ctx }) {
+  // Type-check the public-facing strings before they index into PERSONAS /
+  // EVENTS — defends against malformed bodies returning misleading 200s.
+  if (typeof dealer !== 'string' || typeof event !== 'string') {
+    throw httpError(400, 'dealer and event must be strings.');
+  }
   if (!PERSONAS[dealer]) throw httpError(400, 'Unknown dealer.');
   if (!EVENTS.has(event)) throw httpError(400, 'Unknown event.');
   if (!ENABLED) return { line: null, source: 'disabled' };

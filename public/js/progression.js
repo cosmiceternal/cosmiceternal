@@ -224,7 +224,11 @@
   }
 
   function init() {
+    // bindBadge() is itself idempotent now, but we still want to avoid
+    // re-binding the daily-modal button listeners on each call.
     bindBadge();
+    if (inited) { refresh().then(() => maybeShowDaily()); return; }
+    inited = true;
     refresh().then(() => maybeShowDaily());
     const claimBtn = document.getElementById('dailyClaim');
     const skipBtn = document.getElementById('dailySkip');
