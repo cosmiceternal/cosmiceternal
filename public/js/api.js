@@ -73,6 +73,8 @@
     roulette:     (b)      => request('POST', '/api/play/roulette', b),
     diamonds:     (b)      => request('POST', '/api/play/diamonds', b),
     slots:        (b)      => request('POST', '/api/play/slots', b),
+    luckySevens:  (b)      => request('POST', '/api/play/luckysevens', b),
+    cosmicReels:  (b)      => request('POST', '/api/play/cosmic', b),
     sicbo:        (b)      => request('POST', '/api/play/sicbo', b),
     color:        (b)      => request('POST', '/api/play/color', b),
     scratch:      (b)      => request('POST', '/api/play/scratch', b),
