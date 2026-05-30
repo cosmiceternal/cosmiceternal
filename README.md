@@ -119,18 +119,35 @@ are running — great for a quick "check this out," not for permanent hosting.
 
 ### Durable: one-click deploy to Render (free, public link)
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/cosmiceternal/cosmiceternal)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/cosmiceternal/cosmiceternal&branch=claude/casino-games-platform-GcKuO)
 
 Click the button (or Render → **New → Blueprint** on this repo). The included
 [`render.yaml`](render.yaml) provisions a **free PostgreSQL database**, wires it to the web
-service, generates a session secret, and gives you a public URL like
-`https://neonstake.onrender.com` to share — HTTPS included, no domain needed. Because it
-uses Postgres, **accounts and balances persist** across restarts.
+service, generates a session secret, and gives you a public URL — HTTPS included, no
+domain needed. Because it uses Postgres, **accounts and balances persist** across
+restarts.
+
+> The Deploy button targets the `claude/casino-games-platform-GcKuO` branch where the
+> Vault UI + CoinPayments adapter live. Once that branch is merged to `main`, drop the
+> `&branch=…` suffix from the URL.
 
 Heads-up on the free tier: the web service sleeps when idle (first hit takes ~30s to wake),
 and Render's free Postgres has a limited lifetime (they email you before it expires).
 Upgrade either to a paid plan to remove those limits, or point `DATABASE_URL` at a
 [Neon](https://neon.tech) free database for longer-lived storage.
+
+### Other one-click hosts
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/cosmiceternal/cosmiceternal)
+
+- **Railway** — uses the included `Procfile` (`web: npm start`). Add a Postgres
+  plugin from the Railway dashboard; it'll inject `DATABASE_URL` automatically.
+  Set `SESSION_SECRET` and `SECURE_COOKIES=1` in the service's variables.
+- **Fly.io / any container host** — `fly launch` (or `docker run`) using the
+  included `Dockerfile`. Mount a volume at `/data` if you stay on SQLite, or
+  set `DATABASE_URL` for Postgres.
+- **Plain VPS** — `npm install --omit=dev && SESSION_SECRET=$(openssl rand -hex 32) npm start`,
+  put nginx/Caddy in front for TLS. See [Option C](#option-c--your-own-vps) below.
 
 ## Going from demo to live
 
