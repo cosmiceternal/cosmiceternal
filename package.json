@@ -1,7 +1,7 @@
 {
   "name": "crypt-casino",
   "version": "1.0.0",
-  "description": "Crypt Casino — a play-money provably-fair casino (19 games) with accounts and a server-authoritative backend.",
+  "description": "Crypt Casino — a play-money provably-fair casino (29 games) with accounts and a server-authoritative backend.",
   "type": "commonjs",
   "main": "server/index.js",
   "engines": {
@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.0",

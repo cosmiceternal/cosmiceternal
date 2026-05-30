@@ -1170,6 +1170,59 @@ function playCascade(userId, { bet, risk }) {
   });
 }
 
+// ---------------------------------------------------------------- WAR
+// You vs dealer — each gets one card (uniform rank 1..13). Higher rank wins
+// 2x bet, lower loses, tie returns half the bet. RTP ≈ 96.2%.
+function playWar(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 4);
+    const playerRank = 1 + Math.floor(floats[0] * 13);
+    const dealerRank = 1 + Math.floor(floats[1] * 13);
+    const playerSuit = Math.floor(floats[2] * 4);
+    const dealerSuit = Math.floor(floats[3] * 4);
+    let mult = 0, outcome;
+    if (playerRank > dealerRank)      { mult = 2;   outcome = 'win'; }
+    else if (playerRank < dealerRank) { mult = 0;   outcome = 'lose'; }
+    else                              { mult = 0.5; outcome = 'tie'; }
+    const win = mult >= 1;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'war', betCents, mult, payoutCents, win, nonce, detail: { playerRank, dealerRank, outcome } });
+    return {
+      player: { rank: playerRank, suit: playerSuit },
+      dealer: { rank: dealerRank, suit: dealerSuit },
+      outcome, mult, payout: payoutCents / 100,
+      balance: await balanceOf(q, userId) / 100, nonce, serverHash
+    };
+  });
+}
+
+// ---------------------------------------------------------------- PACHINKO
+// 6 rows of pegs, 7 slots at the bottom. Slot probabilities follow a binomial
+// distribution (1/6/15/20/15/6/1 over 64); multipliers are symmetric with a
+// modest 4x jackpot on the outer slots. RTP ≈ 0.95.
+const PACHINKO_ROWS = 6;
+const PACHINKO_SLOTS = [4, 0.4, 0.8, 1.2, 0.8, 0.4, 4];
+function playPachinko(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, PACHINKO_ROWS);
+    // Each row deflects the ball left (0) or right (1); the column count
+    // determines which of the 7 slots the ball lands in.
+    const path = floats.map(f => f < 0.5 ? 0 : 1);
+    const slot = path.reduce((s, b) => s + b, 0);
+    const mult = PACHINKO_SLOTS[slot];
+    const win = mult >= 1;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'pachinko', betCents, mult, payoutCents, win, nonce, detail: { slot, path } });
+    return { path, slot, mult, slots: PACHINKO_SLOTS, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
 // ---------------------------------------------------------------- PENALTY SHOOTOUT (original)
 // Round-based streak. Each round you shoot left/center/right; the keeper (server,
 // pre-drawn) dives to one spot. If it differs from your shot you score and climb;
@@ -1409,6 +1462,7 @@ module.exports = {
   videoPokerStart, videoPokerDraw,
   blackjackStart, blackjackHit, blackjackStand, blackjackDouble,
   playBaccarat, playDragonTiger, playAndarBahar, playCascade,
+  playWar, playPachinko,
   penaltyStart, penaltyShoot, penaltyCashout,
   history, stats, globalFeed, anonName, leaderboard, PLINKO, minesMult,
   WHEEL, TOWERS, PUMP, DIAMOND_PAYS, SLOT_SYMBOLS, SLOT_TRIPLE, SLOT_PAIR_PAY,

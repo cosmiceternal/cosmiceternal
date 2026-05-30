@@ -101,6 +101,8 @@
     dragontiger:  (b)      => request('POST', '/api/play/dragontiger', b),
     andarbahar:   (b)      => request('POST', '/api/play/andarbahar', b),
     cascade:      (b)      => request('POST', '/api/play/cascade', b),
+    war:          (b)      => request('POST', '/api/play/war', b),
+    pachinko:     (b)      => request('POST', '/api/play/pachinko', b),
     penaltyStart:   (b)    => request('POST', '/api/play/penalty/start', b),
     penaltyShoot:   (b)    => request('POST', '/api/play/penalty/shoot', b),
     penaltyCashout: (b)    => request('POST', '/api/play/penalty/cashout', b),

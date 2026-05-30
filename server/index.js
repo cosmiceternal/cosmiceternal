@@ -260,6 +260,8 @@ app.post('/api/play/baccarat',    auth.requireAuth, h((req) => games.playBaccara
 app.post('/api/play/dragontiger', auth.requireAuth, h((req) => games.playDragonTiger(req.user.id, req.body || {})));
 app.post('/api/play/andarbahar',  auth.requireAuth, h((req) => games.playAndarBahar(req.user.id, req.body || {})));
 app.post('/api/play/cascade',     auth.requireAuth, h((req) => games.playCascade(req.user.id, req.body || {})));
+app.post('/api/play/war',         auth.requireAuth, h((req) => games.playWar(req.user.id, req.body || {})));
+app.post('/api/play/pachinko',    auth.requireAuth, h((req) => games.playPachinko(req.user.id, req.body || {})));
 
 app.post('/api/play/penalty/start',   auth.requireAuth, h((req) => games.penaltyStart(req.user.id, req.body || {})));
 app.post('/api/play/penalty/shoot',   auth.requireAuth, h((req) => games.penaltyShoot(req.user.id, req.body || {})));
