@@ -19,18 +19,18 @@ const { httpError, logAudit } = require('./auth');
 // Fixed-rate conversion table. Real processors will quote market rates; the
 // play-money processor uses these as the displayed "exchange rate". `rate` is
 // FUN per currency-unit, so funCents = units * rate * 100. Tuned so the
-// preset chips line up cleanly with the per-day cap (default 5000 FUN).
-//   1 BTC  ->  50,000 FUN   (0.001 BTC = 50 FUN)
-//   1 ETH  ->   3,000 FUN   (0.01 ETH = 30 FUN)
-//   1 USDT ->       1 FUN
-//   1 SOL  ->     150 FUN   (0.1 SOL = 15 FUN)
+// preset chips line up cleanly with the per-day cap (default 5000 CRYPT).
+//   1 BTC  ->  50,000 CRYPT   (0.001 BTC = 50 CRYPT)
+//   1 ETH  ->   3,000 CRYPT   (0.01 ETH = 30 CRYPT)
+//   1 USDT ->       1 CRYPT
+//   1 SOL  ->     150 CRYPT   (0.1 SOL = 15 CRYPT)
 const CURRENCIES = {
   BTC:  { rate: 50_000, decimals: 8, presets: [0.001, 0.005, 0.01, 0.05], min: 0.0005 },
   ETH:  { rate:  3_000, decimals: 6, presets: [0.01, 0.05, 0.1, 0.5],     min: 0.005 },
   USDT: { rate:      1, decimals: 2, presets: [10, 50, 100, 500],         min: 5 },
   SOL:  { rate:    150, decimals: 4, presets: [0.1, 0.5, 1, 5],           min: 0.05 }
 };
-const DEFAULT_CAP_CENTS = Math.round(Number(process.env.DAILY_DEPOSIT_CAP_FUN || 5000) * 100);
+const DEFAULT_CAP_CENTS = Math.round(Number(process.env.DAILY_DEPOSIT_CAP_CRYPT || 5000) * 100);
 const MAX_PENDING = Number(process.env.MAX_PENDING_DEPOSITS || 5);
 
 function fmtCurrency(currency, units) {
@@ -106,7 +106,7 @@ async function createDeposit(req, userId, { currency, amount }) {
   const usedCents = await dailyTotal(userId);
   if (usedCents + funCents > DEFAULT_CAP_CENTS) {
     const remaining = Math.max(0, (DEFAULT_CAP_CENTS - usedCents) / 100);
-    throw httpError(429, `Daily deposit cap reached. Remaining today: ${remaining.toFixed(2)} FUN.`);
+    throw httpError(429, `Daily deposit cap reached. Remaining today: ${remaining.toFixed(2)} CRYPT.`);
   }
   // Limit the number of in-flight pending deposits so a user can't spam orphan rows.
   const { rows: pendingRows } = await db.query(

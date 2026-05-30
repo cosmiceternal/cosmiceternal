@@ -45,7 +45,7 @@ services:
       # its webhook to /api/vault/webhook in a follow-up change.
       - key: VAULT_PROCESSOR
         value: playmoney
-      - key: DAILY_DEPOSIT_CAP_FUN
+      - key: DAILY_DEPOSIT_CAP_CRYPT
         value: "5000"
 
 # Notes:

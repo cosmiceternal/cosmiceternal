@@ -1232,7 +1232,7 @@ const LEADERBOARD_METRICS = {
   xp:      { col: 'xp',                     table: 'users', having: 'xp > 0',                    asc: false, valueLabel: 'XP' },
   level:   { col: 'level',                  table: 'users', having: '1 = 1',                     asc: false, valueLabel: 'Level' },
   wins:    { col: 'wins',                   table: 'bets_wins',                                  asc: false, valueLabel: 'Wins' },
-  biggest: { col: 'biggest_payout_cents',   table: 'bets_biggest',                               asc: false, valueLabel: 'Biggest Payout (FUN)' }
+  biggest: { col: 'biggest_payout_cents',   table: 'bets_biggest',                               asc: false, valueLabel: 'Biggest Payout (CRYPT)' }
 };
 
 async function leaderboard(userId, metric = 'xp', limit = 10) {
@@ -1307,7 +1307,7 @@ async function leaderboard(userId, metric = 'xp', limit = 10) {
      ) t WHERE biggest > ?`, [myBiggest]
   )).rows[0];
   return {
-    metric, label: 'Biggest Single Payout (FUN)',
+    metric, label: 'Biggest Single Payout (CRYPT)',
     top: top.map((r, i) => ({ rank: i + 1, player: anonName(r.username), isYou: Number(r.id) === Number(userId), value: Number(r.biggest) / 100, level: Number(r.level) })),
     you: { rank: Number(above?.n || 0) + 1, value: myBiggest / 100 }
   };

@@ -84,8 +84,8 @@ and similar regulatory work. See the README's warning paragraph.
 ## Crypto vault (backend)
 
 - Ships with a `playmoney` processor that returns plausibly-shaped but fake
-  addresses and txids and credits FUN credits up to a per-day cap (default
-  5000 FUN). The real-money path requires plugging a licensed processor
+  addresses and txids and credits CRYPT credits up to a per-day cap (default
+  5000 CRYPT). The real-money path requires plugging a licensed processor
   (NowPayments, Coinpayments, BTCPayServer…) into the same adapter
   interface — `confirmDeposit` is rejected at runtime when the processor
   isn't `playmoney`, forcing real settlements through verified webhooks.

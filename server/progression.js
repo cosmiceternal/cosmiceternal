@@ -25,9 +25,9 @@ const XP_PER_CENT_WAGERED = 0.1; // $1 wager = 10 XP. Tunable via env.
 const XP_PER_CENT = Number(process.env.XP_PER_CENT_WAGERED || XP_PER_CENT_WAGERED);
 
 // Daily bonus: base + scaling streak bonus, capped. Reset window: 36h.
-const STREAK_BASE_CENTS = Number(process.env.DAILY_BONUS_BASE_FUN || 50) * 100;
-const STREAK_STEP_CENTS = Number(process.env.DAILY_BONUS_STEP_FUN || 5)  * 100;
-const STREAK_CAP_CENTS  = Number(process.env.DAILY_BONUS_CAP_FUN  || 500) * 100;
+const STREAK_BASE_CENTS = Number(process.env.DAILY_BONUS_BASE_CRYPT || 50) * 100;
+const STREAK_STEP_CENTS = Number(process.env.DAILY_BONUS_STEP_CRYPT || 5)  * 100;
+const STREAK_CAP_CENTS  = Number(process.env.DAILY_BONUS_CAP_CRYPT  || 500) * 100;
 const STREAK_WINDOW_MS  = 36 * 60 * 60 * 1000;
 const STREAK_COOLDOWN_MS = 20 * 60 * 60 * 1000; // can claim once per ~day
 
@@ -36,8 +36,8 @@ const STREAK_COOLDOWN_MS = 20 * 60 * 60 * 1000; // can claim once per ~day
 const CASHBACK_RATE_BASE = Number(process.env.CASHBACK_RATE || 0.03);   // 3%
 const CASHBACK_RATE_STEP = Number(process.env.CASHBACK_RATE_PER_LEVEL || 0.002); // +0.2% / level
 const CASHBACK_RATE_CAP  = Number(process.env.CASHBACK_RATE_CAP || 0.10);  // 10%
-const CASHBACK_MIN_CENTS = Number(process.env.CASHBACK_MIN_FUN || 1)  * 100;
-const CASHBACK_MAX_CENTS = Number(process.env.CASHBACK_MAX_FUN || 500) * 100;
+const CASHBACK_MIN_CENTS = Number(process.env.CASHBACK_MIN_CRYPT || 1)  * 100;
+const CASHBACK_MAX_CENTS = Number(process.env.CASHBACK_MAX_CRYPT || 500) * 100;
 const CASHBACK_LOOKBACK_MS = 24 * 60 * 60 * 1000; // fallback window if never claimed
 
 function cumulativeXp(level) { return LEVEL_STEP * (level * (level - 1)) / 2; }
@@ -67,14 +67,14 @@ const ACHIEVEMENTS = [
   // Wagering totals — long-term grind targets.
   { key: 'marathon',      name: 'Marathon',        desc: 'Place 100 bets.',                           xp: 750,  test: ({ totals }) => totals.bets >= 100 },
   { key: 'centurion',     name: 'Centurion',       desc: 'Place 500 bets.',                           xp: 2500, test: ({ totals }) => totals.bets >= 500 },
-  { key: 'high_roller',   name: 'High Roller',     desc: 'Wager 1,000 FUN total.',                    xp: 1000, test: ({ totals }) => totals.wagered_cents >= 100_000 },
-  { key: 'whale',         name: 'Whale',           desc: 'Wager 10,000 FUN total.',                   xp: 3000, test: ({ totals }) => totals.wagered_cents >= 1_000_000 },
-  { key: 'kraken',        name: 'Kraken',          desc: 'Wager 100,000 FUN total.',                  xp: 10000, test: ({ totals }) => totals.wagered_cents >= 10_000_000 },
+  { key: 'high_roller',   name: 'High Roller',     desc: 'Wager 1,000 CRYPT total.',                    xp: 1000, test: ({ totals }) => totals.wagered_cents >= 100_000 },
+  { key: 'whale',         name: 'Whale',           desc: 'Wager 10,000 CRYPT total.',                   xp: 3000, test: ({ totals }) => totals.wagered_cents >= 1_000_000 },
+  { key: 'kraken',        name: 'Kraken',          desc: 'Wager 100,000 CRYPT total.',                  xp: 10000, test: ({ totals }) => totals.wagered_cents >= 10_000_000 },
 
   // Big-payout / big-multiplier moments — sticky highlights.
-  { key: 'big_payout',    name: 'Big Payout',      desc: 'Land a payout of 100+ FUN on one bet.',     xp: 500,  test: ({ bet }) => Number(bet.payout_cents) >= 10_000 },
-  { key: 'mega_payout',   name: 'Mega Payout',     desc: 'Land a payout of 1,000+ FUN on one bet.',   xp: 2000, test: ({ bet }) => Number(bet.payout_cents) >= 100_000 },
-  { key: 'colossal',      name: 'Colossal Win',    desc: 'Land a payout of 10,000+ FUN on one bet.',  xp: 8000, test: ({ bet }) => Number(bet.payout_cents) >= 1_000_000 },
+  { key: 'big_payout',    name: 'Big Payout',      desc: 'Land a payout of 100+ CRYPT on one bet.',     xp: 500,  test: ({ bet }) => Number(bet.payout_cents) >= 10_000 },
+  { key: 'mega_payout',   name: 'Mega Payout',     desc: 'Land a payout of 1,000+ CRYPT on one bet.',   xp: 2000, test: ({ bet }) => Number(bet.payout_cents) >= 100_000 },
+  { key: 'colossal',      name: 'Colossal Win',    desc: 'Land a payout of 10,000+ CRYPT on one bet.',  xp: 8000, test: ({ bet }) => Number(bet.payout_cents) >= 1_000_000 },
   { key: 'multiplier_10', name: 'Double Digits',   desc: 'Hit a 10× or higher multiplier.',           xp: 500,  test: ({ bet }) => Number(bet.mult) >= 10 },
   { key: 'multiplier_50', name: 'Multiplier 50×',  desc: 'Hit a 50× or higher multiplier.',           xp: 1000, test: ({ bet }) => Number(bet.mult) >= 50 },
   { key: 'multiplier_500',name: 'Jackpot Hunter',  desc: 'Hit a 500× or higher multiplier.',          xp: 5000, test: ({ bet }) => Number(bet.mult) >= 500 },
@@ -258,7 +258,7 @@ async function claimDaily(userId) {
       amount: state.amountCents / 100,
       cashback: cashback.amountCents / 100,
       cashbackRatePct: cashback.ratePct,
-      cashbackOnLossFun: cashback.netLossCents / 100,
+      cashbackOnLossCrypt: cashback.netLossCents / 100,
       total: total / 100,
       streakDay: Number(final.streak_day),
       balance: Number(final.balance_cents) / 100,
@@ -291,7 +291,7 @@ async function snapshot(userId) {
       ...daily,
       cashbackCents: cashback.amountCents,
       cashbackRatePct: cashback.ratePct,
-      cashbackOnLossFun: cashback.netLossCents / 100
+      cashbackOnLossCrypt: cashback.netLossCents / 100
     },
     totals: {
       bets: totals.bets,

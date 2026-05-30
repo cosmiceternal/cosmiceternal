@@ -28,7 +28,7 @@
       <div class="game-grid">
         <div class="controls">
           <div class="field">
-            <label>Bet Amount <span class="muted">FUN</span></label>
+            <label>Bet Amount <span class="muted">CRYPT</span></label>
             <div class="bet-row">
               <input id="pBet" type="number" min="0.01" step="0.01" value="1.00" />
               <button class="btn" data-act="half">½</button>

@@ -87,7 +87,7 @@ variables on your host.
 | `ANTHROPIC_API_KEY`       | _(unset)_             | If set, AI Dealer generates live banter via Claude (falls back when unset).|
 | `DEALER_MODEL`            | `claude-haiku-4-5-…`  | Model id for the AI Dealer.                                              |
 | `VAULT_PROCESSOR`         | `playmoney`           | Crypto-vault adapter. Real processors plug in by config.                 |
-| `DAILY_DEPOSIT_CAP_FUN`   | `5000`                | Per-user per-day cap (in FUN) on play-money deposits.                    |
+| `DAILY_DEPOSIT_CAP_CRYPT`   | `5000`                | Per-user per-day cap (in CRYPT) on play-money deposits.                    |
 | `MAX_PENDING_DEPOSITS`    | `5`                   | Per-user limit on in-flight (pending) deposits.                          |
 
 See [`SECURITY.md`](SECURITY.md) for the full security model (argon2id, account
