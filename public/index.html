@@ -78,6 +78,7 @@
           <span class="balance-value" id="balanceValue">0.00</span>
           <span class="balance-unit">CRYPT</span>
         </div>
+        <button class="btn btn-deposit" id="btnDeposit" title="Deposit crypto">Deposit</button>
         <button class="btn btn-ghost" id="btnStats" title="Your stats">Stats</button>
         <button class="btn btn-ghost" id="btnLeaders" title="Leaderboard">🏆</button>
         <button class="btn btn-ghost" id="btnFair" title="Provably Fair">Fair</button>
@@ -198,6 +199,65 @@
     </div>
   </div>
 
+  <!-- Vault / Deposit Modal -->
+  <div class="modal-backdrop hidden" id="vaultModal">
+    <div class="modal vault-modal">
+      <div class="modal-header">
+        <h2>Crypto Vault</h2>
+        <button class="btn btn-ghost" id="vaultClose">✕</button>
+      </div>
+      <div class="modal-body vault-body">
+        <div class="vault-tabs">
+          <button class="vault-tab active" data-vtab="deposit">Deposit</button>
+          <button class="vault-tab" data-vtab="history">History</button>
+        </div>
+        <div class="vault-processor-line muted" id="vaultProcessorLine"></div>
+
+        <div class="vault-pane" id="vaultDepositPane">
+          <div class="vault-currency-row" id="vaultCurrencyRow"></div>
+          <div class="vault-field">
+            <label>Amount <span class="muted" id="vaultCurrencyLabel">BTC</span></label>
+            <input id="vaultAmount" type="number" min="0" step="any" value="0.001" />
+          </div>
+          <div class="vault-preset-row" id="vaultPresetRow"></div>
+          <div class="vault-summary">
+            <span>You'll receive</span>
+            <span class="vault-summary-value" id="vaultFunPreview">0.00 CRYPT</span>
+          </div>
+          <div class="vault-cap muted" id="vaultCapLine"></div>
+          <button class="btn btn-primary btn-block" id="vaultCreate">Create Deposit</button>
+          <p class="muted" id="vaultHint" style="font-size:11px;text-align:center;margin:8px 0 0;"></p>
+
+          <!-- "address shown" state, hidden by default until createDeposit succeeds -->
+          <div class="vault-deposit-state hidden" id="vaultDepositState">
+            <div class="vault-state-amount">
+              <span class="muted">Send</span>
+              <span class="vault-state-units" id="vaultStateUnits">0</span>
+              <span class="vault-state-currency" id="vaultStateCurrency">BTC</span>
+            </div>
+            <div class="vault-address-box">
+              <code id="vaultAddress">…</code>
+              <button class="btn btn-ghost" id="vaultCopy" title="Copy address">Copy</button>
+            </div>
+            <div class="vault-confirm-row">
+              <span class="vault-confirm-label">Confirmations</span>
+              <span class="vault-confirm-value"><span id="vaultConfirmNow">0</span> / <span id="vaultConfirmNeed">3</span></span>
+            </div>
+            <div class="vault-confirm-bar"><div class="vault-confirm-fill" id="vaultConfirmFill"></div></div>
+            <div class="vault-state-buttons">
+              <button class="btn btn-ghost" id="vaultCancel">Cancel</button>
+              <button class="btn btn-primary hidden" id="vaultDone">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="vault-pane hidden" id="vaultHistoryPane">
+          <ul class="vault-history" id="vaultHistoryList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Daily Bonus Modal -->
   <div class="modal-backdrop hidden" id="dailyModal">
     <div class="modal daily-modal">
@@ -282,6 +342,8 @@
   <script src="js/games/penalty.js"></script>
   <script src="js/games/aidealer.js"></script>
   <script src="js/progression.js"></script>
+  <script src="js/vault.js"></script>
+  <script src="js/tour.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

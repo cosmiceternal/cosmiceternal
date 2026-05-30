@@ -107,6 +107,13 @@
     history:    (n)        => request('GET', '/api/history?limit=' + (n || 30)),
     stats:      ()         => request('GET', '/api/stats'),
     globalFeed: (n, mp)    => request('GET', '/api/feed/global?limit=' + (n || 30) + (mp ? '&min_payout_cents=' + mp : '')),
-    leaderboard:(metric, n)=> request('GET', '/api/leaderboard?metric=' + (metric || 'xp') + '&limit=' + (n || 10))
+    leaderboard:(metric, n)=> request('GET', '/api/leaderboard?metric=' + (metric || 'xp') + '&limit=' + (n || 10)),
+
+    // Vault (crypto deposits)
+    vault:           ()     => request('GET',  '/api/vault'),
+    createDeposit:   (b)    => request('POST', '/api/vault/deposit', b),
+    confirmDeposit:  (b)    => request('POST', '/api/vault/confirm', b),
+    cancelDeposit:   (b)    => request('POST', '/api/vault/cancel',  b),
+    listDeposits:    (n)    => request('GET',  '/api/vault/history?limit=' + (n || 25))
   };
 })(window);

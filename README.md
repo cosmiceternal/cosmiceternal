@@ -132,6 +132,36 @@ and Render's free Postgres has a limited lifetime (they email you before it expi
 Upgrade either to a paid plan to remove those limits, or point `DATABASE_URL` at a
 [Neon](https://neon.tech) free database for longer-lived storage.
 
+## Going from demo to live
+
+The demo deploys with `VAULT_PROCESSOR=playmoney` so the deposit flow visually
+works without real money — perfect for showing a friend. To accept real crypto
+deposits later, the wiring is already in place; you just plug in credentials.
+
+1. **Deploy:** Render Blueprint → connect repo → Apply.
+2. **(Optional)** Set `ANTHROPIC_API_KEY` in the Render dashboard for live
+   AI Dealer banter. Without it the dealer falls back to the scripted persona
+   library (still good, just less surprising).
+3. **To accept real crypto deposits via CoinPayments:**
+   1. Create a [CoinPayments](https://www.coinpayments.net/) account.
+      Generate an API key + secret under **Account → API Keys**, and copy
+      your **IPN Secret** (Account Settings → Merchant Settings) and
+      **Merchant ID**.
+   2. In Render → your web service → **Environment**, set:
+      - `COINPAYMENTS_KEY`
+      - `COINPAYMENTS_SECRET`
+      - `COINPAYMENTS_IPN_SECRET`
+      - `COINPAYMENTS_MERCHANT_ID`
+      - `VAULT_PROCESSOR=coinpayments`
+   3. In CoinPayments → Account Settings → set the **IPN URL** to
+      `https://<your-render-url>/api/vault/webhook`.
+   4. Redeploy. The Vault modal now creates real deposits; settlement happens
+      automatically via the IPN webhook (the client polls history every 5s
+      to show the confirmation when it lands).
+4. **Compliance is on you.** Running a real-money casino is regulated.
+   Verify your licence covers the jurisdictions you accept players from
+   and add geo-blocking / KYC / sanctions checks before going live.
+
 ## Deploying to your own domain
 
 It's one Node service that serves both the API and the static front end, so any Node host

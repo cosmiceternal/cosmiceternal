@@ -284,9 +284,28 @@
     // the full snapshot (achievements list + daily state) and pops the bonus
     // modal if today's claim is available.
     if (global.Progression) { Progression.seed(user); Progression.init(); }
+    if (global.Vault) Vault.wire();
 
     authGate.classList.add('hidden');
     appEl.classList.remove('hidden');
+
+    // Onboarding tour for fresh accounts (or ?tour=1 to replay). Waits for the
+    // daily-bonus modal to be gone — otherwise the tour mask intercepts clicks
+    // and traps the user behind it.
+    try {
+      const replay = /[?&]tour=1\b/.test(location.search);
+      const seen = localStorage.getItem('crypt.onboarded');
+      const looksFresh = user && (user.level === 1 || user.level == null) && (!user.xp || user.xp < 50);
+      if (global.Tour && (replay || (!seen && looksFresh))) {
+        const tryStart = (tries = 0) => {
+          const daily = document.getElementById('dailyModal');
+          const blocked = daily && !daily.classList.contains('hidden');
+          if (blocked && tries < 60) return setTimeout(() => tryStart(tries + 1), 250);
+          Tour.start();
+        };
+        setTimeout(tryStart, 600);
+      }
+    } catch (e) {}
 
     let initial = 'crash';
     try { initial = localStorage.getItem('neonstake.lastGame') || 'crash'; } catch (e) {}

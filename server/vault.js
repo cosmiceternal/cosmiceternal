@@ -59,6 +59,82 @@ const PROCESSORS = {
       return { address: fakeAddr, txid: fakeTxid, status: 'pending', confirmsRequired: 3 };
     }
     // NOTE: a real processor would also implement: verifyWebhook(req), settleFromWebhook(payload).
+  },
+
+  // CoinPayments adapter. Set VAULT_PROCESSOR=coinpayments and the four
+  // COINPAYMENTS_* env vars on your host. IPN URL on CoinPayments must point
+  // at https://<your-domain>/api/vault/webhook.
+  coinpayments: {
+    name: 'coinpayments',
+    label: 'CoinPayments',
+    async createDeposit(deposit) {
+      const key    = process.env.COINPAYMENTS_KEY;
+      const secret = process.env.COINPAYMENTS_SECRET;
+      if (!key || !secret) throw new Error('COINPAYMENTS_KEY / COINPAYMENTS_SECRET not configured.');
+      const params = new URLSearchParams({
+        version:    '1',
+        cmd:        'create_transaction',
+        key,
+        amount:     String(deposit.units),
+        currency1:  deposit.currency,
+        currency2:  deposit.currency,
+        buyer_email: deposit.email || `user${deposit.userId}@crypt-casino.local`,
+        item_name:  `CRYPT credit (deposit #${deposit.id})`,
+        custom:     `${deposit.userId}:${deposit.id}`,
+        ipn_url:    process.env.COINPAYMENTS_IPN_URL || ''
+      });
+      const body = params.toString();
+      const hmac = crypto.createHmac('sha512', secret).update(body).digest('hex');
+      const res = await fetch('https://www.coinpayments.net/api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', HMAC: hmac },
+        body
+      });
+      const data = await res.json();
+      if (data.error !== 'ok') throw new Error('CoinPayments: ' + (data.error || 'unknown error'));
+      return {
+        address: data.result.address,
+        txid:    data.result.txn_id,
+        status:  'pending',
+        confirmsRequired: Number(data.result.confirms_needed || 1)
+      };
+    },
+    // Verify the IPN HMAC over the raw request body. Returns the parsed
+    // payload on success, or null on tamper / missing header.
+    verifyWebhook(req) {
+      const ipnSecret = process.env.COINPAYMENTS_IPN_SECRET;
+      if (!ipnSecret) return null;
+      const header = req.headers && req.headers.hmac;
+      if (!header || typeof header !== 'string') return null;
+      const raw = req.rawBody;
+      if (!raw) return null;
+      const expected = crypto.createHmac('sha512', ipnSecret).update(raw).digest('hex');
+      // Length-checked timing-safe compare.
+      const a = Buffer.from(expected, 'utf8');
+      const b = Buffer.from(header, 'utf8');
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+      const payload = Object.fromEntries(new URLSearchParams(raw.toString('utf8')));
+      // Optional belt-and-braces: merchant id check.
+      const merchant = process.env.COINPAYMENTS_MERCHANT_ID;
+      if (merchant && payload.merchant && payload.merchant !== merchant) return null;
+      return payload;
+    },
+    // CoinPayments status code map (https://www.coinpayments.net/merchant-tools-ipn):
+    //   100, 2 = complete; <0 = failed/cancelled; else pending.
+    settleFromWebhook(payload) {
+      const status = Number(payload.status);
+      let nextStatus = 'pending';
+      if (status >= 100 || status === 2) nextStatus = 'completed';
+      else if (status < 0) nextStatus = 'cancelled';
+      const custom = String(payload.custom || '');
+      const [userIdStr, depositIdStr] = custom.split(':');
+      return {
+        userId:    Number(userIdStr) || null,
+        depositId: Number(depositIdStr) || null,
+        status:    nextStatus,
+        txid:      payload.txn_id || null
+      };
+    }
   }
 };
 const PROCESSOR_NAME = process.env.VAULT_PROCESSOR || 'playmoney';
@@ -179,6 +255,37 @@ async function cancelDeposit(req, userId, { depositId }) {
   return { depositId: Number(depositId), status: 'cancelled' };
 }
 
+// Webhook entry point. Verifies the signature via the active processor, then
+// settles the matching deposit atomically inside a tx. Returns
+// { ok: true|false, status?, depositId? }.
+async function handleWebhook(req) {
+  const proc = processor();
+  if (!proc.verifyWebhook || !proc.settleFromWebhook) {
+    return { ok: false, reason: 'processor-not-webhook-capable' };
+  }
+  const payload = proc.verifyWebhook(req);
+  if (!payload) return { ok: false, reason: 'invalid-signature' };
+  const event = proc.settleFromWebhook(payload);
+  if (!event.depositId) return { ok: false, reason: 'no-deposit-id' };
+  return db.tx(async (q) => {
+    const { rows } = await q('SELECT * FROM deposits WHERE id = ? AND user_id = ?', [event.depositId, event.userId]);
+    const dep = rows[0];
+    if (!dep) return { ok: false, reason: 'unknown-deposit' };
+    // Idempotency: already-settled deposits are a no-op (CoinPayments retries
+    // an IPN until it gets a 200, so duplicates are normal).
+    if (dep.status !== 'pending') return { ok: true, status: dep.status, depositId: dep.id };
+    if (event.status === 'completed') {
+      await q('UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?', [Number(dep.fun_credited), dep.user_id]);
+      await q("UPDATE deposits SET status = 'completed', txid = COALESCE(?, txid) WHERE id = ?", [event.txid, dep.id]);
+      logAudit(req, 'vault.deposit_completed', dep.user_id, { depositId: dep.id, funCredited: Number(dep.fun_credited), via: 'webhook' });
+    } else if (event.status === 'cancelled') {
+      await q("UPDATE deposits SET status = 'cancelled' WHERE id = ?", [dep.id]);
+      logAudit(req, 'vault.deposit_cancelled', dep.user_id, { depositId: dep.id, via: 'webhook' });
+    }
+    return { ok: true, status: event.status, depositId: dep.id };
+  });
+}
+
 async function listDeposits(userId, limit = 25) {
   limit = Math.max(1, Math.min(100, Number(limit) || 25));
   const { rows } = await db.query(
@@ -204,6 +311,6 @@ function validate() {
 
 module.exports = {
   publicSnapshot, createDeposit, confirmDeposit, cancelDeposit, listDeposits,
-  validate,
+  handleWebhook, validate,
   CURRENCIES, DEFAULT_CAP_CENTS, MAX_PENDING, isPlaymoney
 };
