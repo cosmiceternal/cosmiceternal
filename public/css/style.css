@@ -97,6 +97,14 @@ input { font-family: inherit; }
   overflow-x: auto;
   scrollbar-width: none;
   padding: 0 2px;
+  /* Soft fade at both edges — tells the user the strip scrolls without
+   * needing a visible scrollbar. */
+  mask-image: linear-gradient(to right,
+    transparent 0, black 18px,
+    black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right,
+    transparent 0, black 18px,
+    black calc(100% - 28px), transparent 100%);
 }
 .game-tabs::-webkit-scrollbar { display: none; }
 .tab { white-space: nowrap; }
@@ -1099,8 +1107,37 @@ input { font-family: inherit; }
   display: flex; flex-direction: column; gap: 18px;
 }
 .ad-side { display: flex; flex-direction: column; gap: 8px; align-items: center; }
-.ad-picker { background: var(--bg-3); border: 1px solid var(--line); color: var(--text); padding: 9px 10px; border-radius: 8px; font-size: 13px; outline: none; cursor: pointer; }
-.ad-picker:focus { border-color: var(--accent); }
+/* Dealer picker — chip row with portrait + name + bio. */
+.ad-picker-chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.ad-picker-chips.locked { opacity: 0.55; pointer-events: none; }
+.ad-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-3); border: 1px solid var(--line);
+  border-radius: 10px; padding: 6px 8px;
+  color: var(--text); text-align: left; cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+  min-width: 0;
+}
+.ad-chip:hover { border-color: var(--chip-accent, var(--accent)); transform: translateY(-1px); }
+.ad-chip.active {
+  border-color: var(--chip-accent, var(--accent));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--chip-accent, var(--accent)) 18%, var(--bg-3)) 0%, var(--bg-3) 100%);
+  box-shadow: 0 0 0 1px var(--chip-accent, var(--accent)),
+              0 6px 18px -6px color-mix(in srgb, var(--chip-accent, var(--accent)) 60%, transparent);
+}
+.ad-chip-portrait {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--chip-accent, var(--line));
+  background: var(--bg-2); flex-shrink: 0;
+  object-fit: cover;
+}
+.ad-chip-body { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+.ad-chip-name { font-weight: 700; font-size: 12px; }
+.ad-chip-bio  { color: var(--muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ai-note { font-size: 10px; line-height: 1.5; color: var(--muted); background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 4px; }
 .ai-note b { color: var(--text); }
 .ad-log { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; max-height: 160px; overflow-y: auto; }
