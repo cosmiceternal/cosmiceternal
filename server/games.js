@@ -294,7 +294,11 @@ async function recordBet(q, userId, b) {
       store.progress.newLevel = delta.newLevel;
       store.progress.unlocked.push(...delta.unlocked);
     }
-  } catch (_) { /* progression failures must never break a settled bet */ }
+  } catch (e) {
+    // Progression failures must never break a settled bet, but they must not
+    // be silent either — ops won't notice achievements quietly going away.
+    console.error('progression.awardForBet failed for user', userId, b.game, e);
+  }
 }
 
 // ---------------------------------------------------------------- DICE

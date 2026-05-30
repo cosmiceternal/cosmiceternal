@@ -7,7 +7,7 @@
   'use strict';
 
   let modal, snap, selectedCurrency = 'BTC';
-  let pollTimer = null, pendingDepositId = null, pendingCurrency = null;
+  let pollTimer = null, animTimer = null, pendingDepositId = null, pendingCurrency = null;
   let confirmsRequired = 3, confirmsNow = 0;
 
   const $ = (id) => document.getElementById(id);
@@ -165,13 +165,14 @@
   function animatePlaymoneyConfirms(res) {
     const stepMs = 700;
     let step = 0;
-    const tick = setInterval(() => {
+    if (animTimer) clearInterval(animTimer);
+    animTimer = setInterval(() => {
       step++;
       confirmsNow = Math.min(step, confirmsRequired);
       $('vaultConfirmNow').textContent = confirmsNow;
       $('vaultConfirmFill').style.width = (confirmsNow / confirmsRequired * 100) + '%';
       if (confirmsNow >= confirmsRequired) {
-        clearInterval(tick);
+        clearInterval(animTimer); animTimer = null;
         settlePlaymoney(res);
       }
     }, stepMs);
@@ -223,6 +224,7 @@
   }
   function stopPolling() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (animTimer) { clearInterval(animTimer); animTimer = null; }
   }
 
   async function cancel() {

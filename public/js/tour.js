@@ -41,7 +41,11 @@
     card = overlay.querySelector('#tourCard');
     overlay.querySelector('#tourSkip').addEventListener('click', finish);
     overlay.querySelector('#tourNext').addEventListener('click', next);
-    window.addEventListener('resize', () => { if (!overlay.classList.contains('hidden')) renderStep(); });
+    const reposition = () => { if (!overlay.classList.contains('hidden')) renderStep(); };
+    window.addEventListener('resize', reposition);
+    // Scroll listener — without this the hole/card freeze in viewport coords
+    // while the targeted element scrolls away, leaving a dark mask over nothing.
+    window.addEventListener('scroll', reposition, true);
   }
 
   function start() {

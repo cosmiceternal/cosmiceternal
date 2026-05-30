@@ -238,7 +238,9 @@
       return;
     }
     // Space / Enter trigger the primary action of the currently mounted game,
-    // or claim the daily bonus if its modal is up. Instant gratification.
+    // or claim the daily bonus if its modal is up. Scoped to focus inside the
+    // game pane / on a button — otherwise tapping Space to scroll the page or
+    // Enter while reading the feed would fire an unintended wager.
     if (!isFormField && (e.key === ' ' || e.key === 'Enter')) {
       const daily = document.getElementById('dailyModal');
       if (daily && !daily.classList.contains('hidden')) {
@@ -247,6 +249,18 @@
         if (claim && !claim.disabled) claim.click();
         return;
       }
+      // Bail if any other modal is open (vault, leaders, fair, tour) — the
+      // user isn't trying to wager.
+      const blocking = ['vaultModal', 'leadersModal', 'fairModal', 'statsModal']
+        .some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
+      const tour = document.getElementById('tourOverlay');
+      if (blocking || (tour && !tour.classList.contains('hidden'))) return;
+      // Only fire when focus is actually inside the game pane or on a button —
+      // pressing Space on document.body should still scroll, not place a bet.
+      const focused = document.activeElement;
+      const gamePane = document.getElementById('gamePane');
+      const inGame = focused && (focused.tagName === 'BUTTON' || (gamePane && gamePane.contains(focused)));
+      if (!inGame) return;
       const primary = document.querySelector('#gamePane .btn-primary:not([disabled])');
       if (primary) {
         e.preventDefault();

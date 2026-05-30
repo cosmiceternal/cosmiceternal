@@ -18,7 +18,7 @@ const { httpError, logAudit } = require('./auth');
 
 // Fixed-rate conversion table. Real processors will quote market rates; the
 // play-money processor uses these as the displayed "exchange rate". `rate` is
-// FUN per currency-unit, so funCents = units * rate * 100. Tuned so the
+// CRYPT per currency-unit, so funCents = units * rate * 100. Tuned so the
 // preset chips line up cleanly with the per-day cap (default 5000 CRYPT).
 //   1 BTC  ->  50,000 CRYPT   (0.001 BTC = 50 CRYPT)
 //   1 ETH  ->   3,000 CRYPT   (0.01 ETH = 30 CRYPT)
@@ -30,7 +30,11 @@ const CURRENCIES = {
   USDT: { rate:      1, decimals: 2, presets: [10, 50, 100, 500],         min: 5 },
   SOL:  { rate:    150, decimals: 4, presets: [0.1, 0.5, 1, 5],           min: 0.05 }
 };
-const DEFAULT_CAP_CENTS = Math.round(Number(process.env.DAILY_DEPOSIT_CAP_CRYPT || 5000) * 100);
+// Read CRYPT first, fall back to the pre-rename FUN name so operators who set
+// the old var don't silently revert to the 5000 default on the next deploy.
+const DEFAULT_CAP_CENTS = Math.round(
+  Number(process.env.DAILY_DEPOSIT_CAP_CRYPT || process.env.DAILY_DEPOSIT_CAP_FUN || 5000) * 100
+);
 const MAX_PENDING = Number(process.env.MAX_PENDING_DEPOSITS || 5);
 
 function fmtCurrency(currency, units) {
@@ -175,7 +179,7 @@ async function createDeposit(req, userId, { currency, amount }) {
   if (!isFinite(units) || units <= 0) throw httpError(400, 'Invalid amount.');
   if (units < cfg.min) throw httpError(400, `Minimum ${currency} deposit is ${fmtCurrency(currency, cfg.min)}.`);
   const funCents = Math.round(units * cfg.rate * 100);
-  if (funCents <= 0) throw httpError(400, 'Amount too small to credit any FUN.');
+  if (funCents <= 0) throw httpError(400, 'Amount too small to credit any CRYPT.');
 
   // Daily cap (applied across all completed deposits today + this in-flight one).
   // dailyTotal() returns cents — same units as DEFAULT_CAP_CENTS and funCents.
@@ -233,8 +237,13 @@ async function confirmDeposit(req, userId, { depositId }) {
       await q("UPDATE deposits SET status = 'cancelled' WHERE id = ?", [depositId]);
       throw httpError(429, 'Daily cap would be exceeded by this deposit.');
     }
+    // Conditional update FIRST so two concurrent confirms can't both pass.
+    // Postgres default READ COMMITTED can let two SELECTs both see 'pending';
+    // the row-locking UPDATE here is what serializes them. The second one
+    // updates 0 rows and we abort before crediting.
+    const upd = await q("UPDATE deposits SET status = 'completed' WHERE id = ? AND status = 'pending'", [depositId]);
+    if (!upd.rowCount) throw httpError(409, 'Deposit already settled.');
     await q('UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?', [Number(dep.fun_credited), userId]);
-    await q("UPDATE deposits SET status = 'completed' WHERE id = ?", [depositId]);
     const { rows: balRow } = await q('SELECT balance_cents FROM users WHERE id = ?', [userId]);
     logAudit(req, 'vault.deposit_completed', userId, { depositId, funCredited: Number(dep.fun_credited) });
     return {
@@ -275,11 +284,18 @@ async function handleWebhook(req) {
     // an IPN until it gets a 200, so duplicates are normal).
     if (dep.status !== 'pending') return { ok: true, status: dep.status, depositId: dep.id };
     if (event.status === 'completed') {
+      // Conditional update FIRST — IPN retries can deliver the same payload in
+      // parallel; only the row-update that actually flipped pending→completed
+      // is allowed to credit the balance.
+      const upd = await q(
+        "UPDATE deposits SET status = 'completed', txid = COALESCE(?, txid) WHERE id = ? AND status = 'pending'",
+        [event.txid, dep.id]
+      );
+      if (!upd.rowCount) return { ok: true, status: 'completed', depositId: dep.id, dedup: true };
       await q('UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?', [Number(dep.fun_credited), dep.user_id]);
-      await q("UPDATE deposits SET status = 'completed', txid = COALESCE(?, txid) WHERE id = ?", [event.txid, dep.id]);
       logAudit(req, 'vault.deposit_completed', dep.user_id, { depositId: dep.id, funCredited: Number(dep.fun_credited), via: 'webhook' });
     } else if (event.status === 'cancelled') {
-      await q("UPDATE deposits SET status = 'cancelled' WHERE id = ?", [dep.id]);
+      await q("UPDATE deposits SET status = 'cancelled' WHERE id = ? AND status = 'pending'", [dep.id]);
       logAudit(req, 'vault.deposit_cancelled', dep.user_id, { depositId: dep.id, via: 'webhook' });
     }
     return { ok: true, status: event.status, depositId: dep.id };

@@ -77,7 +77,13 @@ const authLimiter = limiter(
   Number(process.env.RATE_AUTH_WINDOW_MS) || 900_000,
   Number(process.env.RATE_AUTH_MAX) || 40
 );
-app.use('/api', apiLimiter);
+// Per-IP rate limit on /api — except the CoinPayments IPN webhook, which is
+// delivered from a small set of gateway IPs and would otherwise eat the budget
+// during a retry storm and silently drop confirmations.
+app.use('/api', (req, res, next) => {
+  if (req.path === '/vault/webhook') return next();
+  return apiLimiter(req, res, next);
+});
 app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
 
 // Lightweight health check for uptime monitors (must be before CSRF; GET only).
