@@ -119,17 +119,13 @@ are running — great for a quick "check this out," not for permanent hosting.
 
 ### Durable: one-click deploy to Render (free, public link)
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/cosmiceternal/cosmiceternal&branch=claude/casino-games-platform-GcKuO)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/cosmiceternal/cosmiceternal)
 
 Click the button (or Render → **New → Blueprint** on this repo). The included
 [`render.yaml`](render.yaml) provisions a **free PostgreSQL database**, wires it to the web
 service, generates a session secret, and gives you a public URL — HTTPS included, no
 domain needed. Because it uses Postgres, **accounts and balances persist** across
 restarts.
-
-> The Deploy button targets the `claude/casino-games-platform-GcKuO` branch where the
-> Vault UI + CoinPayments adapter live. Once that branch is merged to `main`, drop the
-> `&branch=…` suffix from the URL.
 
 Heads-up on the free tier: the web service sleeps when idle (first hit takes ~30s to wake),
 and Render's free Postgres has a limited lifetime (they email you before it expires).
