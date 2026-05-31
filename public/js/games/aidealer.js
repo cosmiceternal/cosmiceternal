@@ -106,9 +106,16 @@
       ${GameKit.betRow('adBet')}
       <div class="field">
         <label>Your Dealer</label>
-        <select id="adPicker" class="ad-picker">
-          ${DEALERS.map(d => `<option value="${d.id}">${d.name} — ${d.bio}</option>`).join('')}
-        </select>
+        <div class="ad-picker-chips" id="adPicker">
+          ${DEALERS.map(d => `
+            <button type="button" class="ad-chip" data-dealer="${d.id}" style="--chip-accent:${d.color}">
+              <img class="ad-chip-portrait" src="${d.img}" alt="${d.name}" />
+              <span class="ad-chip-body">
+                <span class="ad-chip-name">${d.name}</span>
+                <span class="ad-chip-bio">${d.bio}</span>
+              </span>
+            </button>`).join('')}
+        </div>
       </div>
       <div class="divider"></div>
       <button class="btn btn-primary btn-block" id="adDeal">Deal</button>
@@ -143,6 +150,12 @@
 
     const betInput = container.querySelector('#adBet');
     const picker = container.querySelector('#adPicker');
+    // Custom picker API so the rest of this file reads like a native form
+    // control: setValue(id), setDisabled(bool), on('change', fn).
+    const chips = () => picker.querySelectorAll('.ad-chip');
+    picker.setValue = (id) => chips().forEach(c => c.classList.toggle('active', c.dataset.dealer === id));
+    picker.setDisabled = (b) => { picker.classList.toggle('locked', !!b); chips().forEach(c => c.disabled = !!b); };
+    picker.getValue = () => (picker.querySelector('.ad-chip.active') || {}).dataset?.dealer;
     const deal = container.querySelector('#adDeal');
     const actions = container.querySelector('#adActions');
     const hitBtn = container.querySelector('#adHit');
@@ -204,7 +217,7 @@
         .finally(() => { if (inflight === ac) inflight = null; });
     }
     function repaintDealer() {
-      picker.value = dealer.id;
+      picker.setValue(dealer.id);
       avatar.style.borderColor = dealer.color;
       nameEl.style.color = dealer.color;
       nameEl.textContent = dealer.name;
@@ -224,12 +237,16 @@
       loader.onerror = () => { if (portraitLoader === loader) portraitLoader = null; };
       loader.src = target;
     }
-    picker.addEventListener('change', () => {
-      if (busy) { picker.value = dealer.id; return; }
-      // Belt and braces — abort any in-flight AI request for the OLD persona
-      // BEFORE we swap so its .then() can never paint under the new dealer.
+    picker.addEventListener('click', (e) => {
+      const chip = e.target.closest('.ad-chip');
+      if (!chip || chip.disabled) return;
+      const id = chip.dataset.dealer;
+      if (id === dealer.id) return;
+      if (busy) return;
+      // Abort any in-flight AI request for the OLD persona BEFORE we swap
+      // so its .then() can never paint under the new dealer's name.
       if (inflight) { inflight.abort(); inflight = null; }
-      dealer = DEALERS.find(d => d.id === picker.value) || dealer;
+      dealer = DEALERS.find(d => d.id === id) || dealer;
       repaintDealer();
       say('greet');
     });
@@ -243,7 +260,7 @@
 
     function finish(res, outcome) {
       roundId = null; busy = false;
-      actions.classList.add('hidden'); deal.classList.remove('hidden'); deal.disabled = false; betInput.disabled = false; picker.disabled = false;
+      actions.classList.add('hidden'); deal.classList.remove('hidden'); deal.disabled = false; betInput.disabled = false; picker.setDisabled(false);
       const t = value(res.player);
       say(outcomeKey(outcome), { t: outcome === 'dealer_bust' ? value(res.dealer) : t });
       const win = res.payout > stake + 1e-9, push = Math.abs(res.payout - stake) < 1e-9;
@@ -260,7 +277,7 @@
       if (busy || roundId) return;
       bet = GameKit.bet(betInput);
       if (bet == null) return;
-      busy = true; deal.disabled = true; picker.disabled = true;
+      busy = true; deal.disabled = true; picker.setDisabled(true);
       say('deal');
       try {
         const res = await API.bjStart({ bet });
@@ -272,7 +289,7 @@
         deal.classList.add('hidden'); showActions(res.canDouble);
         statusEl.textContent = `You have ${res.total} — your move`;
         busy = false;
-      } catch (e) { Toast.error(e.message); busy = false; deal.disabled = false; picker.disabled = false; }
+      } catch (e) { Toast.error(e.message); busy = false; deal.disabled = false; picker.setDisabled(false); }
     }
     async function act(fn, sayKey) {
       if (busy || !roundId) return;

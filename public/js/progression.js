@@ -180,7 +180,7 @@
       modal.querySelector('#dailyBonusLine').textContent    = fmt(d.amountCents);
       modal.querySelector('#dailyCashbackLine').textContent = '+ ' + fmt(d.cashbackCents);
       modal.querySelector('#dailyTotalLine').textContent    = fmt(totalCents);
-      modal.querySelector('#dailyCbRate').textContent       = `(${(d.cashbackRatePct || 0).toFixed(1)}% of ${d.cashbackOnLossFun.toFixed(2)} FUN lost)`;
+      modal.querySelector('#dailyCbRate').textContent       = `(${(d.cashbackRatePct || 0).toFixed(1)}% of ${d.cashbackOnLossCrypt.toFixed(2)} CRYPT lost)`;
       cb.classList.remove('hidden');
     } else {
       cb.classList.add('hidden');
@@ -211,7 +211,7 @@
       }
       if (global.Toast) {
         const total = (r.amount || 0) + (r.cashback || 0);
-        const bits = [`+${total.toLocaleString(undefined, { minimumFractionDigits: 2 })} FUN`, `Day ${r.streakDay} streak 🔥`];
+        const bits = [`+${total.toLocaleString(undefined, { minimumFractionDigits: 2 })} CRYPT`, `Day ${r.streakDay} streak 🔥`];
         if (r.cashback > 0) bits.splice(1, 0, `(${r.amount.toFixed(2)} bonus + ${r.cashback.toFixed(2)} cashback)`);
         Toast.win(bits.join(' — '));
       }

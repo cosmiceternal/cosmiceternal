@@ -11,6 +11,17 @@
     return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  // Compact form for dense rows (feed, leaderboard). Full precision under 10k,
+  // K above 10k, M above 1M. Negative numbers keep their sign.
+  function fmtCompact(n) {
+    if (typeof n !== 'number' || !isFinite(n)) return '0';
+    const abs = Math.abs(n), sign = n < 0 ? '-' : '';
+    if (abs < 10_000) return sign + abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (abs < 1_000_000) return sign + (abs / 1_000).toFixed(abs < 100_000 ? 2 : 1) + 'K';
+    if (abs < 1_000_000_000) return sign + (abs / 1_000_000).toFixed(2) + 'M';
+    return sign + (abs / 1_000_000_000).toFixed(2) + 'B';
+  }
+
   function get() { return balance; }
 
   // Called with the authoritative balance from any server response.
@@ -50,5 +61,5 @@
     });
   }
 
-  global.Bankroll = { get, set, canAfford, subscribe, bindElement, fmt };
+  global.Bankroll = { get, set, canAfford, subscribe, bindElement, fmt, fmtCompact };
 })(window);

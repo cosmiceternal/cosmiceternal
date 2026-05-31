@@ -45,39 +45,44 @@
         <span class="brand-name">CRYPT<span class="accent"> CASINO</span></span>
       </div>
       <nav class="game-tabs" id="gameTabs">
-        <button class="tab active" data-game="crash">Crash</button>
-        <button class="tab" data-game="aidealer">🎰 AI Dealer</button>
-        <button class="tab" data-game="mines">Mines</button>
-        <button class="tab" data-game="towers">Towers</button>
-        <button class="tab" data-game="pump">Pump</button>
-        <button class="tab" data-game="penalty">Penalty</button>
-        <button class="tab" data-game="cascade">Cascade</button>
-        <button class="tab" data-game="limbo">Limbo</button>
-        <button class="tab" data-game="plinko">Plinko</button>
-        <button class="tab" data-game="dice">Dice</button>
-        <button class="tab" data-game="hilo">Hi-Lo</button>
-        <button class="tab" data-game="blackjack">Blackjack</button>
-        <button class="tab" data-game="videopoker">Video Poker</button>
-        <button class="tab" data-game="baccarat">Baccarat</button>
-        <button class="tab" data-game="dragontiger">Dragon Tiger</button>
-        <button class="tab" data-game="andarbahar">Andar Bahar</button>
-        <button class="tab" data-game="wheel">Wheel</button>
-        <button class="tab" data-game="roulette">Roulette</button>
-        <button class="tab" data-game="keno">Keno</button>
-        <button class="tab" data-game="sicbo">Sic Bo</button>
-        <button class="tab" data-game="diamonds">Diamonds</button>
-        <button class="tab" data-game="slots">Slots</button>
-        <button class="tab" data-game="coin">Coin Flip</button>
-        <button class="tab" data-game="scratch">Scratch</button>
-        <button class="tab" data-game="color">Color</button>
+        <button class="tab active" data-game="crash"><span class="tab-icon">📈</span>Crash</button>
+        <button class="tab" data-game="aidealer"><span class="tab-icon">🎰</span>AI Dealer</button>
+        <button class="tab" data-game="mines"><span class="tab-icon">💣</span>Mines</button>
+        <button class="tab" data-game="towers"><span class="tab-icon">🏗️</span>Towers</button>
+        <button class="tab" data-game="pump"><span class="tab-icon">⛽</span>Pump</button>
+        <button class="tab" data-game="penalty"><span class="tab-icon">⚽</span>Penalty</button>
+        <button class="tab" data-game="cascade"><span class="tab-icon">🔥</span>Cascade</button>
+        <button class="tab" data-game="limbo"><span class="tab-icon">🚀</span>Limbo</button>
+        <button class="tab" data-game="plinko"><span class="tab-icon">🎯</span>Plinko</button>
+        <button class="tab" data-game="pachinko"><span class="tab-icon">📍</span>Pachinko</button>
+        <button class="tab" data-game="dice"><span class="tab-icon">🎲</span>Dice</button>
+        <button class="tab" data-game="hilo"><span class="tab-icon">↕️</span>Hi-Lo</button>
+        <button class="tab" data-game="blackjack"><span class="tab-icon">🃏</span>Blackjack</button>
+        <button class="tab" data-game="war"><span class="tab-icon">⚔️</span>War</button>
+        <button class="tab" data-game="videopoker"><span class="tab-icon">♠️</span>Video Poker</button>
+        <button class="tab" data-game="baccarat"><span class="tab-icon">🎴</span>Baccarat</button>
+        <button class="tab" data-game="dragontiger"><span class="tab-icon">🐲</span>Dragon Tiger</button>
+        <button class="tab" data-game="andarbahar"><span class="tab-icon">🪷</span>Andar Bahar</button>
+        <button class="tab" data-game="wheel"><span class="tab-icon">🎡</span>Wheel</button>
+        <button class="tab" data-game="roulette"><span class="tab-icon">⚪</span>Roulette</button>
+        <button class="tab" data-game="keno"><span class="tab-icon">🔢</span>Keno</button>
+        <button class="tab" data-game="sicbo"><span class="tab-icon">🎲</span>Sic Bo</button>
+        <button class="tab" data-game="diamonds"><span class="tab-icon">💎</span>Diamonds</button>
+        <button class="tab" data-game="slots"><span class="tab-icon">🍒</span>Slots</button>
+        <button class="tab" data-game="luckysevens"><span class="tab-icon">7️⃣</span>Lucky Sevens</button>
+        <button class="tab" data-game="cosmic"><span class="tab-icon">🌌</span>Cosmic Reels</button>
+        <button class="tab" data-game="coin"><span class="tab-icon">🪙</span>Coin Flip</button>
+        <button class="tab" data-game="scratch"><span class="tab-icon">🎫</span>Scratch</button>
+        <button class="tab" data-game="color"><span class="tab-icon">🎨</span>Color</button>
       </nav>
       <div class="wallet">
         <div class="level-badge" id="lvlBadge" title="Level"></div>
         <div class="balance">
           <span class="balance-label">Balance</span>
           <span class="balance-value" id="balanceValue">0.00</span>
-          <span class="balance-unit">FUN</span>
+          <span class="balance-unit">CRYPT</span>
         </div>
+        <button class="btn btn-deposit" id="btnDeposit" title="Deposit crypto">Deposit</button>
         <button class="btn btn-ghost" id="btnStats" title="Your stats">Stats</button>
         <button class="btn btn-ghost" id="btnLeaders" title="Leaderboard">🏆</button>
         <button class="btn btn-ghost" id="btnFair" title="Provably Fair">Fair</button>
@@ -198,6 +203,65 @@
     </div>
   </div>
 
+  <!-- Vault / Deposit Modal -->
+  <div class="modal-backdrop hidden" id="vaultModal">
+    <div class="modal vault-modal">
+      <div class="modal-header">
+        <h2>Crypto Vault</h2>
+        <button class="btn btn-ghost" id="vaultClose">✕</button>
+      </div>
+      <div class="modal-body vault-body">
+        <div class="vault-tabs">
+          <button class="vault-tab active" data-vtab="deposit">Deposit</button>
+          <button class="vault-tab" data-vtab="history">History</button>
+        </div>
+        <div class="vault-processor-line muted" id="vaultProcessorLine"></div>
+
+        <div class="vault-pane" id="vaultDepositPane">
+          <div class="vault-currency-row" id="vaultCurrencyRow"></div>
+          <div class="vault-field">
+            <label>Amount <span class="muted" id="vaultCurrencyLabel">BTC</span></label>
+            <input id="vaultAmount" type="number" min="0" step="any" value="0.001" />
+          </div>
+          <div class="vault-preset-row" id="vaultPresetRow"></div>
+          <div class="vault-summary">
+            <span>You'll receive</span>
+            <span class="vault-summary-value" id="vaultFunPreview">0.00 CRYPT</span>
+          </div>
+          <div class="vault-cap muted" id="vaultCapLine"></div>
+          <button class="btn btn-primary btn-block" id="vaultCreate">Create Deposit</button>
+          <p class="muted" id="vaultHint" style="font-size:11px;text-align:center;margin:8px 0 0;"></p>
+
+          <!-- "address shown" state, hidden by default until createDeposit succeeds -->
+          <div class="vault-deposit-state hidden" id="vaultDepositState">
+            <div class="vault-state-amount">
+              <span class="muted">Send</span>
+              <span class="vault-state-units" id="vaultStateUnits">0</span>
+              <span class="vault-state-currency" id="vaultStateCurrency">BTC</span>
+            </div>
+            <div class="vault-address-box">
+              <code id="vaultAddress">…</code>
+              <button class="btn btn-ghost" id="vaultCopy" title="Copy address">Copy</button>
+            </div>
+            <div class="vault-confirm-row">
+              <span class="vault-confirm-label">Confirmations</span>
+              <span class="vault-confirm-value"><span id="vaultConfirmNow">0</span> / <span id="vaultConfirmNeed">3</span></span>
+            </div>
+            <div class="vault-confirm-bar"><div class="vault-confirm-fill" id="vaultConfirmFill"></div></div>
+            <div class="vault-state-buttons">
+              <button class="btn btn-ghost" id="vaultCancel">Cancel</button>
+              <button class="btn btn-primary hidden" id="vaultDone">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="vault-pane hidden" id="vaultHistoryPane">
+          <ul class="vault-history" id="vaultHistoryList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Daily Bonus Modal -->
   <div class="modal-backdrop hidden" id="dailyModal">
     <div class="modal daily-modal">
@@ -209,7 +273,7 @@
         <div class="daily-prize">
           <div class="daily-coin">✦</div>
           <div class="daily-amount-wrap">
-            <span class="daily-amount-label">FUN</span>
+            <span class="daily-amount-label">CRYPT</span>
             <span class="daily-amount" id="dailyAmount">0</span>
           </div>
         </div>
@@ -254,6 +318,7 @@
   <script src="js/fair.js"></script>
   <script src="js/bankroll.js"></script>
   <script src="js/feed.js"></script>
+  <script src="js/confetti.js"></script>
   <script src="js/gamekit.js"></script>
   <script src="js/games/crash.js"></script>
   <script src="js/games/mines.js"></script>
@@ -268,6 +333,8 @@
   <script src="js/games/coin.js"></script>
   <script src="js/games/diamonds.js"></script>
   <script src="js/games/slots.js"></script>
+  <script src="js/games/luckysevens.js"></script>
+  <script src="js/games/cosmic.js"></script>
   <script src="js/games/pump.js"></script>
   <script src="js/games/sicbo.js"></script>
   <script src="js/games/color.js"></script>
@@ -279,8 +346,12 @@
   <script src="js/games/andarbahar.js"></script>
   <script src="js/games/cascade.js"></script>
   <script src="js/games/penalty.js"></script>
+  <script src="js/games/war.js"></script>
+  <script src="js/games/pachinko.js"></script>
   <script src="js/games/aidealer.js"></script>
   <script src="js/progression.js"></script>
+  <script src="js/vault.js"></script>
+  <script src="js/tour.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

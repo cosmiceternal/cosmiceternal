@@ -40,13 +40,26 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       # ----- Optional: crypto vault processor -----
-      # Default 'playmoney' settles deposits in-app (no real funds). Swap to a
-      # licensed processor (e.g. 'coinpayments', 'nowpayments') after wiring
-      # its webhook to /api/vault/webhook in a follow-up change.
+      # Default 'playmoney' settles deposits in-app (no real funds). Swap to
+      # 'coinpayments' once you've added the COINPAYMENTS_* vars below and
+      # pointed your IPN URL at https://<your-render-url>/api/vault/webhook.
       - key: VAULT_PROCESSOR
         value: playmoney
-      - key: DAILY_DEPOSIT_CAP_FUN
+      - key: DAILY_DEPOSIT_CAP_CRYPT
         value: "5000"
+      # ----- CoinPayments (set in Render dashboard when you go live) -----
+      # https://www.coinpayments.net/acct-api-keys
+      - key: COINPAYMENTS_KEY
+        sync: false
+      - key: COINPAYMENTS_SECRET
+        sync: false
+      - key: COINPAYMENTS_IPN_SECRET
+        sync: false
+      - key: COINPAYMENTS_MERCHANT_ID
+        sync: false
+      # Optional override; defaults to your Render URL + /api/vault/webhook.
+      - key: COINPAYMENTS_IPN_URL
+        sync: false
 
 # Notes:
 # - Render's FREE plans are perfect for letting friends try it. The free web

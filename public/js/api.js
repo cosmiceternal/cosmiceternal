@@ -73,6 +73,8 @@
     roulette:     (b)      => request('POST', '/api/play/roulette', b),
     diamonds:     (b)      => request('POST', '/api/play/diamonds', b),
     slots:        (b)      => request('POST', '/api/play/slots', b),
+    luckySevens:  (b)      => request('POST', '/api/play/luckysevens', b),
+    cosmicReels:  (b)      => request('POST', '/api/play/cosmic', b),
     sicbo:        (b)      => request('POST', '/api/play/sicbo', b),
     color:        (b)      => request('POST', '/api/play/color', b),
     scratch:      (b)      => request('POST', '/api/play/scratch', b),
@@ -99,6 +101,8 @@
     dragontiger:  (b)      => request('POST', '/api/play/dragontiger', b),
     andarbahar:   (b)      => request('POST', '/api/play/andarbahar', b),
     cascade:      (b)      => request('POST', '/api/play/cascade', b),
+    war:          (b)      => request('POST', '/api/play/war', b),
+    pachinko:     (b)      => request('POST', '/api/play/pachinko', b),
     penaltyStart:   (b)    => request('POST', '/api/play/penalty/start', b),
     penaltyShoot:   (b)    => request('POST', '/api/play/penalty/shoot', b),
     penaltyCashout: (b)    => request('POST', '/api/play/penalty/cashout', b),
@@ -107,6 +111,13 @@
     history:    (n)        => request('GET', '/api/history?limit=' + (n || 30)),
     stats:      ()         => request('GET', '/api/stats'),
     globalFeed: (n, mp)    => request('GET', '/api/feed/global?limit=' + (n || 30) + (mp ? '&min_payout_cents=' + mp : '')),
-    leaderboard:(metric, n)=> request('GET', '/api/leaderboard?metric=' + (metric || 'xp') + '&limit=' + (n || 10))
+    leaderboard:(metric, n)=> request('GET', '/api/leaderboard?metric=' + (metric || 'xp') + '&limit=' + (n || 10)),
+
+    // Vault (crypto deposits)
+    vault:           ()     => request('GET',  '/api/vault'),
+    createDeposit:   (b)    => request('POST', '/api/vault/deposit', b),
+    confirmDeposit:  (b)    => request('POST', '/api/vault/confirm', b),
+    cancelDeposit:   (b)    => request('POST', '/api/vault/cancel',  b),
+    listDeposits:    (n)    => request('GET',  '/api/vault/history?limit=' + (n || 25))
   };
 })(window);

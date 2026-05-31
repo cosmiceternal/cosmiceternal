@@ -77,7 +77,13 @@ const authLimiter = limiter(
   Number(process.env.RATE_AUTH_WINDOW_MS) || 900_000,
   Number(process.env.RATE_AUTH_MAX) || 40
 );
-app.use('/api', apiLimiter);
+// Per-IP rate limit on /api — except the CoinPayments IPN webhook, which is
+// delivered from a small set of gateway IPs and would otherwise eat the budget
+// during a retry storm and silently drop confirmations.
+app.use('/api', (req, res, next) => {
+  if (req.path === '/vault/webhook') return next();
+  return apiLimiter(req, res, next);
+});
 app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
 
 // Lightweight health check for uptime monitors (must be before CSRF; GET only).
@@ -89,6 +95,24 @@ app.get('/healthz', async (req, res) => {
     res.status(503).json({ ok: false, error: 'db-unhealthy' });
   }
 });
+
+// Vault webhook is mounted BEFORE express.json + CSRF so the raw body is
+// available for HMAC verification. The signature in the HMAC header is the
+// auth — there's no session or CSRF on this path.
+app.post('/api/vault/webhook',
+  express.raw({ type: '*/*', limit: '32kb' }),
+  async (req, res) => {
+    try {
+      req.rawBody = req.body; // express.raw leaves it as a Buffer
+      const out = await vault.handleWebhook(req);
+      if (!out.ok) return res.status(400).json({ error: out.reason || 'invalid' });
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('vault webhook:', e);
+      res.status(500).json({ error: 'webhook-handler-failed' });
+    }
+  }
+);
 
 app.use(express.json({ limit: '32kb' }));
 
@@ -201,7 +225,9 @@ app.get('/api/play/keno/table', auth.requireAuth, h((req) => games.kenoTable(req
 app.post('/api/play/keno',   auth.requireAuth, h((req) => games.playKeno(req.user.id, req.body || {})));
 app.post('/api/play/roulette', auth.requireAuth, h((req) => games.playRoulette(req.user.id, req.body || {})));
 app.post('/api/play/diamonds', auth.requireAuth, h((req) => games.playDiamonds(req.user.id, req.body || {})));
-app.post('/api/play/slots',  auth.requireAuth, h((req) => games.playSlots(req.user.id, req.body || {})));
+app.post('/api/play/slots',         auth.requireAuth, h((req) => games.playSlots(req.user.id, req.body || {})));
+app.post('/api/play/luckysevens',   auth.requireAuth, h((req) => games.playLuckySevens(req.user.id, req.body || {})));
+app.post('/api/play/cosmic',        auth.requireAuth, h((req) => games.playCosmicReels(req.user.id, req.body || {})));
 app.post('/api/play/sicbo',  auth.requireAuth, h((req) => games.playSicbo(req.user.id, req.body || {})));
 app.post('/api/play/color',  auth.requireAuth, h((req) => games.playColor(req.user.id, req.body || {})));
 app.post('/api/play/scratch', auth.requireAuth, h((req) => games.playScratch(req.user.id, req.body || {})));
@@ -234,12 +260,14 @@ app.post('/api/play/baccarat',    auth.requireAuth, h((req) => games.playBaccara
 app.post('/api/play/dragontiger', auth.requireAuth, h((req) => games.playDragonTiger(req.user.id, req.body || {})));
 app.post('/api/play/andarbahar',  auth.requireAuth, h((req) => games.playAndarBahar(req.user.id, req.body || {})));
 app.post('/api/play/cascade',     auth.requireAuth, h((req) => games.playCascade(req.user.id, req.body || {})));
+app.post('/api/play/war',         auth.requireAuth, h((req) => games.playWar(req.user.id, req.body || {})));
+app.post('/api/play/pachinko',    auth.requireAuth, h((req) => games.playPachinko(req.user.id, req.body || {})));
 
 app.post('/api/play/penalty/start',   auth.requireAuth, h((req) => games.penaltyStart(req.user.id, req.body || {})));
 app.post('/api/play/penalty/shoot',   auth.requireAuth, h((req) => games.penaltyShoot(req.user.id, req.body || {})));
 app.post('/api/play/penalty/cashout', auth.requireAuth, h((req) => games.penaltyCashout(req.user.id, req.body || {})));
 
-// ---------------- Vault (crypto deposits — backend only, no UI yet) ----------------
+// ---------------- Vault (crypto deposits) ----------------
 app.get('/api/vault',          auth.requireAuth, h((req) => vault.publicSnapshot(req.user.id)));
 app.post('/api/vault/deposit', auth.requireAuth, h((req) => vault.createDeposit(req, req.user.id, req.body || {})));
 app.post('/api/vault/confirm', auth.requireAuth, h((req) => vault.confirmDeposit(req, req.user.id, req.body || {})));

@@ -180,8 +180,8 @@
   const leadersModal = document.getElementById('leadersModal');
   let lbMetric = 'xp';
   function fmtLbValue(v, metric) {
-    if (metric === 'biggest') return (+v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (metric === 'xp')      return (+v).toLocaleString();
+    if (metric === 'biggest') return Bankroll.fmtCompact(+v);
+    if (metric === 'xp')      return Bankroll.fmtCompact(+v);
     return v;
   }
   async function loadLeaderboard(metric) {
@@ -238,7 +238,9 @@
       return;
     }
     // Space / Enter trigger the primary action of the currently mounted game,
-    // or claim the daily bonus if its modal is up. Instant gratification.
+    // or claim the daily bonus if its modal is up. Scoped to focus inside the
+    // game pane / on a button — otherwise tapping Space to scroll the page or
+    // Enter while reading the feed would fire an unintended wager.
     if (!isFormField && (e.key === ' ' || e.key === 'Enter')) {
       const daily = document.getElementById('dailyModal');
       if (daily && !daily.classList.contains('hidden')) {
@@ -247,6 +249,18 @@
         if (claim && !claim.disabled) claim.click();
         return;
       }
+      // Bail if any other modal is open (vault, leaders, fair, tour) — the
+      // user isn't trying to wager.
+      const blocking = ['vaultModal', 'leadersModal', 'fairModal', 'statsModal']
+        .some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
+      const tour = document.getElementById('tourOverlay');
+      if (blocking || (tour && !tour.classList.contains('hidden'))) return;
+      // Only fire when focus is actually inside the game pane or on a button —
+      // pressing Space on document.body should still scroll, not place a bet.
+      const focused = document.activeElement;
+      const gamePane = document.getElementById('gamePane');
+      const inGame = focused && (focused.tagName === 'BUTTON' || (gamePane && gamePane.contains(focused)));
+      if (!inGame) return;
       const primary = document.querySelector('#gamePane .btn-primary:not([disabled])');
       if (primary) {
         e.preventDefault();
@@ -284,9 +298,28 @@
     // the full snapshot (achievements list + daily state) and pops the bonus
     // modal if today's claim is available.
     if (global.Progression) { Progression.seed(user); Progression.init(); }
+    if (global.Vault) Vault.wire();
 
     authGate.classList.add('hidden');
     appEl.classList.remove('hidden');
+
+    // Onboarding tour for fresh accounts (or ?tour=1 to replay). Waits for the
+    // daily-bonus modal to be gone — otherwise the tour mask intercepts clicks
+    // and traps the user behind it.
+    try {
+      const replay = /[?&]tour=1\b/.test(location.search);
+      const seen = localStorage.getItem('crypt.onboarded');
+      const looksFresh = user && (user.level === 1 || user.level == null) && (!user.xp || user.xp < 50);
+      if (global.Tour && (replay || (!seen && looksFresh))) {
+        const tryStart = (tries = 0) => {
+          const daily = document.getElementById('dailyModal');
+          const blocked = daily && !daily.classList.contains('hidden');
+          if (blocked && tries < 60) return setTimeout(() => tryStart(tries + 1), 250);
+          Tour.start();
+        };
+        setTimeout(tryStart, 600);
+      }
+    } catch (e) {}
 
     let initial = 'crash';
     try { initial = localStorage.getItem('neonstake.lastGame') || 'crash'; } catch (e) {}

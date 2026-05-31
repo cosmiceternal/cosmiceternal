@@ -118,17 +118,48 @@ function diamondCategory(counts) {
   return 'none';
 }
 
-// ---- Slots (3 reels, 6 symbols uniform) — triple mults computed for ~4% edge ----
-const SLOT_SYMBOLS = ['cherry', 'lemon', 'bell', 'star', 'bar', 'seven'];
-const SLOT_PAIR_PAY = 0.5;
-const SLOT_TRIPLE = (() => {
-  const w = [1, 1.4, 2, 3, 5, 9];
-  const p3 = 1 / Math.pow(SLOT_SYMBOLS.length, 3);
-  const pPair = 90 / 216; // exactly two of three equal, 6 symbols
-  const sumW = w.reduce((a, b) => a + b, 0);
-  const alpha = (0.96 - pPair * SLOT_PAIR_PAY) / (p3 * sumW);
-  return w.map(x => +(alpha * x).toFixed(2));
-})();
+// ---- Slots — 3 reels, uniform draw across N symbols, ~4% house edge.
+// Triple = bigSymbolMult, pair = pairPay. Mults computed to hit the target
+// RTP regardless of symbol-count (5, 6, 7 supported below).
+function buildSlotTable({ symbols, weights, pairPay, rtp = 0.96 }) {
+  const N = symbols.length;
+  const p3 = 1 / Math.pow(N, 3);                               // P(specific triple)
+  const exactlyTwoEqualCount = 3 * N * (N - 1);                // ordered triples with exactly two equal
+  const pPair = exactlyTwoEqualCount / Math.pow(N, 3);
+  const sumW = weights.reduce((a, b) => a + b, 0);
+  const alpha = (rtp - pPair * pairPay) / (p3 * sumW);
+  return weights.map(x => +(alpha * x).toFixed(2));
+}
+
+const SLOT_THEMES = {
+  classic: {
+    symbols: ['cherry', 'lemon', 'bell', 'star', 'bar', 'seven'],
+    weights: [1, 1.4, 2, 3, 5, 9],
+    pairPay: 0.5
+  },
+  sevens: {
+    // 5 symbols → higher pair rate (frequent small wins), 7-7-7 the big one.
+    symbols: ['cherry', 'lemon', 'bell', 'bar', 'seven'],
+    weights: [1, 1.3, 2.2, 4, 12],
+    pairPay: 0.6
+  },
+  cosmic: {
+    // 7 symbols → rarer pairs, bigger jackpot on the top symbol.
+    symbols: ['comet', 'planet', 'star', 'galaxy', 'ufo', 'rocket', 'eclipse'],
+    weights: [1, 1.4, 2, 3, 5, 8, 15],
+    pairPay: 0.45
+  }
+};
+// Pre-compute the triple pay tables once at load.
+for (const key of Object.keys(SLOT_THEMES)) {
+  SLOT_THEMES[key].triple = buildSlotTable(SLOT_THEMES[key]);
+}
+
+// Compat exports — kept so other modules (and tests) reading the classic
+// table keep working.
+const SLOT_SYMBOLS  = SLOT_THEMES.classic.symbols;
+const SLOT_PAIR_PAY = SLOT_THEMES.classic.pairPay;
+const SLOT_TRIPLE   = SLOT_THEMES.classic.triple;
 
 // ---- Pump (escalating extraction meter) ----
 const PUMP = { easy: 20, medium: 10, hard: 5, extreme: 3 }; // number of positions (1 hidden bomb)
@@ -263,7 +294,11 @@ async function recordBet(q, userId, b) {
       store.progress.newLevel = delta.newLevel;
       store.progress.unlocked.push(...delta.unlocked);
     }
-  } catch (_) { /* progression failures must never break a settled bet */ }
+  } catch (e) {
+    // Progression failures must never break a settled bet, but they must not
+    // be silent either — ops won't notice achievements quietly going away.
+    console.error('progression.awardForBet failed for user', userId, b.game, e);
+  }
 }
 
 // ---------------------------------------------------------------- DICE
@@ -723,22 +758,32 @@ function playDiamonds(userId, { bet }) {
 }
 
 // ---------------------------------------------------------------- SLOTS
-function playSlots(userId, { bet }) {
+// Shared engine: any theme key from SLOT_THEMES routes through here. The
+// per-bet record's `game` column is the theme key so leaderboards / history
+// can tell Lucky Sevens spins apart from classic Slots.
+async function playSlotsThemed(userId, { bet }, themeKey) {
+  const theme = SLOT_THEMES[themeKey];
+  if (!theme) throw httpError(400, 'Unknown slot theme.');
   const betCents = toCents(bet);
   return db.tx(async (q) => {
     await debit(q, userId, betCents);
     const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 3);
-    const reels = floats.map(f => Math.min(SLOT_SYMBOLS.length - 1, Math.floor(f * SLOT_SYMBOLS.length)));
+    const N = theme.symbols.length;
+    const reels = floats.map(f => Math.min(N - 1, Math.floor(f * N)));
     let mult = 0, kind = 'none';
-    if (reels[0] === reels[1] && reels[1] === reels[2]) { mult = SLOT_TRIPLE[reels[0]]; kind = 'triple'; }
-    else if (reels[0] === reels[1] || reels[1] === reels[2] || reels[0] === reels[2]) { mult = SLOT_PAIR_PAY; kind = 'pair'; }
+    if (reels[0] === reels[1] && reels[1] === reels[2]) { mult = theme.triple[reels[0]]; kind = 'triple'; }
+    else if (reels[0] === reels[1] || reels[1] === reels[2] || reels[0] === reels[2]) { mult = theme.pairPay; kind = 'pair'; }
     const win = mult >= 1;
     const payoutCents = Math.round(betCents * mult);
     await credit(q, userId, payoutCents);
-    await recordBet(q, userId, { game: 'slots', betCents, mult, payoutCents, win, nonce, detail: { reels, kind } });
-    return { reels, symbols: reels.map(i => SLOT_SYMBOLS[i]), kind, mult, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+    await recordBet(q, userId, { game: themeKey === 'classic' ? 'slots' : themeKey, betCents, mult, payoutCents, win, nonce, detail: { reels, kind, theme: themeKey } });
+    return { reels, symbols: reels.map(i => theme.symbols[i]), kind, mult, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash, theme: themeKey };
   });
 }
+
+function playSlots(userId, body)        { return playSlotsThemed(userId, body, 'classic'); }
+function playLuckySevens(userId, body)  { return playSlotsThemed(userId, body, 'sevens'); }
+function playCosmicReels(userId, body)  { return playSlotsThemed(userId, body, 'cosmic'); }
 
 // ---------------------------------------------------------------- PUMP (escalating meter)
 function pumpStart(userId, { bet, difficulty }) {
@@ -1125,6 +1170,59 @@ function playCascade(userId, { bet, risk }) {
   });
 }
 
+// ---------------------------------------------------------------- WAR
+// You vs dealer — each gets one card (uniform rank 1..13). Higher rank wins
+// 2x bet, lower loses, tie returns half the bet. RTP ≈ 96.2%.
+function playWar(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 4);
+    const playerRank = 1 + Math.floor(floats[0] * 13);
+    const dealerRank = 1 + Math.floor(floats[1] * 13);
+    const playerSuit = Math.floor(floats[2] * 4);
+    const dealerSuit = Math.floor(floats[3] * 4);
+    let mult = 0, outcome;
+    if (playerRank > dealerRank)      { mult = 2;   outcome = 'win'; }
+    else if (playerRank < dealerRank) { mult = 0;   outcome = 'lose'; }
+    else                              { mult = 0.5; outcome = 'tie'; }
+    const win = mult >= 1;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'war', betCents, mult, payoutCents, win, nonce, detail: { playerRank, dealerRank, outcome } });
+    return {
+      player: { rank: playerRank, suit: playerSuit },
+      dealer: { rank: dealerRank, suit: dealerSuit },
+      outcome, mult, payout: payoutCents / 100,
+      balance: await balanceOf(q, userId) / 100, nonce, serverHash
+    };
+  });
+}
+
+// ---------------------------------------------------------------- PACHINKO
+// 6 rows of pegs, 7 slots at the bottom. Slot probabilities follow a binomial
+// distribution (1/6/15/20/15/6/1 over 64); multipliers are symmetric with a
+// modest 4x jackpot on the outer slots. RTP ≈ 0.95.
+const PACHINKO_ROWS = 6;
+const PACHINKO_SLOTS = [4, 0.4, 0.8, 1.2, 0.8, 0.4, 4];
+function playPachinko(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, PACHINKO_ROWS);
+    // Each row deflects the ball left (0) or right (1); the column count
+    // determines which of the 7 slots the ball lands in.
+    const path = floats.map(f => f < 0.5 ? 0 : 1);
+    const slot = path.reduce((s, b) => s + b, 0);
+    const mult = PACHINKO_SLOTS[slot];
+    const win = mult >= 1;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'pachinko', betCents, mult, payoutCents, win, nonce, detail: { slot, path } });
+    return { path, slot, mult, slots: PACHINKO_SLOTS, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
 // ---------------------------------------------------------------- PENALTY SHOOTOUT (original)
 // Round-based streak. Each round you shoot left/center/right; the keeper (server,
 // pre-drawn) dives to one spot. If it differs from your shot you score and climb;
@@ -1232,7 +1330,7 @@ const LEADERBOARD_METRICS = {
   xp:      { col: 'xp',                     table: 'users', having: 'xp > 0',                    asc: false, valueLabel: 'XP' },
   level:   { col: 'level',                  table: 'users', having: '1 = 1',                     asc: false, valueLabel: 'Level' },
   wins:    { col: 'wins',                   table: 'bets_wins',                                  asc: false, valueLabel: 'Wins' },
-  biggest: { col: 'biggest_payout_cents',   table: 'bets_biggest',                               asc: false, valueLabel: 'Biggest Payout (FUN)' }
+  biggest: { col: 'biggest_payout_cents',   table: 'bets_biggest',                               asc: false, valueLabel: 'Biggest Payout (CRYPT)' }
 };
 
 async function leaderboard(userId, metric = 'xp', limit = 10) {
@@ -1307,7 +1405,7 @@ async function leaderboard(userId, metric = 'xp', limit = 10) {
      ) t WHERE biggest > ?`, [myBiggest]
   )).rows[0];
   return {
-    metric, label: 'Biggest Single Payout (FUN)',
+    metric, label: 'Biggest Single Payout (CRYPT)',
     top: top.map((r, i) => ({ rank: i + 1, player: anonName(r.username), isYou: Number(r.id) === Number(userId), value: Number(r.biggest) / 100, level: Number(r.level) })),
     you: { rank: Number(above?.n || 0) + 1, value: myBiggest / 100 }
   };
@@ -1358,12 +1456,13 @@ module.exports = {
   towersStart, towersReveal, towersCashout,
   playRoulette,
   coinStart, coinFlip, coinCashout,
-  playDiamonds, playSlots,
+  playDiamonds, playSlots, playLuckySevens, playCosmicReels,
   pumpStart, pumpPump, pumpCashout,
   playSicbo, playColor, playScratch,
   videoPokerStart, videoPokerDraw,
   blackjackStart, blackjackHit, blackjackStand, blackjackDouble,
   playBaccarat, playDragonTiger, playAndarBahar, playCascade,
+  playWar, playPachinko,
   penaltyStart, penaltyShoot, penaltyCashout,
   history, stats, globalFeed, anonName, leaderboard, PLINKO, minesMult,
   WHEEL, TOWERS, PUMP, DIAMOND_PAYS, SLOT_SYMBOLS, SLOT_TRIPLE, SLOT_PAIR_PAY,
