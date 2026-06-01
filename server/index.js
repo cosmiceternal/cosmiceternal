@@ -11,6 +11,7 @@ const games = require('./games');
 const vault = require('./vault');
 const dealer = require('./dealer');
 const progression = require('./progression');
+const admin = require('./admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -291,6 +292,16 @@ app.get('/api/feed/global', auth.requireAuth, h(async (req) => ({
 })));
 app.get('/api/leaderboard', auth.requireAuth, h((req) => games.leaderboard(req.user.id, req.query.metric, req.query.limit)));
 
+// ---------------- Admin (requires is_admin flag) ----------------
+app.get( '/api/admin/overview', auth.requireAuth, auth.requireAdmin, h(()    => admin.overview()));
+app.get( '/api/admin/users',    auth.requireAuth, auth.requireAdmin, h((req) => admin.listUsers(req.query)));
+app.get( '/api/admin/user/:id', auth.requireAuth, auth.requireAdmin, h((req) => admin.userDetail(req.params.id)));
+app.post('/api/admin/user/:id/balance', auth.requireAuth, auth.requireAdmin, h((req) => admin.adjustBalance(req, req.params.id, req.body || {})));
+app.post('/api/admin/user/:id/lock',    auth.requireAuth, auth.requireAdmin, h((req) => admin.setLock(req,    req.params.id, req.body || {})));
+app.post('/api/admin/user/:id/admin',   auth.requireAuth, auth.requireAdmin, h((req) => admin.setAdmin(req,   req.params.id, req.body || {})));
+app.get( '/api/admin/bets',     auth.requireAuth, auth.requireAdmin, h((req) => admin.recentBets(req.query)));
+app.get( '/api/admin/audit',    auth.requireAuth, auth.requireAdmin, h((req) => admin.recentAudit(req.query)));
+
 // Unmatched API routes return JSON, not the SPA shell.
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 
@@ -312,10 +323,13 @@ app.use(express.static(PUBLIC, {
 app.get('*', (req, res) => res.set('Cache-Control', 'no-cache').sendFile(path.join(PUBLIC, 'index.html')));
 
 db.init()
-  .then(() => {
+  .then(async () => {
     // Fail-fast on misconfigured VAULT_PROCESSOR — surfacing at boot is
     // friendlier than 500-ing every /api/vault request.
     vault.validate();
+    // If ADMIN_USERNAME is set, promote that user at startup so it sticks
+    // across restarts and Postgres → SQLite swaps.
+    await auth.ensureAdminUser();
     app.listen(PORT, () => console.log(`Crypt Casino listening on http://localhost:${PORT}`));
   })
   .catch((e) => {

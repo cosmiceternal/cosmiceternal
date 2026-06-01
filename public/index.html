@@ -83,6 +83,7 @@
           <span class="balance-unit">CRYPT</span>
         </div>
         <button class="btn btn-deposit" id="btnDeposit" title="Deposit crypto">Deposit</button>
+        <button class="btn btn-admin hidden" id="btnAdmin" title="Admin">⚡ Admin</button>
         <button class="btn btn-ghost" id="btnStats" title="Your stats">Stats</button>
         <button class="btn btn-ghost" id="btnLeaders" title="Leaderboard">🏆</button>
         <button class="btn btn-ghost" id="btnFair" title="Provably Fair">Fair</button>
@@ -204,6 +205,66 @@
   </div>
 
   <!-- Vault / Deposit Modal -->
+  <!-- Admin Modal -->
+  <div class="modal-backdrop hidden" id="adminModal">
+    <div class="modal admin-modal">
+      <div class="modal-header">
+        <h2>⚡ Admin Console</h2>
+        <button class="btn btn-ghost" id="adminClose">✕</button>
+      </div>
+      <div class="modal-body admin-body">
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-atab="overview">Overview</button>
+          <button class="admin-tab" data-atab="users">Users</button>
+          <button class="admin-tab" data-atab="bets">Bets</button>
+          <button class="admin-tab" data-atab="audit">Audit</button>
+        </div>
+        <div class="admin-pane" id="adminOverview">
+          <div class="admin-overview-grid" id="adminStats"></div>
+        </div>
+        <div class="admin-pane hidden" id="adminUsersPane">
+          <div class="admin-search-row">
+            <input id="adminSearch" type="search" placeholder="Search username…" />
+            <button class="btn btn-ghost" id="adminUsersRefresh">↻</button>
+          </div>
+          <table class="admin-table" id="adminUsersTable">
+            <thead>
+              <tr><th>ID</th><th>User</th><th>Balance</th><th>Level</th><th>Bets</th><th>Wagered</th><th>Flags</th><th>Actions</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="admin-pane hidden" id="adminBetsPane">
+          <table class="admin-table" id="adminBetsTable">
+            <thead>
+              <tr><th>ID</th><th>User</th><th>Game</th><th>Bet</th><th>Mult</th><th>Profit</th><th>When</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="admin-pane hidden" id="adminAuditPane">
+          <table class="admin-table" id="adminAuditTable">
+            <thead>
+              <tr><th>Event</th><th>User</th><th>IP</th><th>Meta</th><th>When</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User detail / actions sub-modal -->
+  <div class="modal-backdrop hidden" id="adminUserModal">
+    <div class="modal admin-user-modal">
+      <div class="modal-header">
+        <h2 id="adminUserTitle">User</h2>
+        <button class="btn btn-ghost" id="adminUserClose">✕</button>
+      </div>
+      <div class="modal-body" id="adminUserBody"></div>
+    </div>
+  </div>
+
   <div class="modal-backdrop hidden" id="vaultModal">
     <div class="modal vault-modal">
       <div class="modal-header">
@@ -351,6 +412,7 @@
   <script src="js/games/aidealer.js"></script>
   <script src="js/progression.js"></script>
   <script src="js/vault.js"></script>
+  <script src="js/admin.js"></script>
   <script src="js/tour.js"></script>
   <script src="js/app.js"></script>
 </body>
