@@ -299,6 +299,7 @@
     // modal if today's claim is available.
     if (global.Progression) { Progression.seed(user); Progression.init(); }
     if (global.Vault) Vault.wire();
+    if (global.Admin) Admin.wire(user);
 
     authGate.classList.add('hidden');
     appEl.classList.remove('hidden');

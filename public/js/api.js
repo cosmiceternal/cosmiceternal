@@ -118,6 +118,16 @@
     createDeposit:   (b)    => request('POST', '/api/vault/deposit', b),
     confirmDeposit:  (b)    => request('POST', '/api/vault/confirm', b),
     cancelDeposit:   (b)    => request('POST', '/api/vault/cancel',  b),
-    listDeposits:    (n)    => request('GET',  '/api/vault/history?limit=' + (n || 25))
+    listDeposits:    (n)    => request('GET',  '/api/vault/history?limit=' + (n || 25)),
+
+    // Admin
+    adminOverview:   ()     => request('GET',  '/api/admin/overview'),
+    adminUsers:      (q)    => request('GET',  '/api/admin/users?' + new URLSearchParams(q || {}).toString()),
+    adminUser:       (id)   => request('GET',  '/api/admin/user/' + encodeURIComponent(id)),
+    adminBalance:    (id,b) => request('POST', '/api/admin/user/' + encodeURIComponent(id) + '/balance', b),
+    adminLock:       (id,b) => request('POST', '/api/admin/user/' + encodeURIComponent(id) + '/lock', b),
+    adminPromote:    (id,b) => request('POST', '/api/admin/user/' + encodeURIComponent(id) + '/admin', b),
+    adminBets:       (n)    => request('GET',  '/api/admin/bets?limit=' + (n || 100)),
+    adminAudit:      (n)    => request('GET',  '/api/admin/audit?limit=' + (n || 100))
   };
 })(window);

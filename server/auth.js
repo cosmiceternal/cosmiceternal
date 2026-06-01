@@ -118,7 +118,9 @@ function publicUser(row) {
     balance: Number(row.balance_cents) / 100,
     xp: Number(row.xp || 0),
     level: Number(row.level || 1),
-    streakDay: Number(row.streak_day || 0)
+    streakDay: Number(row.streak_day || 0),
+    isAdmin: Number(row.is_admin || 0) === 1,
+    locked: Number(row.locked || 0) === 1
   };
 }
 
@@ -204,6 +206,10 @@ async function login(req, username, password) {
     logAudit(req, 'auth.login_fail', user?.id, { username });
     throw httpError(401, 'Invalid username or password.');
   }
+  if (Number(user.locked) === 1) {
+    logAudit(req, 'auth.login_locked', user.id, { username });
+    throw httpError(403, 'This account has been locked. Contact an admin.');
+  }
   logAudit(req, 'auth.login_success', user.id, { username });
   return user;
 }
@@ -254,7 +260,24 @@ async function authenticate(req, res, next) {
 }
 function requireAuth(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Not signed in.' });
+  if (Number(req.user.locked) === 1) return res.status(403).json({ error: 'Account is locked.' });
   next();
+}
+function requireAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Not signed in.' });
+  if (Number(req.user.is_admin) !== 1) return res.status(403).json({ error: 'Admin only.' });
+  next();
+}
+
+// Promote the user whose name matches process.env.ADMIN_USERNAME (called at
+// startup). Idempotent — re-running it does nothing if the row is already
+// flagged. Returns true if a row was updated.
+async function ensureAdminUser() {
+  const name = (process.env.ADMIN_USERNAME || '').trim();
+  if (!name) return false;
+  const r = await db.query('UPDATE users SET is_admin = 1 WHERE username = ?', [name]);
+  if (r.rowCount) console.log(`Admin set: ${name}`);
+  return !!r.rowCount;
 }
 
 function httpError(status, message) {
@@ -265,7 +288,7 @@ function httpError(status, message) {
 
 module.exports = {
   register, login, changePassword, userAuditLog,
-  authenticate, requireAuth, getUserById,
+  authenticate, requireAuth, requireAdmin, ensureAdminUser, getUserById,
   setSessionCookie, clearSessionCookie, publicUser, httpError,
   logAudit, clientIp,
   COOKIE, LEGACY_COOKIE, SECURE,
