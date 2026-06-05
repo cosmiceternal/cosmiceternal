@@ -1,0 +1,19 @@
+{
+  "genre": "Rock",
+  "tracks": [
+    { "title": "Johnny B. Goode", "artist": "Chuck Berry", "year": 1958 },
+    { "title": "Gimme Shelter", "artist": "The Rolling Stones", "year": 1969 },
+    { "title": "Stairway to Heaven", "artist": "Led Zeppelin", "year": 1971 },
+    { "title": "Bohemian Rhapsody", "artist": "Queen", "year": 1975 },
+    { "title": "Hotel California", "artist": "Eagles", "year": 1976 },
+    { "title": "London Calling", "artist": "The Clash", "year": 1979 },
+    { "title": "Back in Black", "artist": "AC/DC", "year": 1980 },
+    { "title": "Sweet Child O' Mine", "artist": "Guns N' Roses", "year": 1987 },
+    { "title": "Smells Like Teen Spirit", "artist": "Nirvana", "year": 1991 },
+    { "title": "Wonderwall", "artist": "Oasis", "year": 1995 },
+    { "title": "Mr. Brightside", "artist": "The Killers", "year": 2003 },
+    { "title": "Seven Nation Army", "artist": "The White Stripes", "year": 2003 },
+    { "title": "Do I Wanna Know?", "artist": "Arctic Monkeys", "year": 2013 },
+    { "title": "The Less I Know the Better", "artist": "Tame Impala", "year": 2015 }
+  ]
+}

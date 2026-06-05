@@ -1,0 +1,19 @@
+{
+  "genre": "Metal",
+  "tracks": [
+    { "title": "Paranoid", "artist": "Black Sabbath", "year": 1970 },
+    { "title": "Ace of Spades", "artist": "Motörhead", "year": 1980 },
+    { "title": "Run to the Hills", "artist": "Iron Maiden", "year": 1982 },
+    { "title": "Master of Puppets", "artist": "Metallica", "year": 1986 },
+    { "title": "Raining Blood", "artist": "Slayer", "year": 1986 },
+    { "title": "Walk", "artist": "Pantera", "year": 1992 },
+    { "title": "Roots Bloody Roots", "artist": "Sepultura", "year": 1996 },
+    { "title": "Hammer Smashed Face", "artist": "Cannibal Corpse", "year": 1993 },
+    { "title": "Chop Suey!", "artist": "System of a Down", "year": 2001 },
+    { "title": "Laid to Rest", "artist": "Lamb of God", "year": 2004 },
+    { "title": "Duality", "artist": "Slipknot", "year": 2004 },
+    { "title": "Blackened", "artist": "Metallica", "year": 1988 },
+    { "title": "The Day That Never Comes", "artist": "Metallica", "year": 2008 },
+    { "title": "Bloodmoney", "artist": "Poppy", "year": 2020 }
+  ]
+}

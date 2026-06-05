@@ -1,0 +1,19 @@
+{
+  "genre": "Jazz",
+  "tracks": [
+    { "title": "Take the A Train", "artist": "Duke Ellington", "year": 1941 },
+    { "title": "A Night in Tunisia", "artist": "Dizzy Gillespie", "year": 1946 },
+    { "title": "Round Midnight", "artist": "Thelonious Monk", "year": 1947 },
+    { "title": "Take Five", "artist": "The Dave Brubeck Quartet", "year": 1959 },
+    { "title": "So What", "artist": "Miles Davis", "year": 1959 },
+    { "title": "My Favorite Things", "artist": "John Coltrane", "year": 1961 },
+    { "title": "Cantaloupe Island", "artist": "Herbie Hancock", "year": 1964 },
+    { "title": "Song for My Father", "artist": "Horace Silver", "year": 1965 },
+    { "title": "Red Clay", "artist": "Freddie Hubbard", "year": 1970 },
+    { "title": "Birdland", "artist": "Weather Report", "year": 1977 },
+    { "title": "Black Codes", "artist": "Wynton Marsalis", "year": 1985 },
+    { "title": "Cold Duck Time", "artist": "Eddie Harris", "year": 1991 },
+    { "title": "Cherokee", "artist": "Brad Mehldau", "year": 1997 },
+    { "title": "Black Radio", "artist": "Robert Glasper Experiment", "year": 2012 }
+  ]
+}
