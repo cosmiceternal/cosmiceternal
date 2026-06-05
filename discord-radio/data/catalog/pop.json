@@ -1,0 +1,19 @@
+{
+  "genre": "Pop",
+  "tracks": [
+    { "title": "I Want to Hold Your Hand", "artist": "The Beatles", "year": 1963 },
+    { "title": "Dancing Queen", "artist": "ABBA", "year": 1976 },
+    { "title": "Billie Jean", "artist": "Michael Jackson", "year": 1982 },
+    { "title": "Like a Prayer", "artist": "Madonna", "year": 1989 },
+    { "title": "Wannabe", "artist": "Spice Girls", "year": 1996 },
+    { "title": "...Baby One More Time", "artist": "Britney Spears", "year": 1998 },
+    { "title": "Hey Ya!", "artist": "OutKast", "year": 2003 },
+    { "title": "Poker Face", "artist": "Lady Gaga", "year": 2008 },
+    { "title": "Rolling in the Deep", "artist": "Adele", "year": 2010 },
+    { "title": "Uptown Funk", "artist": "Mark Ronson ft. Bruno Mars", "year": 2014 },
+    { "title": "Shape of You", "artist": "Ed Sheeran", "year": 2017 },
+    { "title": "Blinding Lights", "artist": "The Weeknd", "year": 2019 },
+    { "title": "good 4 u", "artist": "Olivia Rodrigo", "year": 2021 },
+    { "title": "Flowers", "artist": "Miley Cyrus", "year": 2023 }
+  ]
+}

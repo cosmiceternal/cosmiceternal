@@ -1,0 +1,19 @@
+{
+  "genre": "Electronic",
+  "tracks": [
+    { "title": "I Feel Love", "artist": "Donna Summer", "year": 1977 },
+    { "title": "Blue Monday", "artist": "New Order", "year": 1983 },
+    { "title": "Strings of Life", "artist": "Derrick May", "year": 1987 },
+    { "title": "Born Slippy .NUXX", "artist": "Underworld", "year": 1995 },
+    { "title": "Around the World", "artist": "Daft Punk", "year": 1997 },
+    { "title": "Praise You", "artist": "Fatboy Slim", "year": 1998 },
+    { "title": "Idioteque", "artist": "Radiohead", "year": 2000 },
+    { "title": "One More Time", "artist": "Daft Punk", "year": 2000 },
+    { "title": "Midnight City", "artist": "M83", "year": 2011 },
+    { "title": "Language", "artist": "Porter Robinson", "year": 2012 },
+    { "title": "Latch", "artist": "Disclosure ft. Sam Smith", "year": 2012 },
+    { "title": "Opus", "artist": "Eric Prydz", "year": 2015 },
+    { "title": "Innerbloom", "artist": "RÜFÜS DU SOL", "year": 2016 },
+    { "title": "Alright", "artist": "Fred again..", "year": 2021 }
+  ]
+}

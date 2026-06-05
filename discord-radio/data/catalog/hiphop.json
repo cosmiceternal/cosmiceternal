@@ -1,0 +1,19 @@
+{
+  "genre": "Hip-Hop",
+  "tracks": [
+    { "title": "Rapper's Delight", "artist": "The Sugarhill Gang", "year": 1979 },
+    { "title": "The Message", "artist": "Grandmaster Flash & The Furious Five", "year": 1982 },
+    { "title": "Fight the Power", "artist": "Public Enemy", "year": 1989 },
+    { "title": "Nuthin' but a 'G' Thang", "artist": "Dr. Dre ft. Snoop Dogg", "year": 1992 },
+    { "title": "Juicy", "artist": "The Notorious B.I.G.", "year": 1994 },
+    { "title": "Ms. Jackson", "artist": "OutKast", "year": 2000 },
+    { "title": "In Da Club", "artist": "50 Cent", "year": 2003 },
+    { "title": "Stronger", "artist": "Kanye West", "year": 2007 },
+    { "title": "Niggas in Paris", "artist": "Jay-Z & Kanye West", "year": 2011 },
+    { "title": "m.A.A.d city", "artist": "Kendrick Lamar", "year": 2012 },
+    { "title": "HUMBLE.", "artist": "Kendrick Lamar", "year": 2017 },
+    { "title": "Sicko Mode", "artist": "Travis Scott", "year": 2018 },
+    { "title": "Savage", "artist": "Megan Thee Stallion", "year": 2020 },
+    { "title": "First Person Shooter", "artist": "Drake ft. J. Cole", "year": 2023 }
+  ]
+}

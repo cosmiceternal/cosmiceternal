@@ -1,0 +1,19 @@
+{
+  "genre": "R&B / Soul",
+  "tracks": [
+    { "title": "What'd I Say", "artist": "Ray Charles", "year": 1959 },
+    { "title": "My Girl", "artist": "The Temptations", "year": 1964 },
+    { "title": "Respect", "artist": "Aretha Franklin", "year": 1967 },
+    { "title": "Let's Stay Together", "artist": "Al Green", "year": 1972 },
+    { "title": "Superstition", "artist": "Stevie Wonder", "year": 1972 },
+    { "title": "Don't Stop 'Til You Get Enough", "artist": "Michael Jackson", "year": 1979 },
+    { "title": "No Scrubs", "artist": "TLC", "year": 1999 },
+    { "title": "Say My Name", "artist": "Destiny's Child", "year": 1999 },
+    { "title": "Crazy in Love", "artist": "Beyoncé ft. Jay-Z", "year": 2003 },
+    { "title": "Adorn", "artist": "Miguel", "year": 2012 },
+    { "title": "Best Part", "artist": "Daniel Caesar ft. H.E.R.", "year": 2017 },
+    { "title": "Come Through and Chill", "artist": "Miguel", "year": 2017 },
+    { "title": "Snooze", "artist": "SZA", "year": 2022 },
+    { "title": "Cuff It", "artist": "Beyoncé", "year": 2022 }
+  ]
+}

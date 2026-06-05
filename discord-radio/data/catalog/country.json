@@ -1,0 +1,19 @@
+{
+  "genre": "Country",
+  "tracks": [
+    { "title": "I Walk the Line", "artist": "Johnny Cash", "year": 1956 },
+    { "title": "Crazy", "artist": "Patsy Cline", "year": 1961 },
+    { "title": "Jolene", "artist": "Dolly Parton", "year": 1973 },
+    { "title": "On the Road Again", "artist": "Willie Nelson", "year": 1980 },
+    { "title": "Friends in Low Places", "artist": "Garth Brooks", "year": 1990 },
+    { "title": "Man! I Feel Like a Woman!", "artist": "Shania Twain", "year": 1997 },
+    { "title": "Before He Cheats", "artist": "Carrie Underwood", "year": 2006 },
+    { "title": "Wagon Wheel", "artist": "Darius Rucker", "year": 2013 },
+    { "title": "Take Your Time", "artist": "Sam Hunt", "year": 2014 },
+    { "title": "Tennessee Whiskey", "artist": "Chris Stapleton", "year": 2015 },
+    { "title": "The Bones", "artist": "Maren Morris", "year": 2019 },
+    { "title": "The Good Ones", "artist": "Gabby Barrett", "year": 2020 },
+    { "title": "Fast Car", "artist": "Luke Combs", "year": 2023 },
+    { "title": "Last Night", "artist": "Morgan Wallen", "year": 2023 }
+  ]
+}
