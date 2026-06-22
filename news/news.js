@@ -1,0 +1,426 @@
+#!/usr/bin/env node
+'use strict';
+
+// news.js — a terminal news reader for Politics and Economics.
+//
+// No API keys, no install step, no third-party packages. It reads public
+// RSS/Atom feeds using only Node's built-in modules, then lets you drill
+// from the two top-level sections down into focused sub-topics and finally
+// into individual articles.
+//
+//   Run it with:  node news.js
+//
+// Optional flags (for quick, non-interactive use):
+//   node news.js politics            -> dump top political headlines
+//   node news.js economics markets   -> dump the Markets & Stocks sub-topic
+//   node news.js --list              -> print every section/topic key
+
+const https = require('https');
+const http = require('http');
+const readline = require('readline');
+const { SECTIONS } = require('./feeds');
+
+const TIMEOUT_MS = 9000;
+const MAX_ITEMS = 15; // headlines shown per topic
+
+// ---------------------------------------------------------------------------
+// Tiny terminal color helpers (skipped automatically when output isn't a TTY).
+// ---------------------------------------------------------------------------
+const useColor = process.stdout.isTTY;
+const c = (code, s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
+const bold = (s) => c('1', s);
+const dim = (s) => c('2', s);
+const cyan = (s) => c('36', s);
+const green = (s) => c('32', s);
+const yellow = (s) => c('33', s);
+
+// ---------------------------------------------------------------------------
+// Fetching
+// ---------------------------------------------------------------------------
+
+// Fetch a URL, following a handful of redirects. Resolves to the body string,
+// or rejects on timeout / network error / bad status.
+function fetchUrl(url, redirectsLeft = 4) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const lib = url.startsWith('http://') ? http : https;
+    const req = lib.get(
+      url,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (news.js terminal reader)',
+          Accept: 'application/rss+xml, application/xml, text/xml, */*',
+        },
+      },
+      (res) => {
+        const status = res.statusCode || 0;
+        if (status >= 300 && status < 400 && res.headers.location) {
+          res.resume(); // drain
+          if (redirectsLeft <= 0) {
+            reject(new Error('too many redirects'));
+            return;
+          }
+          const next = new URL(res.headers.location, url).toString();
+          resolve(fetchUrl(next, redirectsLeft - 1));
+          return;
+        }
+        if (status !== 200) {
+          res.resume();
+          reject(new Error(`HTTP ${status}`));
+          return;
+        }
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', (ch) => (data += ch));
+        res.on('end', () => {
+          if (!settled) {
+            settled = true;
+            resolve(data);
+          }
+        });
+      }
+    );
+    req.setTimeout(TIMEOUT_MS, () => {
+      req.destroy(new Error('timeout'));
+    });
+    req.on('error', (err) => {
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Parsing (handles both RSS <item> and Atom <entry>)
+// ---------------------------------------------------------------------------
+
+function decodeEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<[^>]+>/g, ' ') // strip any stray HTML tags
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tag(block, name) {
+  const m = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)<\\/${name}>`, 'i'));
+  return m ? decodeEntities(m[1]) : '';
+}
+
+// Atom links look like <link href="..."/>; RSS links are <link>...</link>.
+function extractLink(block) {
+  const rss = block.match(/<link>([\s\S]*?)<\/link>/i);
+  if (rss && rss[1].trim()) return decodeEntities(rss[1]);
+  const atom = block.match(/<link[^>]*href=["']([^"']+)["']/i);
+  return atom ? atom[1] : '';
+}
+
+function parseDate(block) {
+  const raw = tag(block, 'pubDate') || tag(block, 'updated') || tag(block, 'published') || tag(block, 'dc:date');
+  if (!raw) return null;
+  const t = Date.parse(raw);
+  return Number.isNaN(t) ? null : new Date(t);
+}
+
+// Parse a feed body into article objects.
+function parseFeed(xml) {
+  const items = [];
+  const blocks = xml.match(/<(item|entry)[\s\S]*?<\/(item|entry)>/gi) || [];
+  for (const block of blocks) {
+    const title = tag(block, 'title');
+    if (!title) continue;
+    items.push({
+      title,
+      link: extractLink(block),
+      summary: tag(block, 'description') || tag(block, 'summary') || tag(block, 'content'),
+      date: parseDate(block),
+    });
+  }
+  return items;
+}
+
+// ---------------------------------------------------------------------------
+// Topic assembly
+// ---------------------------------------------------------------------------
+
+function matchesKeywords(item, keywords) {
+  if (!keywords || keywords.length === 0) return true;
+  const hay = `${item.title} ${item.summary}`.toLowerCase();
+  return keywords.some((k) => hay.includes(k));
+}
+
+// Fetch every feed for a topic, merge, filter, dedupe, sort newest-first.
+async function loadTopic(topic) {
+  const results = await Promise.allSettled(topic.feeds.map((u) => fetchUrl(u)));
+
+  let items = [];
+  let okFeeds = 0;
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      okFeeds += 1;
+      items = items.concat(parseFeed(r.value));
+    }
+  }
+
+  items = items.filter((it) => matchesKeywords(it, topic.keywords));
+
+  // Dedupe by normalized title.
+  const seen = new Set();
+  items = items.filter((it) => {
+    const key = it.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Newest first; undated items sink to the bottom.
+  items.sort((a, b) => (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0));
+
+  return { items: items.slice(0, MAX_ITEMS), okFeeds, totalFeeds: topic.feeds.length };
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+function timeAgo(date) {
+  if (!date) return '';
+  const mins = Math.round((Date.now() - date.getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  return `${days}d ago`;
+}
+
+function clearScreen() {
+  if (process.stdout.isTTY) process.stdout.write('\x1b[2J\x1b[H');
+}
+
+function header(text) {
+  console.log('');
+  console.log(bold(cyan('  ' + text)));
+  console.log(dim('  ' + '─'.repeat(Math.max(text.length, 30))));
+}
+
+function printHeadlines(topic, loaded) {
+  header(topic.title);
+  if (loaded.items.length === 0) {
+    console.log(yellow('\n  No headlines found right now.'));
+    if (loaded.okFeeds === 0) {
+      console.log(dim('  (Could not reach any news feed — check your internet connection.)'));
+    } else if (topic.keywords) {
+      console.log(dim('  (Feeds loaded, but nothing matched this sub-topic at the moment.)'));
+    }
+    console.log('');
+    return;
+  }
+  console.log('');
+  loaded.items.forEach((it, i) => {
+    const num = green(String(i + 1).padStart(2, ' '));
+    const when = it.date ? dim(`  (${timeAgo(it.date)})`) : '';
+    console.log(`  ${num}. ${it.title}${when}`);
+  });
+  if (loaded.okFeeds < loaded.totalFeeds) {
+    console.log(dim(`\n  (${loaded.okFeeds}/${loaded.totalFeeds} sources reachable)`));
+  }
+  console.log('');
+}
+
+function printArticle(item) {
+  header(item.title);
+  console.log('');
+  if (item.date) console.log(dim('  ' + item.date.toLocaleString()));
+  if (item.summary) {
+    console.log('');
+    // Wrap the summary at ~76 columns.
+    const words = item.summary.split(' ');
+    let line = '  ';
+    for (const w of words) {
+      if ((line + w).length > 76) {
+        console.log(line);
+        line = '  ';
+      }
+      line += w + ' ';
+    }
+    if (line.trim()) console.log(line);
+  }
+  if (item.link) {
+    console.log('');
+    console.log('  ' + bold('Link: ') + cyan(item.link));
+  }
+  console.log('');
+}
+
+// ---------------------------------------------------------------------------
+// Interactive menu
+// ---------------------------------------------------------------------------
+
+function ask(rl, question) {
+  return new Promise((resolve) => rl.question(question, (a) => resolve(a.trim())));
+}
+
+async function articleMenu(rl, loaded, topic) {
+  for (;;) {
+    const ans = await ask(
+      rl,
+      bold('\n  Enter a number to read it, [b] back, [r] refresh, [q] quit: ')
+    );
+    const lower = ans.toLowerCase();
+    if (lower === 'q') return 'quit';
+    if (lower === 'b' || lower === '') return 'back';
+    if (lower === 'r') return 'refresh';
+    const n = parseInt(ans, 10);
+    if (!Number.isNaN(n) && n >= 1 && n <= loaded.items.length) {
+      clearScreen();
+      printArticle(loaded.items[n - 1]);
+    } else {
+      console.log(yellow('  Not a valid choice.'));
+    }
+  }
+}
+
+async function topicLoop(rl, topic) {
+  for (;;) {
+    clearScreen();
+    console.log(dim('\n  Loading ' + topic.title + '…'));
+    let loaded;
+    try {
+      loaded = await loadTopic(topic);
+    } catch (err) {
+      loaded = { items: [], okFeeds: 0, totalFeeds: topic.feeds.length };
+    }
+    clearScreen();
+    printHeadlines(topic, loaded);
+    const action = await articleMenu(rl, loaded, topic);
+    if (action === 'quit') return 'quit';
+    if (action === 'back') return 'back';
+    // 'refresh' falls through and reloads.
+  }
+}
+
+async function sectionMenu(rl, section) {
+  const keys = Object.keys(section.children);
+  for (;;) {
+    clearScreen();
+    header(section.title);
+    console.log('');
+    keys.forEach((k, i) => {
+      console.log(`  ${green(String(i + 1))}. ${section.children[k].title}`);
+    });
+    console.log(dim('\n  [b] back to main menu   [q] quit'));
+    const ans = (await ask(rl, bold('\n  Choose a topic: '))).toLowerCase();
+    if (ans === 'q') return 'quit';
+    if (ans === 'b' || ans === '') return 'back';
+    const n = parseInt(ans, 10);
+    if (!Number.isNaN(n) && n >= 1 && n <= keys.length) {
+      const result = await topicLoop(rl, section.children[keys[n - 1]]);
+      if (result === 'quit') return 'quit';
+    }
+  }
+}
+
+async function mainMenu() {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const sectionKeys = Object.keys(SECTIONS);
+  for (;;) {
+    clearScreen();
+    console.log('');
+    console.log(bold(cyan('  ╔════════════════════════════════════════╗')));
+    console.log(bold(cyan('  ║          NEWS  READER                  ║')));
+    console.log(bold(cyan('  ║     Politics  ·  Economics             ║')));
+    console.log(bold(cyan('  ╚════════════════════════════════════════╝')));
+    console.log('');
+    sectionKeys.forEach((k, i) => {
+      console.log(`  ${green(String(i + 1))}. ${SECTIONS[k].title}`);
+    });
+    console.log(dim('\n  [q] quit'));
+    const ans = (await ask(rl, bold('\n  Choose a section: '))).toLowerCase();
+    if (ans === 'q' || ans === 'quit') break;
+    const n = parseInt(ans, 10);
+    if (!Number.isNaN(n) && n >= 1 && n <= sectionKeys.length) {
+      const result = await sectionMenu(rl, SECTIONS[sectionKeys[n - 1]]);
+      if (result === 'quit') break;
+    }
+  }
+  rl.close();
+  console.log(dim('\n  Bye.\n'));
+}
+
+// ---------------------------------------------------------------------------
+// Non-interactive (CLI argument) mode
+// ---------------------------------------------------------------------------
+
+function listKeys() {
+  console.log('\nAvailable sections and topics:\n');
+  for (const [sk, section] of Object.entries(SECTIONS)) {
+    console.log(`  ${sk}`);
+    for (const [tk, topic] of Object.entries(section.children)) {
+      console.log(`     ${sk} ${tk}    ${dim('— ' + topic.title)}`);
+    }
+  }
+  console.log('');
+}
+
+async function runOnce(sectionKey, topicKey) {
+  const section = SECTIONS[sectionKey];
+  if (!section) {
+    console.error(`Unknown section "${sectionKey}". Try --list.`);
+    process.exitCode = 1;
+    return;
+  }
+  const topic = topicKey ? section.children[topicKey] : section.children.top;
+  if (!topic) {
+    console.error(`Unknown topic "${topicKey}" in ${sectionKey}. Try --list.`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(dim('Loading ' + topic.title + '…'));
+  const loaded = await loadTopic(topic);
+  printHeadlines(topic, loaded);
+  loaded.items.forEach((it) => {
+    if (it.link) console.log(dim('     ' + it.link));
+  });
+  console.log('');
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(`
+News Reader — Politics & Economics in your terminal.
+
+  node news.js                     interactive menu
+  node news.js <section> [topic]   print a topic and exit
+  node news.js --list              show all section/topic keys
+  node news.js --help              this message
+`);
+    return;
+  }
+  if (args.includes('--list')) {
+    listKeys();
+    return;
+  }
+  if (args.length >= 1) {
+    await runOnce(args[0], args[1]);
+    return;
+  }
+  await mainMenu();
+}
+
+main().catch((err) => {
+  console.error('Unexpected error:', err.message);
+  process.exitCode = 1;
+});
