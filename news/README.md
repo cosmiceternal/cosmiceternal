@@ -1,12 +1,19 @@
-# News Reader — Politics & Economics
+# News Reader — Political & Financial
 
-A small terminal program that pulls **political news** and **economic news**
-from public news feeds and lets you drill down into specific sub-topics and
-individual articles. It runs entirely on your computer.
+Pulls **political news** and **financial/economic news** from public news
+feeds and lets you drill down into specific sub-topics and individual
+articles. It runs entirely on your computer. Two ways to use it:
+
+- A **visual web app** — a split header banner (Political on one side,
+  Financial on the other) with two side-by-side columns of headlines and
+  article images. *(Recommended.)*
+- A **terminal reader** — same news, menu-driven, in your console.
+
+Both share the same sources and have:
 
 - **No sign-up, no API keys, no accounts.**
-- **No packages to install** — it uses only what ships with Node.js.
-- Reads open **RSS/Atom feeds** from outlets like NPR, BBC, The Hill, and
+- **No packages to install** — only what ships with Node.js.
+- Open **RSS/Atom feeds** from outlets like NPR, BBC, The Hill, and
   MarketWatch.
 
 ## Requirements
@@ -14,6 +21,28 @@ individual articles. It runs entirely on your computer.
 - [Node.js](https://nodejs.org/) version 18 or newer
   (check with `node --version`).
 - An internet connection.
+
+## Visual web app (recommended)
+
+```bash
+cd news
+node server.js
+```
+
+Then open **http://localhost:8787** in your browser. You'll see:
+
+- A **split header**: the **Political** side (Capitol/civic art) on the left
+  and the **Financial** side (markets/charts art) on the right.
+- Two **columns** of live headlines below — politics on the left, financial on
+  the right — each with article thumbnails, the source, and how long ago it was
+  published.
+- A **row of topic chips** at the top of each column to drill into sub-topics
+  (Elections, Congress, Markets, The Fed, Crypto, …).
+- A **⟳ refresh** button per column. Click any headline to open the full story.
+
+Use a different port with `PORT=9000 node server.js`.
+
+## Terminal reader
 
 ## How to run
 
@@ -68,6 +97,16 @@ node news.js economics fed            # Federal Reserve & Inflation
 node news.js --list                   # show every section/topic key
 node news.js --help                   # all options
 ```
+
+## How the pieces fit together
+
+| File | What it does |
+|------|--------------|
+| `feeds.js`   | The topic tree: which feeds and keywords belong to each sub-topic. |
+| `feedlib.js` | Shared feed fetching + RSS/Atom parsing (used by both apps). |
+| `server.js`  | The local web server for the visual app (serves `web/`, fetches feeds). |
+| `web/`       | The browser UI: split header banner, two columns, styling. |
+| `news.js`    | The terminal reader. |
 
 ## Customizing the sources
 
