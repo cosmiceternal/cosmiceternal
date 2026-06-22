@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Tax Code Reader · Private</title>
+<style>
+  :root { --bg:#0f1216; --panel:#171c23; --line:#283039; --ink:#e7edf3; --mut:#93a1b0; --acc:#4f9dff; --ok:#3ecf8e; --warn:#ffb454; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:16px; margin:0; font-weight:650; }
+  header .badge { font-size:11px; color:var(--warn); border:1px solid var(--line); padding:2px 7px; border-radius:99px; }
+  header .sp { flex:1; }
+  main { max-width:880px; margin:0 auto; padding:22px 18px 80px; }
+  .tabs { display:flex; gap:6px; margin-bottom:18px; }
+  .tabs button { background:var(--panel); color:var(--mut); border:1px solid var(--line); padding:8px 14px; border-radius:8px; cursor:pointer; font-size:14px; }
+  .tabs button.on { color:var(--ink); border-color:var(--acc); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:16px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:0 0 6px; text-transform:uppercase; letter-spacing:.04em; }
+  input, textarea, select { width:100%; background:#0d1115; border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:10px 12px; font:inherit; }
+  textarea { min-height:84px; resize:vertical; }
+  .row { display:flex; gap:10px; }
+  .row > * { flex:1; }
+  button.go { background:var(--acc); border:none; color:#06101f; font-weight:650; padding:10px 18px; border-radius:8px; cursor:pointer; font-size:14px; }
+  button.go:disabled { opacity:.5; cursor:default; }
+  .hint { color:var(--mut); font-size:12.5px; margin-top:8px; }
+  .out { margin-top:6px; }
+  .answer { white-space:pre-wrap; }
+  .secbody { white-space:pre-wrap; font:13.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; max-height:520px; overflow:auto; background:#0d1115; border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .cite { color:var(--acc); font-weight:650; }
+  .meta { color:var(--mut); font-size:12.5px; margin:4px 0 10px; }
+  .src { border-top:1px solid var(--line); padding-top:10px; margin-top:12px; font-size:13px; }
+  .src a { color:var(--acc); text-decoration:none; }
+  .result { border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+  .result .h { color:var(--ink); }
+  .tag { font-size:10.5px; padding:1px 6px; border-radius:99px; border:1px solid var(--line); color:var(--mut); margin-left:6px; }
+  .err { color:#ff8585; }
+  .disc { color:var(--warn); font-size:12px; margin-top:10px; }
+  .spin { color:var(--mut); }
+  a.linkbtn { color:var(--acc); text-decoration:none; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tax Code Reader</h1>
+  <span class="badge">PRIVATE</span>
+  <span class="sp"></span>
+  <a href="#" id="lock" class="linkbtn" style="display:none">Change token</a>
+</header>
+<main id="app"></main>
+
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+const el = (t, props={}, kids=[]) => { const n=document.createElement(t); Object.assign(n, props); for (const k of [].concat(kids)) n.append(k); return n; };
+const TOKEN_KEY = 'tax_token';
+let token = sessionStorage.getItem(TOKEN_KEY) || '';
+let aiEnabled = false;
+
+async function api(path, opts={}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token, ...(opts.headers||{}) }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('HTTP '+res.status));
+  return data;
+}
+
+function gate() {
+  const app = $('#app');
+  app.innerHTML = '';
+  const card = el('div', { className:'card' });
+  card.append(el('label', { textContent:'Access token' }));
+  const inp = el('input', { type:'password', placeholder:'Paste the access token printed at server startup' });
+  const btn = el('button', { className:'go', textContent:'Unlock', style:'margin-top:12px' });
+  const msg = el('div', { className:'hint' });
+  const submit = async () => {
+    token = inp.value.trim(); sessionStorage.setItem(TOKEN_KEY, token);
+    try { const c = await api('/api/config'); aiEnabled = c.aiEnabled; boot(); }
+    catch (e) { msg.className='hint err'; msg.textContent = e.message; }
+  };
+  btn.onclick = submit;
+  inp.onkeydown = (e) => { if (e.key==='Enter') submit(); };
+  card.append(inp, btn, msg);
+  app.append(card);
+  inp.focus();
+}
+
+let tab = 'ask';
+function boot() {
+  $('#lock').style.display = '';
+  $('#lock').onclick = (e) => { e.preventDefault(); token=''; sessionStorage.removeItem(TOKEN_KEY); gate(); $('#lock').style.display='none'; };
+  render();
+}
+
+function render() {
+  const app = $('#app'); app.innerHTML='';
+  const tabs = el('div', { className:'tabs' });
+  for (const [id, label] of [['ask','Ask (AI)'],['lookup','Look up a section'],['search','Search']]) {
+    const b = el('button', { textContent:label, className: id===tab?'on':'' });
+    b.onclick = () => { tab=id; render(); };
+    tabs.append(b);
+  }
+  app.append(tabs);
+  ({ ask:viewAsk, lookup:viewLookup, search:viewSearch }[tab])(app);
+}
+
+function busy(node, on) { node.disabled = on; node.textContent = on ? 'Working…' : node.dataset.label; }
+
+// ---- Ask (AI) ----
+function viewAsk(app) {
+  const card = el('div', { className:'card' });
+  if (!aiEnabled) card.append(el('div', { className:'disc', textContent:'AI answers are disabled (no ANTHROPIC_API_KEY). Lookup and Search still work.' }));
+  card.append(el('label', { textContent:'Question about U.S. tax law' }));
+  const q = el('textarea', { placeholder:'e.g. Is cancellation of debt taxable income, and what exclusions apply?' });
+  const opt = el('div', { className:'row', style:'margin-top:10px' });
+  const scope = el('select'); ['all','usc','cfr'].forEach(s => scope.append(el('option',{value:s,textContent:{all:'Statute + Regulations',usc:'Statute only (26 USC)',cfr:'Regulations only (26 CFR)'}[s]})));
+  const cite = el('input', { placeholder:'Optional: focus on cites, e.g. 61, 162(a), 1.61-1' });
+  opt.append(scope, cite);
+  const go = el('button', { className:'go', textContent:'Ask', style:'margin-top:12px' }); go.dataset.label='Ask'; go.disabled=!aiEnabled;
+  const out = el('div', { className:'out' });
+  go.onclick = async () => {
+    out.innerHTML=''; busy(go,true);
+    try {
+      const body = { question:q.value, scope:scope.value };
+      const cites = cite.value.split(',').map(s=>s.trim()).filter(Boolean);
+      if (cites.length) body.cite = cites;
+      const r = await api('/api/ask', { method:'POST', body: JSON.stringify(body) });
+      out.append(el('div', { className:'answer', textContent:r.answer || '(no answer)' }));
+      if (r.sources?.length) {
+        const s = el('div', { className:'src' });
+        s.append(el('div', { className:'meta', textContent:'Grounded in '+r.sources.length+' retrieved section(s) · model '+r.model }));
+        r.sources.forEach(src => {
+          const line = el('div');
+          line.append(el('span', { className:'cite', textContent: src.citation }));
+          if (src.heading) line.append(document.createTextNode(' — '+src.heading));
+          if (src.sourceUrl) { line.append(document.createTextNode('  ')); line.append(el('a',{href:src.sourceUrl,target:'_blank',rel:'noopener',textContent:'source ↗'})); }
+          s.append(line);
+        });
+        out.append(s);
+      } else if (r.grounded === false) {
+        out.append(el('div', { className:'disc', textContent:'No source text could be retrieved — the answer above is unverified. Check outbound network access at runtime.' }));
+      }
+    } catch (e) { out.append(el('div',{className:'err',textContent:e.message})); }
+    busy(go,false);
+  };
+  card.append(q, opt, go, out);
+  app.append(card);
+}
+
+// ---- Lookup ----
+function viewLookup(app) {
+  const card = el('div', { className:'card' });
+  card.append(el('label', { textContent:'Citation' }));
+  const inp = el('input', { placeholder:'e.g. 61  ·  162(a)  ·  26 USC 1031  ·  1.61-1 (regulation)' });
+  const go = el('button', { className:'go', textContent:'Read', style:'margin-top:12px' }); go.dataset.label='Read';
+  const out = el('div', { className:'out' });
+  const run = async () => {
+    out.innerHTML=''; busy(go,true);
+    try {
+      const r = await api('/api/section', { method:'POST', body: JSON.stringify({ citation: inp.value }) });
+      if (!r.ok) { out.append(el('div',{className:'err',textContent:'Not found: '+(r.errors||[]).join(' · ')})); busy(go,false); return; }
+      out.append(el('div', { className:'cite', textContent: r.citation }));
+      out.append(el('div', { className:'meta', textContent:[r.heading, r.dateIssued && ('as of '+r.dateIssued), 'via '+r.strategy].filter(Boolean).join(' · ') }));
+      out.append(el('div', { className:'secbody', textContent: r.text }));
+      if (r.sourceUrl) out.append(el('div',{className:'src'},el('a',{href:r.sourceUrl,target:'_blank',rel:'noopener',textContent:'View official source ↗'})));
+    } catch (e) { out.append(el('div',{className:'err',textContent:e.message})); }
+    busy(go,false);
+  };
+  go.onclick = run; inp.onkeydown = (e)=>{ if(e.key==='Enter') run(); };
+  card.append(inp, go, out);
+  app.append(card);
+}
+
+// ---- Search ----
+function viewSearch(app) {
+  const card = el('div', { className:'card' });
+  card.append(el('label', { textContent:'Full-text search' }));
+  const row = el('div', { className:'row' });
+  const inp = el('input', { placeholder:'e.g. like-kind exchange' });
+  const scope = el('select'); ['all','usc','cfr'].forEach(s => scope.append(el('option',{value:s,textContent:{all:'Statute + Regulations',usc:'Statute (26 USC)',cfr:'Regulations (26 CFR)'}[s]})));
+  scope.style.maxWidth='220px';
+  row.append(inp, scope);
+  const go = el('button', { className:'go', textContent:'Search', style:'margin-top:12px' }); go.dataset.label='Search';
+  const out = el('div', { className:'out' });
+  const run = async () => {
+    out.innerHTML=''; busy(go,true);
+    try {
+      const r = await api('/api/search', { method:'POST', body: JSON.stringify({ query: inp.value, scope: scope.value }) });
+      out.append(el('div',{className:'meta',textContent:r.count+' result(s) for "'+r.query+'"'}));
+      r.results.forEach(res => {
+        const d = el('div', { className:'result' });
+        const head = el('div', { className:'h' });
+        head.append(el('span',{className:'cite',textContent:res.citation||'(uncited)'}));
+        head.append(el('span',{className:'tag',textContent:res.type.toUpperCase()}));
+        d.append(head);
+        if (res.heading) d.append(el('div',{textContent:res.heading}));
+        if (res.excerpt) d.append(el('div',{className:'meta',textContent:res.excerpt}));
+        const actions = el('div', { style:'margin-top:6px' });
+        if (res.citation) { const b=el('a',{href:'#',className:'linkbtn',textContent:'Read full text →'}); b.onclick=(e)=>{e.preventDefault(); tab='lookup'; render(); setTimeout(()=>{ const i=$('main input'); if(i){ i.value=res.citation; $('main button.go').click(); }},0);}; actions.append(b); }
+        if (res.sourceUrl) { actions.append(document.createTextNode('   ')); actions.append(el('a',{href:res.sourceUrl,target:'_blank',rel:'noopener',className:'linkbtn',textContent:'source ↗'})); }
+        d.append(actions);
+        out.append(d);
+      });
+      (r.errors||[]).forEach(er => out.append(el('div',{className:'err',textContent:er.source+': '+er.error})));
+    } catch (e) { out.append(el('div',{className:'err',textContent:e.message})); }
+    busy(go,false);
+  };
+  go.onclick = run; inp.onkeydown = (e)=>{ if(e.key==='Enter') run(); };
+  card.append(row, go, out);
+  app.append(card);
+}
+
+// Boot: validate any saved token, else show the gate.
+(async () => {
+  if (token) { try { const c = await api('/api/config'); aiEnabled=c.aiEnabled; boot(); return; } catch {} }
+  gate();
+})();
+</script>
+</body>
+</html>
