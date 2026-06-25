@@ -1,26 +1,23 @@
-# News Reader — Political & Financial
+# News Reader — Political, Financial & World
 
-Pulls **political news** and **financial/economic news** from public news
-feeds and lets you drill down into specific sub-topics and individual
-articles. It runs entirely on your computer. Two ways to use it:
-
-- A **visual web app** — a split header banner (Political on one side,
-  Financial on the other) with two side-by-side columns of headlines and
-  article images. *(Recommended.)*
-- A **terminal reader** — same news, menu-driven, in your console.
-
-Both share the same sources and have:
+A live **News Wall** of political, financial, and international news that runs
+entirely on your computer. There's also a terminal version.
 
 - **No sign-up, no API keys, no accounts.**
 - **No packages to install** — only what ships with Node.js.
-- Open **RSS/Atom feeds** from outlets like NPR, BBC, The Hill, and
-  MarketWatch.
+- Open **RSS/Atom feeds**, plus free **translation** and **market quotes**
+  (no key required).
 
 ## Requirements
 
 - [Node.js](https://nodejs.org/) version 18 or newer
   (check with `node --version`).
 - An internet connection.
+
+## Easiest start (Windows)
+
+Double-click **`start-windows.bat`** in this folder. It launches the server and
+opens the News Wall in your browser automatically.
 
 ## Visual web app — the News Wall (recommended)
 
@@ -30,20 +27,47 @@ node server.js
 ```
 
 Then open **http://localhost:8787** in your browser. You'll see a **grid wall of
-live stations** — one tile per topic, color-coded **blue for Political** and
-**green for Financial**, each cycling through its latest headlines with a
-"LIVE" indicator and article images.
+live stations** — one tile per topic, color-coded **blue for Political**,
+**green for Financial**, and **amber for World** — each cycling through its
+latest headlines with a "LIVE" indicator and article images.
 
 - **Hover** a station and it **magnifies**, lifting above the wall and revealing
   a peek list of its other current headlines.
 - **Click** a station and it **stays open** in a full reader: every headline for
   that topic with thumbnails, summaries, source, and time. Close it with the
   **✕**, the **Esc** key, or by clicking outside it.
-- **Filter** the wall with **All / Political / Financial** at the top.
-- **⟳ Refresh all** reloads every station; each station also auto-refreshes in
-  the background so the wall stays current.
+- **🔊 Read aloud** — every station tile and every article has a speaker button
+  that reads the headline aloud using your browser's built-in voice.
+- **Foreign-language stations show English subtitles** — international outlets
+  (Le Monde, Der Spiegel, NHK, …) have their headlines auto-translated to
+  English (shown as the main line, with the original beneath). Open one and the
+  article summaries are translated too.
+- **International markets rail** on the right shows live index quotes (S&P 500,
+  Nasdaq, Dow, FTSE, DAX, CAC 40, Nikkei, Hang Seng), refreshed every minute.
+- **Filter** the wall with **All / Political / Financial / World** at the top.
+- **⟳ Refresh all** reloads every station; stations also auto-refresh in the
+  background.
+
+The layout adapts to wide/ultrawide monitors (the markets rail sits to the
+right and tucks under the wall on narrow screens).
 
 Use a different port with `PORT=9000 node server.js`.
+
+### Free services it uses (no keys)
+
+- **Translation:** a free public translation endpoint. It's unofficial, so it
+  can be rate-limited; if a translation fails, the original headline is kept.
+  Swap engines by editing `translate.js`.
+- **Market quotes:** Stooq's free CSV quotes. The change shown is the latest
+  session's move; edit `markets.js` to change the index list.
+
+### Roadmap: AI dubbing
+
+The 🔊 button is the first step toward a "dubbed AI voice." Today it uses the
+browser's built-in speech voice (free, robotic). A nicer AI voice — or true
+spoken dubbing of live video channels — would need a text-to-speech/voice
+service (and, for video, speech-to-text for subtitles); that's a larger future
+add-on.
 
 ## Terminal reader
 
@@ -105,11 +129,14 @@ node news.js --help                   # all options
 
 | File | What it does |
 |------|--------------|
-| `feeds.js`   | The topic tree: which feeds and keywords belong to each sub-topic. |
-| `feedlib.js` | Shared feed fetching + RSS/Atom parsing (used by both apps). |
-| `server.js`  | The local web server for the visual app (serves `web/`, fetches feeds). |
-| `web/`       | The browser UI: split header banner, two columns, styling. |
-| `news.js`    | The terminal reader. |
+| `feeds.js`     | The topic tree: feeds, keywords, and language per station. |
+| `feedlib.js`   | Shared feed fetching + RSS/Atom parsing (used by both apps). |
+| `translate.js` | Free, no-key translation of foreign headlines to English. |
+| `markets.js`   | Free, no-key international stock-index quotes. |
+| `server.js`    | The local web server (serves `web/`, fetches feeds, translates, quotes). |
+| `web/`         | The browser UI: the station wall, markets rail, modal reader. |
+| `news.js`      | The terminal reader. |
+| `start-windows.bat` | Double-click launcher for Windows. |
 
 ## Customizing the sources
 

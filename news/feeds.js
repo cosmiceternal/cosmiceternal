@@ -125,6 +125,35 @@ const SECTIONS = {
       },
     },
   },
+
+  // International stations. Foreign-language ones carry a `lang` code so the
+  // server can translate their headlines to English (subtitles). `country`
+  // is just a flag emoji shown on the tile.
+  world: {
+    title: 'World',
+    children: {
+      aljazeera: { title: 'Al Jazeera', country: '🌍', lang: 'en',
+        feeds: ['https://www.aljazeera.com/xml/rss/all.xml'] },
+      france24: { title: 'France 24', country: '🇫🇷', lang: 'fr',
+        feeds: ['https://www.france24.com/fr/rss'] },
+      lemonde: { title: 'Le Monde', country: '🇫🇷', lang: 'fr',
+        feeds: ['https://www.lemonde.fr/rss/une.xml'] },
+      dw: { title: 'DW (Deutschland)', country: '🇩🇪', lang: 'de',
+        feeds: ['https://rss.dw.com/xml/rss-de-all'] },
+      spiegel: { title: 'Der Spiegel', country: '🇩🇪', lang: 'de',
+        feeds: ['https://www.spiegel.de/schlagzeilen/tops/index.rss'] },
+      elpais: { title: 'El País', country: '🇪🇸', lang: 'es',
+        feeds: ['https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada'] },
+      ansa: { title: 'ANSA', country: '🇮🇹', lang: 'it',
+        feeds: ['https://www.ansa.it/sito/ansait_rss.xml'] },
+      nhk: { title: 'NHK', country: '🇯🇵', lang: 'ja',
+        feeds: ['https://www3.nhk.or.jp/rss/news/cat0.xml'] },
+      g1: { title: 'G1 Globo', country: '🇧🇷', lang: 'pt',
+        feeds: ['https://g1.globo.com/dynamo/rss2.xml'] },
+      toi: { title: 'Times of India', country: '🇮🇳', lang: 'en',
+        feeds: ['https://timesofindia.indiatimes.com/rssfeedstopstories.cms'] },
+    },
+  },
 };
 
 module.exports = { SECTIONS };

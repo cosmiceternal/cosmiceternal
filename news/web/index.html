@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>News Wall — Political &amp; Financial Live Stations</title>
+  <title>News Wall — Political, Financial &amp; World</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -12,27 +12,35 @@
     <div class="brand">
       <span class="logo-dot live"></span>
       <h1>NEWS&nbsp;WALL</h1>
-      <span class="sub">Live political &amp; financial stations</span>
+      <span class="sub">Live political · financial · world stations</span>
     </div>
     <div class="controls">
       <div class="filters" role="tablist" aria-label="Filter stations">
         <button class="filter active" data-kind="all">All</button>
         <button class="filter" data-kind="political">Political</button>
         <button class="filter" data-kind="financial">Financial</button>
+        <button class="filter" data-kind="world">World</button>
       </div>
       <button id="refreshAll" class="refresh-all" title="Refresh every station">⟳ Refresh all</button>
       <span id="clock" class="clock"></span>
     </div>
   </header>
 
-  <p class="hint">Hover a station to magnify it · click to keep it open</p>
+  <p class="hint">Hover a station to magnify · click to keep it open · 🔊 reads the headline aloud · foreign stations show English subtitles</p>
 
-  <!-- The grid of live station tiles is built by app.js -->
-  <main id="wall" class="wall" aria-label="Station grid"></main>
+  <div class="layout">
+    <main id="wall" class="wall" aria-label="Station grid"></main>
+
+    <aside class="market-rail" aria-label="International markets">
+      <div class="rail-head"><span class="logo-dot live"></span> International Markets</div>
+      <div id="markets" class="markets"><div class="rail-loading">Loading…</div></div>
+      <div class="rail-note">Indicative · latest session move · refreshes every minute</div>
+    </aside>
+  </div>
 
   <footer class="foot">
     <span id="status">Starting…</span>
-    <span class="foot-note">Headlines from public RSS feeds · runs locally on your computer</span>
+    <span class="foot-note">Headlines from public RSS feeds · translation &amp; quotes from free services · runs locally</span>
   </footer>
 
   <!-- Click-to-open reader. Stays open until closed. -->

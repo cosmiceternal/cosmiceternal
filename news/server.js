@@ -15,6 +15,8 @@ const fs = require('fs');
 const path = require('path');
 const { SECTIONS } = require('./feeds');
 const { loadTopic } = require('./feedlib');
+const { translate, mapLimit } = require('./translate');
+const { getIndices } = require('./markets');
 
 const PORT = process.env.PORT || 8787;
 const WEB_DIR = path.join(__dirname, 'web');
@@ -43,7 +45,11 @@ function topicsManifest() {
   for (const [sk, section] of Object.entries(SECTIONS)) {
     out[sk] = { title: section.title, topics: {} };
     for (const [tk, topic] of Object.entries(section.children)) {
-      out[sk].topics[tk] = topic.title;
+      out[sk].topics[tk] = {
+        title: topic.title,
+        lang: topic.lang || 'en',
+        country: topic.country || '',
+      };
     }
   }
   return out;
@@ -85,12 +91,24 @@ const server = http.createServer(async (req, res) => {
     if (!topic) return sendJson(res, 404, { error: 'Unknown section/topic' });
     try {
       const loaded = await loadTopic(topic);
+      const lang = topic.lang || 'en';
+
+      // Subtitles: translate foreign headlines to English (best-effort).
+      let titlesEn = [];
+      if (lang !== 'en') {
+        titlesEn = await mapLimit(loaded.items, 5, (it) => translate(it.title, lang));
+      }
+
       return sendJson(res, 200, {
         title: topic.title,
         section: section.title,
-        ...loaded,
-        items: loaded.items.map((it) => ({
+        lang,
+        country: topic.country || '',
+        okFeeds: loaded.okFeeds,
+        totalFeeds: loaded.totalFeeds,
+        items: loaded.items.map((it, i) => ({
           title: it.title,
+          titleEn: titlesEn[i] || null,
           link: it.link,
           summary: it.summary,
           image: it.image,
@@ -100,6 +118,24 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (err) {
       return sendJson(res, 502, { error: 'Failed to load feeds', detail: err.message });
+    }
+  }
+
+  // On-demand translation (used for article summaries when a station is open).
+  if (url.pathname === '/api/translate') {
+    const text = url.searchParams.get('text') || '';
+    const sl = url.searchParams.get('sl') || 'auto';
+    const en = await translate(text, sl);
+    return sendJson(res, 200, { text: en || text });
+  }
+
+  // International market index quotes for the right-hand rail.
+  if (url.pathname === '/api/markets') {
+    try {
+      const indices = await getIndices();
+      return sendJson(res, 200, { indices });
+    } catch {
+      return sendJson(res, 200, { indices: [] });
     }
   }
 
