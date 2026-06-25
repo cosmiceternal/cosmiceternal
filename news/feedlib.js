@@ -155,9 +155,23 @@ function matchesKeywords(item, keywords) {
   return keywords.some((k) => hay.includes(k));
 }
 
+// Short-lived cache of raw feed bodies. The news wall loads ~13 stations at
+// once and many of them share the same underlying feeds, so caching avoids
+// hammering each outlet. Entries expire after CACHE_TTL.
+const CACHE_TTL = 90 * 1000;
+const feedCache = new Map(); // url -> { time, data }
+
+async function getFeed(url) {
+  const hit = feedCache.get(url);
+  if (hit && Date.now() - hit.time < CACHE_TTL) return hit.data;
+  const data = await fetchUrl(url);
+  feedCache.set(url, { time: Date.now(), data });
+  return data;
+}
+
 // Fetch every feed for a topic, merge, filter, dedupe, sort newest-first.
 async function loadTopic(topic) {
-  const results = await Promise.allSettled(topic.feeds.map((u) => fetchUrl(u)));
+  const results = await Promise.allSettled(topic.feeds.map((u) => getFeed(u)));
 
   let items = [];
   let okFeeds = 0;

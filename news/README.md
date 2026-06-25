@@ -22,23 +22,26 @@ Both share the same sources and have:
   (check with `node --version`).
 - An internet connection.
 
-## Visual web app (recommended)
+## Visual web app — the News Wall (recommended)
 
 ```bash
 cd news
 node server.js
 ```
 
-Then open **http://localhost:8787** in your browser. You'll see:
+Then open **http://localhost:8787** in your browser. You'll see a **grid wall of
+live stations** — one tile per topic, color-coded **blue for Political** and
+**green for Financial**, each cycling through its latest headlines with a
+"LIVE" indicator and article images.
 
-- A **split header**: the **Political** side (Capitol/civic art) on the left
-  and the **Financial** side (markets/charts art) on the right.
-- Two **columns** of live headlines below — politics on the left, financial on
-  the right — each with article thumbnails, the source, and how long ago it was
-  published.
-- A **row of topic chips** at the top of each column to drill into sub-topics
-  (Elections, Congress, Markets, The Fed, Crypto, …).
-- A **⟳ refresh** button per column. Click any headline to open the full story.
+- **Hover** a station and it **magnifies**, lifting above the wall and revealing
+  a peek list of its other current headlines.
+- **Click** a station and it **stays open** in a full reader: every headline for
+  that topic with thumbnails, summaries, source, and time. Close it with the
+  **✕**, the **Esc** key, or by clicking outside it.
+- **Filter** the wall with **All / Political / Financial** at the top.
+- **⟳ Refresh all** reloads every station; each station also auto-refreshes in
+  the background so the wall stays current.
 
 Use a different port with `PORT=9000 node server.js`.
 

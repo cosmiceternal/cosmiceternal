@@ -3,115 +3,55 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>News Reader — Political &amp; Financial</title>
+  <title>News Wall — Political &amp; Financial Live Stations</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
 
-  <!-- ================= SPLIT HEADER BANNER ================= -->
-  <header class="banner">
-    <!-- LEFT: Political side -->
-    <div class="banner-half political">
-      <svg class="banner-art" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <defs>
-          <linearGradient id="polSky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#1f3a93"/><stop offset="1" stop-color="#0b1f5c"/>
-          </linearGradient>
-        </defs>
-        <rect width="200" height="120" fill="url(#polSky)"/>
-        <!-- stars -->
-        <g fill="#ffffff" opacity="0.5">
-          <circle cx="22" cy="18" r="1"/><circle cx="40" cy="30" r="1"/><circle cx="60" cy="14" r="1"/>
-          <circle cx="150" cy="22" r="1"/><circle cx="172" cy="36" r="1"/><circle cx="120" cy="12" r="1"/>
-        </g>
-        <!-- capitol building -->
-        <g fill="#e8ecff" stroke="#b9c4ff" stroke-width="0.5">
-          <rect x="60" y="78" width="80" height="30"/>
-          <polygon points="100,40 86,58 114,58"/>
-          <rect x="92" y="56" width="16" height="22" rx="2"/>
-          <circle cx="100" cy="38" r="3" fill="#ffd54a"/>
-          <rect x="64" y="64" width="6" height="14"/><rect x="74" y="64" width="6" height="14"/>
-          <rect x="84" y="64" width="6" height="14"/><rect x="110" y="64" width="6" height="14"/>
-          <rect x="120" y="64" width="6" height="14"/><rect x="130" y="64" width="6" height="14"/>
-          <polygon points="60,64 100,52 140,64" fill="#d2dbff"/>
-        </g>
-      </svg>
-      <div class="banner-text">
-        <div class="banner-kicker">Civic Desk</div>
-        <h1>Political</h1>
-        <p>Elections, Congress, the courts, the White House, and world affairs.</p>
-      </div>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo-dot live"></span>
+      <h1>NEWS&nbsp;WALL</h1>
+      <span class="sub">Live political &amp; financial stations</span>
     </div>
-
-    <div class="banner-divider"></div>
-
-    <!-- RIGHT: Financial / Economic side -->
-    <div class="banner-half financial">
-      <svg class="banner-art" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <defs>
-          <linearGradient id="finSky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#0f5132"/><stop offset="1" stop-color="#05291a"/>
-          </linearGradient>
-        </defs>
-        <rect width="200" height="120" fill="url(#finSky)"/>
-        <!-- grid -->
-        <g stroke="#3ad29f" stroke-width="0.3" opacity="0.35">
-          <line x1="0" y1="30" x2="200" y2="30"/><line x1="0" y1="60" x2="200" y2="60"/>
-          <line x1="0" y1="90" x2="200" y2="90"/>
-        </g>
-        <!-- candlesticks -->
-        <g stroke="#7bffcf" stroke-width="1">
-          <line x1="30" y1="50" x2="30" y2="92"/><line x1="55" y1="40" x2="55" y2="88"/>
-          <line x1="80" y1="36" x2="80" y2="80"/><line x1="120" y1="44" x2="120" y2="84"/>
-          <line x1="150" y1="30" x2="150" y2="74"/>
-        </g>
-        <g fill="#3ad29f">
-          <rect x="26" y="58" width="8" height="22"/><rect x="51" y="50" width="8" height="26"/>
-          <rect x="116" y="56" width="8" height="20"/>
-        </g>
-        <g fill="#ff6b6b">
-          <rect x="76" y="46" width="8" height="22"/><rect x="146" y="40" width="8" height="22"/>
-        </g>
-        <!-- rising trend line -->
-        <polyline points="20,86 50,70 80,58 110,62 140,44 180,32" fill="none" stroke="#ffd54a" stroke-width="1.6"/>
-        <!-- coins -->
-        <g fill="#ffd54a" stroke="#c9a52b" stroke-width="0.5">
-          <ellipse cx="172" cy="96" rx="9" ry="4"/><ellipse cx="172" cy="92" rx="9" ry="4"/>
-        </g>
-      </svg>
-      <div class="banner-text">
-        <div class="banner-kicker">Money Desk</div>
-        <h1>Financial</h1>
-        <p>Markets, the Fed, inflation, jobs, housing, crypto, and global trade.</p>
+    <div class="controls">
+      <div class="filters" role="tablist" aria-label="Filter stations">
+        <button class="filter active" data-kind="all">All</button>
+        <button class="filter" data-kind="political">Political</button>
+        <button class="filter" data-kind="financial">Financial</button>
       </div>
+      <button id="refreshAll" class="refresh-all" title="Refresh every station">⟳ Refresh all</button>
+      <span id="clock" class="clock"></span>
     </div>
   </header>
 
-  <!-- ================= TWO NEWS COLUMNS ================= -->
-  <main class="columns">
-    <section class="column" id="col-politics" data-section="politics">
-      <div class="col-head political">
-        <h2>Political News</h2>
-        <button class="refresh" title="Refresh">⟳</button>
-      </div>
-      <nav class="tabs" aria-label="Political topics"></nav>
-      <div class="feed" aria-live="polite"></div>
-    </section>
+  <p class="hint">Hover a station to magnify it · click to keep it open</p>
 
-    <section class="column" id="col-financial" data-section="economics">
-      <div class="col-head financial">
-        <h2>Financial News</h2>
-        <button class="refresh" title="Refresh">⟳</button>
-      </div>
-      <nav class="tabs" aria-label="Financial topics"></nav>
-      <div class="feed" aria-live="polite"></div>
-    </section>
-  </main>
+  <!-- The grid of live station tiles is built by app.js -->
+  <main id="wall" class="wall" aria-label="Station grid"></main>
 
   <footer class="foot">
-    <span id="status">Loading…</span>
+    <span id="status">Starting…</span>
     <span class="foot-note">Headlines from public RSS feeds · runs locally on your computer</span>
   </footer>
+
+  <!-- Click-to-open reader. Stays open until closed. -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Station reader">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <div class="modal-kicker"><span class="logo-dot live"></span><span id="modalSection"></span></div>
+          <h2 id="modalTitle"></h2>
+        </div>
+        <div class="modal-actions">
+          <button id="modalRefresh" class="icon-btn" title="Refresh">⟳</button>
+          <button id="modalClose" class="icon-btn" title="Close (Esc)">✕</button>
+        </div>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>
