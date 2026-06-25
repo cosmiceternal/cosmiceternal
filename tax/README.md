@@ -11,7 +11,14 @@ port, bound to `localhost` by default, and every API route gated by a token.
 | Corpus | Source | Use |
 | --- | --- | --- |
 | **Internal Revenue Code** — 26 U.S.C. (the statute) | govinfo (GPO) API, with a Cornell LII fallback | the law itself |
-| **Treasury / IRS regulations** — 26 C.F.R. | official eCFR API (`ecfr.gov`) | how the IRS interprets the statute — the "everything in between" |
+| **Treasury / IRS regulations** — 26 C.F.R. | official eCFR API (`ecfr.gov`) | how the IRS interprets the statute |
+| **IRS guidance** — Federal Register documents | Federal Register API (`federalregister.gov`) | Treasury Decisions, proposed/final regs, IRS notices |
+| **Federal tax case law** | CourtListener API (`courtlistener.com`) | how courts have applied the law |
+
+> **Coverage caveat:** Revenue Rulings and Revenue Procedures are published only
+> in the Internal Revenue Bulletin, which has **no public API**, so they are out
+> of automated scope. IRS guidance that appears in the Federal Register (the
+> bulk of binding rulemaking) **is** covered.
 
 It pulls text **live, on demand** from the official sources — nothing is
 bundled, so it never goes stale. Results are cached in-process (6h default).
@@ -44,13 +51,17 @@ If you didn't set `TAX_ACCESS_TOKEN`, the server prints a generated one at boot.
 
 ### Runtime requirements
 
-- **Outbound network access** to `api.govinfo.gov`, `www.ecfr.gov`, and
-  `www.law.cornell.edu`. If egress is blocked, lookups return `ok: false` with
-  the exact URLs that were attempted (it degrades cleanly, never crashes).
+- **Outbound network access** to `api.govinfo.gov`, `www.ecfr.gov`,
+  `www.law.cornell.edu`, `www.federalregister.gov`, and `www.courtlistener.com`.
+  If egress is blocked, calls return `ok: false` with the exact URLs that were
+  attempted (it degrades cleanly, never crashes).
 - **`ANTHROPIC_API_KEY`** only for the **Ask** tab. Lookup and Search work
   without it.
 - A free **`GOVINFO_API_KEY`** ([api.data.gov](https://api.data.gov/signup/)) is
   recommended; `DEMO_KEY` works for light use but is rate-limited.
+- The Federal Register API needs no key. **`COURTLISTENER_API_TOKEN`**
+  ([free](https://www.courtlistener.com/help/api/rest/)) is optional and lifts
+  the case-law rate limit.
 
 ## API
 
@@ -60,8 +71,10 @@ All routes require `Authorization: Bearer <TAX_ACCESS_TOKEN>` except `/healthz`.
 | --- | --- | --- | --- |
 | `GET`  | `/healthz` | — | liveness |
 | `GET`  | `/api/config` | — | `{ aiEnabled, model, sources }` |
-| `GET`/`POST` | `/api/section` | `?cite=` / `{ citation }` | verbatim section + source link |
-| `POST` | `/api/search` | `{ query, scope, limit }` | matching sections (`scope`: `all`\|`usc`\|`cfr`) |
+| `GET`/`POST` | `/api/section` | `?cite=` / `{ citation }` | verbatim statute/regulation section |
+| `GET`  | `/api/guidance` | `?doc=<FR doc number>` | full text of an IRS Federal Register document |
+| `GET`  | `/api/case` | `?id=<opinion id>` | full text of a court opinion |
+| `POST` | `/api/search` | `{ query, scope, limit }` | matching results (`scope`: `all`\|`usc`\|`cfr`\|`guidance`\|`caselaw`) |
 | `POST` | `/api/ask` | `{ question, scope?, cite?[] }` | grounded answer + sources used |
 
 ```bash
@@ -98,7 +111,9 @@ tax/
     sources/
       usc.js           26 U.S.C. via govinfo (+ Cornell fallback)
       ecfr.js          26 C.F.R. via the eCFR API
-      index.js         unified getSection() + search()
+      guidance.js      IRS guidance via the Federal Register API
+      caselaw.js       federal tax case law via CourtListener
+      index.js         unified getSection() / getDocument() / search()
     ai.js              retrieval-augmented answers (Claude)
   public/index.html    private web UI (lookup / search / ask)
   test/parse.test.js   offline unit tests

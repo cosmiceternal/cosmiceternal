@@ -7,6 +7,8 @@ const citation = require('../lib/citation');
 const http = require('../lib/http');
 const usc = require('../lib/sources/usc');
 const ecfr = require('../lib/sources/ecfr');
+const guidance = require('../lib/sources/guidance');
+const caselaw = require('../lib/sources/caselaw');
 const ai = require('../lib/ai');
 
 test('citation.parse — USC forms normalize to section + label', () => {
@@ -108,4 +110,35 @@ test('ai.buildUserMessage — embeds citations and question', () => {
 test('ai.buildUserMessage — no-docs path asks model to flag missing sources', () => {
   const msg = ai._internal.buildUserMessage('q', []);
   assert.match(msg, /No authoritative excerpts/);
+});
+
+test('guidance.label — builds a readable Federal Register label', () => {
+  const l = guidance._internal.label({ type: 'Rule', title: 'Treasury Decision 9999', publication_date: '2024-01-15' });
+  assert.equal(l, 'Rule: Treasury Decision 9999 (2024-01-15)');
+  assert.match(guidance._internal.label({ document_number: '2024-1' }), /2024-1/);
+});
+
+test('caselaw.firstCitation — handles array, string, and missing', () => {
+  const f = caselaw._internal.firstCitation;
+  assert.equal(f({ citation: ['348 U.S. 426', '75 S. Ct. 473'] }), '348 U.S. 426');
+  assert.equal(f({ cite: '5 T.C. 1' }), '5 T.C. 1');
+  assert.equal(f({}), null);
+});
+
+test('caselaw.caseLabel — composes name + citation + court + date', () => {
+  const l = caselaw._internal.caseLabel({ caseName: 'Commissioner v. Glenshaw Glass Co.', citation: ['348 U.S. 426'], court: 'scotus', dateFiled: '1955-03-28' });
+  assert.match(l, /^Commissioner v\. Glenshaw Glass Co\., 348 U\.S\. 426, scotus, 1955-03-28$/);
+  assert.equal(caselaw._internal.caseLabel({}), 'Unnamed case');
+});
+
+test('caselaw.opinionId — direct id, nested opinions[], or null', () => {
+  const o = caselaw._internal.opinionId;
+  assert.equal(o({ id: 42 }), 42);
+  assert.equal(o({ opinions: [{ id: 99 }] }), 99);
+  assert.equal(o({ caseName: 'x' }), null);
+});
+
+test('caselaw.snippet — strips tags from nested opinion snippet', () => {
+  assert.equal(caselaw._internal.snippet({ opinions: [{ snippet: '<mark>gross</mark> income' }] }), 'gross income');
+  assert.equal(caselaw._internal.snippet({}), null);
 });

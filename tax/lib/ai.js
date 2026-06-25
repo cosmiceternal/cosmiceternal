@@ -22,12 +22,16 @@ const PER_DOC_CHARS = 5000;
 
 const SYSTEM = [
   'You are a tax-law research assistant for a financial company. You help staff',
-  'understand the U.S. Internal Revenue Code (Title 26, U.S.C.) and Treasury',
-  'regulations (Title 26, C.F.R.).',
+  'understand U.S. federal tax law: the Internal Revenue Code (Title 26,',
+  'U.S.C.), Treasury regulations (Title 26, C.F.R.), IRS guidance published in',
+  'the Federal Register, and federal tax case law.',
   '',
   'Rules:',
   '- Answer USING ONLY the authoritative excerpts provided in the user message.',
-  '- Cite the specific section for every assertion, e.g. "26 U.S.C. § 61(a)".',
+  '- Cite the specific source for every assertion: a statute/regulation section',
+  '  (e.g. "26 U.S.C. § 61(a)"), an IRS/Federal Register document, or a case by',
+  '  name. Distinguish binding authority (statute, regs) from persuasive or',
+  '  illustrative material (guidance, case excerpts).',
   '- If the provided excerpts do not fully answer the question, say so explicitly',
   '  and state what additional section(s) would need to be consulted.',
   '- Do not invent section numbers, dollar thresholds, dates, or holdings.',
@@ -49,36 +53,61 @@ function truncate(text, n = PER_DOC_CHARS) {
   return text.length > n ? text.slice(0, n) + '\n…[excerpt truncated]…' : text;
 }
 
-/* Resolve the set of source sections to ground the answer in. */
-async function gatherSources({ question, cite, scope }) {
-  const wanted = [];
-
-  // Explicit citations the caller asked us to read.
-  if (Array.isArray(cite)) {
-    for (const c of cite.slice(0, MAX_DOCS)) wanted.push(c);
+/* Fetch grounding text for one search hit, by corpus:
+ *   - statute/regs : pull the full verbatim section
+ *   - guidance     : pull the full Federal Register document (truncated)
+ *   - case law     : use the search snippet (full opinions are too large to
+ *                    inline; the source link lets a human read the rest)
+ * Returns a doc { citation, heading, text, sourceUrl, strategy } or null. */
+async function fetchDoc(hit) {
+  if (hit.type === 'usc' || hit.type === 'cfr') {
+    if (!hit.citation) return null;
+    const sec = await sources.getSection(hit.citation).catch(() => null);
+    if (sec && sec.ok && sec.text) {
+      return { citation: sec.citation, heading: sec.heading, text: truncate(sec.text), sourceUrl: sec.sourceUrl, strategy: sec.strategy };
+    }
+    return null;
   }
+  if (hit.type === 'guidance' && hit.ref) {
+    const doc = await sources.getDocument({ type: 'guidance', ref: hit.ref }).catch(() => null);
+    if (doc && doc.ok && doc.text) {
+      return { citation: doc.citation, heading: doc.heading, text: truncate(doc.text), sourceUrl: doc.sourceUrl, strategy: doc.strategy };
+    }
+  }
+  // case law (or guidance without a fetchable body): fall back to the snippet.
+  if (hit.excerpt) {
+    return { citation: hit.citation, heading: hit.heading, text: truncate(hit.excerpt), sourceUrl: hit.sourceUrl, strategy: hit.type };
+  }
+  return null;
+}
 
-  // Otherwise (or to top up), search the question text.
-  if (wanted.length < MAX_DOCS) {
-    const found = await sources.search(question, { scope, limit: 12 }).catch(() => ({ results: [] }));
-    for (const r of found.results) {
-      if (wanted.length >= MAX_DOCS) break;
-      if (!r.citation) continue;
-      if (!wanted.includes(r.citation)) wanted.push(r.citation);
+/* Resolve the set of sources to ground the answer in, across all corpora. */
+async function gatherSources({ question, cite, scope }) {
+  const docs = [];
+  const seen = new Set();
+
+  // Explicit citations the caller named are statute/regulation cites;
+  // getSection parses and routes USC vs CFR on its own.
+  if (Array.isArray(cite)) {
+    for (const c of cite.slice(0, MAX_DOCS)) {
+      const sec = await sources.getSection(c).catch(() => null);
+      if (sec && sec.ok && sec.text && !seen.has(sec.citation)) {
+        seen.add(sec.citation);
+        docs.push({ citation: sec.citation, heading: sec.heading, text: truncate(sec.text), sourceUrl: sec.sourceUrl, strategy: sec.strategy });
+      }
     }
   }
 
-  const docs = [];
-  for (const c of wanted) {
-    const sec = await sources.getSection(c).catch(() => null);
-    if (sec && sec.ok && sec.text) {
-      docs.push({
-        citation: sec.citation,
-        heading: sec.heading,
-        text: truncate(sec.text),
-        sourceUrl: sec.sourceUrl,
-        strategy: sec.strategy
-      });
+  // Top up from a full-text search of the question.
+  if (docs.length < MAX_DOCS) {
+    const found = await sources.search(question, { scope, limit: 12 }).catch(() => ({ results: [] }));
+    for (const hit of found.results) {
+      if (docs.length >= MAX_DOCS) break;
+      const key = `${hit.type}:${hit.ref || hit.citation}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const d = await fetchDoc(hit);
+      if (d) docs.push(d);
     }
   }
   return docs;

@@ -1,14 +1,22 @@
 'use strict';
 
-/* Unified entry point over the statute (USC Title 26) and regulation (CFR
- * Title 26) sources. The route layer talks only to this module. */
+/* Unified entry point over all corpora:
+ *   - USC Title 26   (statute)              — usc.js
+ *   - CFR Title 26   (Treasury regulations) — ecfr.js
+ *   - IRS guidance   (Federal Register)     — guidance.js
+ *   - Federal tax case law (CourtListener)  — caselaw.js
+ * The route layer talks only to this module. */
 
 const citation = require('../citation');
 const usc = require('./usc');
 const ecfr = require('./ecfr');
+const guidance = require('./guidance');
+const caselaw = require('./caselaw');
 
-/* Look up a verbatim section from a free-form citation. Routing is by the
- * parsed citation type: "1.61-1" → CFR, "61" → USC. */
+const CORPORA = ['usc', 'cfr', 'guidance', 'caselaw'];
+
+/* Look up verbatim text. Statute/regs are addressed by citation; guidance and
+ * case law are addressed by their native identifiers. */
 async function getSection(rawCitation) {
   const parsed = citation.parse(rawCitation);
   if (!parsed) {
@@ -20,16 +28,27 @@ async function getSection(rawCitation) {
   return { parsed, ...out };
 }
 
-/* Full-text search. scope: 'all' | 'usc' | 'cfr'. Failures in one corpus don't
- * sink the other — we return whatever came back plus any per-source errors. */
+/* Fetch a guidance document (Federal Register doc number) or a case-law
+ * opinion (CourtListener opinion id) by native id. */
+async function getDocument({ type, ref } = {}) {
+  if (type === 'guidance') return guidance.getDocument(ref);
+  if (type === 'caselaw') return caselaw.getOpinion(ref);
+  const e = new Error(`Unknown document type "${type}". Expected "guidance" or "caselaw".`);
+  e.status = 400; throw e;
+}
+
+/* Full-text search. scope: 'all' | 'usc' | 'cfr' | 'guidance' | 'caselaw'.
+ * One corpus failing never sinks the others — partial results + per-source
+ * errors are returned. */
 async function search(query, { scope = 'all', limit = 20 } = {}) {
   const q = String(query || '').trim();
-  if (!q) {
-    const err = new Error('Empty search query.'); err.status = 400; throw err;
-  }
-  const jobs = [];
-  if (scope === 'all' || scope === 'usc') jobs.push(tagged('usc', usc.search(q, limit)));
-  if (scope === 'all' || scope === 'cfr') jobs.push(tagged('cfr', ecfr.search(q, limit)));
+  if (!q) { const err = new Error('Empty search query.'); err.status = 400; throw err; }
+
+  const want = scope === 'all' ? CORPORA : [scope];
+  const runner = { usc: usc.search, cfr: ecfr.search, guidance: guidance.search, caselaw: caselaw.search };
+  const jobs = want
+    .filter((s) => runner[s])
+    .map((s) => tagged(s, runner[s](q, limit)));
   const settled = await Promise.all(jobs);
 
   const results = [];
@@ -46,4 +65,4 @@ async function tagged(source, promise) {
   catch (e) { return { source, ok: false, error: e.message }; }
 }
 
-module.exports = { getSection, search };
+module.exports = { getSection, getDocument, search, CORPORA };

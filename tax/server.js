@@ -65,18 +65,24 @@ app.use('/api', requireToken);
 app.get('/api/config', (req, res) => res.json({
   aiEnabled: cfg.ai.enabled,
   model: cfg.ai.model,
-  sources: ['26 U.S.C. (statute)', '26 C.F.R. (regulations)']
+  sources: ['26 U.S.C. (statute)', '26 C.F.R. (regulations)', 'IRS guidance (Federal Register)', 'Federal tax case law']
 }));
 
 // Verbatim section lookup. Accepts ?cite= (GET) or { citation } (POST).
 app.get('/api/section', h(async (req) => sources.getSection(req.query.cite)));
 app.post('/api/section', h(async (req) => sources.getSection((req.body || {}).citation)));
 
-// Full-text search across the statute and/or regulations.
+// Full-text search across statute, regulations, IRS guidance, and case law.
 app.post('/api/search', h(async (req) => {
   const { query, scope, limit } = req.body || {};
   return sources.search(query, { scope, limit: Math.min(Number(limit) || 20, 50) });
 }));
+
+// Full text of an IRS guidance doc (Federal Register document number).
+app.get('/api/guidance', h(async (req) => sources.getDocument({ type: 'guidance', ref: req.query.doc })));
+
+// Full text of a case-law opinion (CourtListener opinion id).
+app.get('/api/case', h(async (req) => sources.getDocument({ type: 'caselaw', ref: req.query.id })));
 
 // AI answer grounded in retrieved sections.
 app.post('/api/ask', h(async (req) => {

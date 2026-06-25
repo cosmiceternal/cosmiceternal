@@ -109,6 +109,28 @@ function render() {
 
 function busy(node, on) { node.disabled = on; node.textContent = on ? 'Working…' : node.dataset.label; }
 
+const SCOPES = { all:'All sources', usc:'Statute (26 USC)', cfr:'Regulations (26 CFR)', guidance:'IRS guidance (Fed. Register)', caselaw:'Case law' };
+function scopeSelect() {
+  const s = el('select');
+  Object.keys(SCOPES).forEach(k => s.append(el('option', { value:k, textContent:SCOPES[k] })));
+  return s;
+}
+
+// Fetch full text for any result type and render it into `target`.
+async function readInto(res, target) {
+  target.innerHTML = '<div class="spin">Loading…</div>';
+  try {
+    let r;
+    if (res.type === 'guidance') r = await api('/api/guidance?doc='+encodeURIComponent(res.ref));
+    else if (res.type === 'caselaw') r = await api('/api/case?id='+encodeURIComponent(res.ref));
+    else r = await api('/api/section', { method:'POST', body: JSON.stringify({ citation: res.citation }) });
+    target.innerHTML = '';
+    if (!r.ok) { target.append(el('div',{className:'err',textContent:'Not found: '+((r.errors||[]).join(' · '))})); return; }
+    if (r.heading) target.append(el('div',{className:'meta',textContent:r.heading}));
+    target.append(el('div', { className:'secbody', textContent:r.text }));
+  } catch (e) { target.innerHTML=''; target.append(el('div',{className:'err',textContent:e.message})); }
+}
+
 // ---- Ask (AI) ----
 function viewAsk(app) {
   const card = el('div', { className:'card' });
@@ -116,7 +138,7 @@ function viewAsk(app) {
   card.append(el('label', { textContent:'Question about U.S. tax law' }));
   const q = el('textarea', { placeholder:'e.g. Is cancellation of debt taxable income, and what exclusions apply?' });
   const opt = el('div', { className:'row', style:'margin-top:10px' });
-  const scope = el('select'); ['all','usc','cfr'].forEach(s => scope.append(el('option',{value:s,textContent:{all:'Statute + Regulations',usc:'Statute only (26 USC)',cfr:'Regulations only (26 CFR)'}[s]})));
+  const scope = scopeSelect();
   const cite = el('input', { placeholder:'Optional: focus on cites, e.g. 61, 162(a), 1.61-1' });
   opt.append(scope, cite);
   const go = el('button', { className:'go', textContent:'Ask', style:'margin-top:12px' }); go.dataset.label='Ask'; go.disabled=!aiEnabled;
@@ -180,8 +202,8 @@ function viewSearch(app) {
   card.append(el('label', { textContent:'Full-text search' }));
   const row = el('div', { className:'row' });
   const inp = el('input', { placeholder:'e.g. like-kind exchange' });
-  const scope = el('select'); ['all','usc','cfr'].forEach(s => scope.append(el('option',{value:s,textContent:{all:'Statute + Regulations',usc:'Statute (26 USC)',cfr:'Regulations (26 CFR)'}[s]})));
-  scope.style.maxWidth='220px';
+  const scope = scopeSelect();
+  scope.style.maxWidth='240px';
   row.append(inp, scope);
   const go = el('button', { className:'go', textContent:'Search', style:'margin-top:12px' }); go.dataset.label='Search';
   const out = el('div', { className:'out' });
@@ -199,9 +221,16 @@ function viewSearch(app) {
         if (res.heading) d.append(el('div',{textContent:res.heading}));
         if (res.excerpt) d.append(el('div',{className:'meta',textContent:res.excerpt}));
         const actions = el('div', { style:'margin-top:6px' });
-        if (res.citation) { const b=el('a',{href:'#',className:'linkbtn',textContent:'Read full text →'}); b.onclick=(e)=>{e.preventDefault(); tab='lookup'; render(); setTimeout(()=>{ const i=$('main input'); if(i){ i.value=res.citation; $('main button.go').click(); }},0);}; actions.append(b); }
+        const panel = el('div', { style:'margin-top:8px' });
+        const canRead = res.citation && (res.type==='usc'||res.type==='cfr') || res.ref;
+        if (canRead) {
+          const b = el('a', { href:'#', className:'linkbtn', textContent:'Read full text →' });
+          let open = false;
+          b.onclick = (e) => { e.preventDefault(); open=!open; if (open){ b.textContent='Hide ↑'; readInto(res, panel); } else { b.textContent='Read full text →'; panel.innerHTML=''; } };
+          actions.append(b);
+        }
         if (res.sourceUrl) { actions.append(document.createTextNode('   ')); actions.append(el('a',{href:res.sourceUrl,target:'_blank',rel:'noopener',className:'linkbtn',textContent:'source ↗'})); }
-        d.append(actions);
+        d.append(actions, panel);
         out.append(d);
       });
       (r.errors||[]).forEach(er => out.append(el('div',{className:'err',textContent:er.source+': '+er.error})));

@@ -51,6 +51,19 @@ const config = {
   ecfr: {
     base: process.env.ECFR_API_BASE || 'https://www.ecfr.gov'
   },
+  // Federal Register — official, clean JSON API (no key). Covers IRS-authored
+  // rulemaking and guidance published in the FR: Treasury Decisions (final
+  // regs), proposed regs, and IRS notices. (Rev. Ruls/Rev. Procs are published
+  // only in the Internal Revenue Bulletin, which has no public API.)
+  federalRegister: {
+    base: process.env.FED_REGISTER_API_BASE || 'https://www.federalregister.gov'
+  },
+  // CourtListener (Free Law Project) — federal tax case law. Works without a
+  // token at a lower rate limit; set COURTLISTENER_API_TOKEN for headroom.
+  courtListener: {
+    base: process.env.COURTLISTENER_BASE || 'https://www.courtlistener.com',
+    token: process.env.COURTLISTENER_API_TOKEN || ''
+  },
 
   // ---- AI answers ----
   ai: {
