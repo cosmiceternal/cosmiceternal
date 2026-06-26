@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Godel Terminal</title>
+  <link rel="stylesheet" href="css/terminal.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2220%22>📊</text></svg>" />
+</head>
+<body>
+  <div class="terminal">
+    <header class="t-header">
+      <div class="t-header-left">
+        <span class="t-logo">◉</span>
+        <span class="t-brand">Godel Terminal</span>
+      </div>
+      <div class="t-header-center">
+        <input type="text" class="t-cmd" id="cmdInput" placeholder="Search ticker or company..." spellcheck="false" autocomplete="off" />
+        <div class="t-search-results" id="searchResults"></div>
+      </div>
+      <div class="t-header-right">
+        <span class="t-clock" id="clock"></span>
+        <span class="t-dot"></span>
+      </div>
+    </header>
+
+    <div class="t-grid">
+      <!-- P1: Data Monitor -->
+      <section class="panel p-watch">
+        <div class="ph">
+          <span class="ph-title">Data Monitor</span>
+          <div class="ph-tabs" id="watchTabs">
+            <button class="pt active" data-list="stocks">Stocks</button>
+            <button class="pt" data-list="etfs">ETFs</button>
+            <button class="pt" data-list="futures">Futures</button>
+            <button class="pt" data-list="forex">Forex</button>
+          </div>
+        </div>
+        <div class="wl-hdr">
+          <span class="wc wc-tk">Ticker</span>
+          <span class="wc wc-nm">Name</span>
+          <span class="wc wc-last">Last</span>
+          <span class="wc wc-chg">Chg</span>
+          <span class="wc wc-pct">%Chg</span>
+          <span class="wc wc-vol">Volume</span>
+          <span class="wc wc-hi">High</span>
+          <span class="wc wc-lo">Low</span>
+        </div>
+        <div class="wl-body" id="watchBody"></div>
+      </section>
+
+      <!-- P2: News -->
+      <section class="panel p-news">
+        <div class="ph">
+          <span class="ph-title">News &amp; Headlines</span>
+          <span class="ph-ts" id="newsTs"></span>
+        </div>
+        <div class="news-body" id="newsBody">
+          <div class="news-loading">Loading news...</div>
+        </div>
+      </section>
+
+      <!-- P3: Heatmap -->
+      <section class="panel p-heat">
+        <div class="ph">
+          <span class="ph-title">Sectors</span>
+          <div class="heat-legend">
+            <span class="hl-n">-5%</span>
+            <div class="hl-bar"></div>
+            <span class="hl-p">+5%</span>
+          </div>
+        </div>
+        <div class="heat-body" id="heatBody"></div>
+      </section>
+
+      <!-- P4: Chart -->
+      <section class="panel p-chart">
+        <div class="ph">
+          <span class="ph-title">Chart: <span id="chartTicker">AAPL</span></span>
+          <div class="ph-tabs" id="chartRanges">
+            <button class="pt active" data-range="1d">1D</button>
+            <button class="pt" data-range="5d">1W</button>
+            <button class="pt" data-range="1mo">1M</button>
+            <button class="pt" data-range="3mo">3M</button>
+            <button class="pt" data-range="1y">1Y</button>
+            <button class="pt" data-range="5y">5Y</button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-info" id="chartInfo"></div>
+          <canvas id="mainChart"></canvas>
+          <canvas id="volChart"></canvas>
+        </div>
+      </section>
+
+      <!-- P5: Detail -->
+      <section class="panel p-detail">
+        <div class="ph">
+          <span class="ph-title" id="detailName">Company Detail</span>
+        </div>
+        <div class="detail-body" id="detailBody">
+          <div class="detail-quote" id="detailQuote"></div>
+          <canvas id="detailChart"></canvas>
+          <div class="detail-stats" id="detailStats"></div>
+        </div>
+      </section>
+
+      <!-- P6: Indices -->
+      <section class="panel p-idx">
+        <div class="ph">
+          <span class="ph-title">Markets</span>
+          <span class="ph-status" id="mktStatus">● Checking...</span>
+        </div>
+        <div class="idx-body" id="idxBody"></div>
+      </section>
+    </div>
+
+    <footer class="t-footer">
+      <div class="t-ticker" id="footerTicker"></div>
+      <div class="t-footer-msg">See the full command documentation or browse the full data coverage. Godel is currently in public beta and many commands are under development. User feedback is taken extremely seriously, especially from institutional and corporate users.</div>
+    </footer>
+  </div>
+
+  <script src="js/terminal.js"></script>
+</body>
+</html>
