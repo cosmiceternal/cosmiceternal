@@ -2,10 +2,55 @@
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+
+// Minimal .env loader (no dependency) — values already in the
+// environment take precedence over the file.
+(() => {
+  try {
+    const envPath = path.join(__dirname, '.env');
+    if (!fs.existsSync(envPath)) return;
+    for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+      const m = line.match(/^\s*([\w.-]+)\s*=\s*(.*)\s*$/);
+      if (!m || line.trim().startsWith('#')) continue;
+      const key = m[1];
+      let val = m[2].trim().replace(/^["']|["']$/g, '');
+      if (process.env[key] === undefined) process.env[key] = val;
+    }
+  } catch {}
+})();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
+// ================================================================
+//  Data provider configuration
+//  Real market data is pulled from the first provider that responds.
+//  Yahoo needs no key; Twelve Data / Finnhub use free API keys and are
+//  the recommended path for cloud deployments where Yahoo blocks
+//  datacenter IPs. See README and .env.example.
+// ================================================================
+const PROVIDER = (process.env.DATA_PROVIDER || 'auto').toLowerCase();
+const TWELVEDATA_KEY = process.env.TWELVEDATA_API_KEY || '';
+const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
+const ALLOW_SIM = process.env.ALLOW_SIMULATION !== 'false';
+
+// Per-capability provider priority for DATA_PROVIDER=auto.
+function chain(capability) {
+  if (PROVIDER !== 'auto') return PROVIDER === 'simulation' ? [] : [PROVIDER];
+  switch (capability) {
+    case 'quotes': return ['yahoo', TWELVEDATA_KEY && 'twelvedata', FINNHUB_KEY && 'finnhub'].filter(Boolean);
+    case 'chart':  return ['yahoo', TWELVEDATA_KEY && 'twelvedata'].filter(Boolean);
+    case 'search': return ['yahoo', TWELVEDATA_KEY && 'twelvedata'].filter(Boolean);
+    case 'news':   return ['yahoo', FINNHUB_KEY && 'finnhub'].filter(Boolean);
+    default: return ['yahoo'];
+  }
+}
+
+// Tracks which providers are currently healthy, for /api/status.
+const providerHealth = {};
+function markHealth(name, ok) { providerHealth[name] = { ok, ts: Date.now() }; }
 
 // ================================================================
 //  In-memory cache
@@ -18,45 +63,183 @@ function getCache(key, ttlMs) {
 }
 function setCache(key, data) { cache.set(key, { data, ts: Date.now() }); }
 
+async function jget(url, opts = {}) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': UA, Accept: 'application/json, text/csv, */*', ...(opts.headers || {}) },
+    signal: AbortSignal.timeout(opts.timeout || 8000),
+    redirect: opts.redirect || 'follow',
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('json') || opts.json ? res.json() : res.text();
+}
+
 // ================================================================
-//  Yahoo Finance proxy (used when external APIs are reachable)
+//  Provider: Yahoo Finance (no API key required)
 // ================================================================
-let yfCrumb = null, yfCookies = '', yfCrumbTime = 0, yfAvailable = null;
+let yfCrumb = null, yfCookies = '', yfCrumbTime = 0;
 
 async function ensureCrumb() {
   if (yfCrumb && Date.now() - yfCrumbTime < 3600_000) return true;
-  try {
-    const r1 = await fetch('https://fc.yahoo.com/', { redirect: 'manual', headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(5000) });
-    const raw = r1.headers.getSetCookie ? r1.headers.getSetCookie() : [];
-    yfCookies = raw.map(c => c.split(';')[0]).join('; ');
-    if (!yfCookies) {
-      const sc = r1.headers.get('set-cookie') || '';
-      yfCookies = sc.split(/,(?=[^ ])/).map(c => c.trim().split(';')[0]).join('; ');
-    }
-    const r2 = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
-      headers: { 'User-Agent': UA, Cookie: yfCookies }, signal: AbortSignal.timeout(5000)
-    });
-    if (r2.ok) { yfCrumb = await r2.text(); yfCrumbTime = Date.now(); return true; }
-  } catch {}
+  for (const seed of ['https://fc.yahoo.com/', 'https://finance.yahoo.com/']) {
+    try {
+      const r1 = await fetch(seed, { redirect: 'manual', headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(5000) });
+      const raw = r1.headers.getSetCookie ? r1.headers.getSetCookie() : [];
+      let cookies = raw.map(c => c.split(';')[0]).join('; ');
+      if (!cookies) {
+        const sc = r1.headers.get('set-cookie') || '';
+        cookies = sc.split(/,(?=[^ ])/).map(c => c.trim().split(';')[0]).join('; ');
+      }
+      if (!cookies) continue;
+      const r2 = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+        headers: { 'User-Agent': UA, Cookie: cookies }, signal: AbortSignal.timeout(5000)
+      });
+      if (r2.ok) {
+        const crumb = (await r2.text()).trim();
+        if (crumb && !crumb.startsWith('<')) { yfCrumb = crumb; yfCookies = cookies; yfCrumbTime = Date.now(); return true; }
+      }
+    } catch {}
+  }
   return false;
 }
 
-async function yfFetch(url) {
-  if (yfAvailable === false) throw new Error('Yahoo Finance unavailable');
-  const ok = await ensureCrumb();
-  if (!ok) { yfAvailable = false; throw new Error('Yahoo Finance unavailable'); }
+async function yfFetch(url, { needsCrumb = true } = {}) {
+  if (needsCrumb && !(await ensureCrumb())) throw new Error('Yahoo crumb unavailable');
   const u = new URL(url);
-  if (yfCrumb) u.searchParams.set('crumb', yfCrumb);
+  if (needsCrumb && yfCrumb) u.searchParams.set('crumb', yfCrumb);
   const res = await fetch(u.toString(), {
-    headers: { 'User-Agent': UA, Cookie: yfCookies },
+    headers: { 'User-Agent': UA, Cookie: yfCookies, Accept: 'application/json' },
     signal: AbortSignal.timeout(8000)
   });
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) { yfCrumbTime = 0; yfAvailable = false; }
-    throw new Error(`Yahoo ${res.status}`);
-  }
-  yfAvailable = true;
+  if (!res.ok) { if (res.status === 401 || res.status === 403) yfCrumbTime = 0; throw new Error(`Yahoo ${res.status}`); }
   return res.json();
+}
+
+async function yahooQuotes(symbols) {
+  const data = await yfFetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
+  const list = data.quoteResponse?.result || [];
+  if (!list.length) throw new Error('Yahoo: empty quotes');
+  return list;
+}
+async function yahooChart(symbol, range, interval) {
+  const data = await yfFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval || '5m'}&includePrePost=false`, { needsCrumb: false });
+  const r = data.chart?.result?.[0];
+  if (!r) throw new Error('Yahoo: no chart');
+  return r;
+}
+async function yahooSearch(q) {
+  const data = await yfFetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=5`, { needsCrumb: false });
+  return { quotes: data.quotes || [], news: data.news || [] };
+}
+async function yahooNews(q) {
+  const data = await yfFetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=0&newsCount=20`, { needsCrumb: false });
+  return data.news || [];
+}
+
+// ================================================================
+//  Provider: Twelve Data (free API key — quotes, charts, search)
+// ================================================================
+const TD_INTERVAL = { '1d':'5min', '5d':'15min', '1mo':'1day', '3mo':'1day', '1y':'1week', '5y':'1month' };
+const TD_OUTPUTSIZE = { '1d':78, '5d':40, '1mo':22, '3mo':63, '1y':52, '5y':60 };
+
+async function twelvedataQuotes(symbols) {
+  const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbols.join(','))}&apikey=${TWELVEDATA_KEY}`;
+  const data = await jget(url, { json: true });
+  const rows = symbols.length === 1 ? { [symbols[0]]: data } : data;
+  const out = [];
+  for (const sym of symbols) {
+    const q = rows[sym];
+    if (!q || q.status === 'error' || q.code) continue;
+    out.push({
+      symbol: sym,
+      shortName: q.name || sym,
+      longName: q.name || sym,
+      regularMarketPrice: num(q.close),
+      regularMarketChange: num(q.change),
+      regularMarketChangePercent: num(q.percent_change),
+      regularMarketVolume: num(q.volume),
+      regularMarketDayHigh: num(q.high),
+      regularMarketDayLow: num(q.low),
+      regularMarketOpen: num(q.open),
+      regularMarketPreviousClose: num(q.previous_close),
+      fiftyTwoWeekHigh: num(q.fifty_two_week?.high),
+      fiftyTwoWeekLow: num(q.fifty_two_week?.low),
+      averageDailyVolume3Month: num(q.average_volume),
+      marketState: q.is_market_open ? 'REGULAR' : 'CLOSED',
+      quoteType: 'EQUITY',
+    });
+  }
+  if (!out.length) throw new Error('TwelveData: empty quotes');
+  return out;
+}
+async function twelvedataChart(symbol, range) {
+  const interval = TD_INTERVAL[range] || '1day';
+  const size = TD_OUTPUTSIZE[range] || 78;
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=${size}&order=asc&apikey=${TWELVEDATA_KEY}`;
+  const data = await jget(url, { json: true });
+  if (data.status === 'error' || !Array.isArray(data.values)) throw new Error(data.message || 'TwelveData: no chart');
+  const timestamp = [], open = [], high = [], low = [], close = [], volume = [];
+  for (const v of data.values) {
+    timestamp.push(Math.floor(new Date(v.datetime.replace(' ', 'T') + 'Z').getTime() / 1000));
+    open.push(num(v.open)); high.push(num(v.high)); low.push(num(v.low)); close.push(num(v.close)); volume.push(num(v.volume));
+  }
+  return { timestamp, indicators: { quote: [{ open, high, low, close, volume }] }, meta: { symbol, range } };
+}
+async function twelvedataSearch(q) {
+  const data = await jget(`https://api.twelvedata.com/symbol_search?symbol=${encodeURIComponent(q)}&outputsize=10`, { json: true });
+  const quotes = (data.data || []).map(d => ({ symbol: d.symbol, shortname: d.instrument_name, quoteType: d.instrument_type, exchange: d.exchange }));
+  return { quotes, news: [] };
+}
+
+// ================================================================
+//  Provider: Finnhub (free API key — quotes, news)
+// ================================================================
+async function finnhubQuotes(symbols) {
+  const out = [];
+  for (const sym of symbols.slice(0, 30)) {
+    try {
+      const q = await jget(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${FINNHUB_KEY}`, { json: true });
+      if (q.c == null || q.c === 0) continue;
+      out.push({
+        symbol: sym, shortName: sym, longName: sym,
+        regularMarketPrice: q.c, regularMarketChange: q.d, regularMarketChangePercent: q.dp,
+        regularMarketDayHigh: q.h, regularMarketDayLow: q.l, regularMarketOpen: q.o,
+        regularMarketPreviousClose: q.pc, marketState: 'REGULAR', quoteType: 'EQUITY',
+      });
+    } catch {}
+  }
+  if (!out.length) throw new Error('Finnhub: empty quotes');
+  return out;
+}
+async function finnhubNews() {
+  const data = await jget(`https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_KEY}`, { json: true });
+  if (!Array.isArray(data) || !data.length) throw new Error('Finnhub: no news');
+  return data.slice(0, 20).map(n => ({ title: n.headline, publisher: n.source, providerPublishTime: n.datetime, link: n.url }));
+}
+
+function num(v) { const n = Number(v); return Number.isFinite(n) ? n : undefined; }
+
+// Provider dispatch tables.
+const PROVIDERS = {
+  yahoo:      { quotes: yahooQuotes, chart: yahooChart, search: yahooSearch, news: yahooNews },
+  twelvedata: { quotes: twelvedataQuotes, chart: twelvedataChart, search: twelvedataSearch },
+  finnhub:    { quotes: finnhubQuotes, news: finnhubNews },
+};
+
+// Try each provider in the capability chain; return { data, source } or null.
+async function resolve(capability, ...args) {
+  for (const name of chain(capability)) {
+    const fn = PROVIDERS[name]?.[capability];
+    if (!fn) continue;
+    try {
+      const data = await fn(...args);
+      markHealth(name, true);
+      return { data, source: name };
+    } catch (e) {
+      markHealth(name, false);
+    }
+  }
+  return null;
 }
 
 // ================================================================
@@ -283,6 +466,29 @@ function buildChartData(sym, range) {
   };
 }
 
+const DESCRIPTIONS = {
+  AAPL: 'Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide. It operates through the iPhone, Mac, iPad, and Wearables, Home and Accessories segments, and provides services including the App Store, Apple Music, iCloud, and Apple Pay.',
+  MSFT: 'Microsoft Corporation develops and supports software, services, devices, and solutions worldwide. Its segments include Productivity and Business Processes (Office, LinkedIn, Dynamics), Intelligent Cloud (Azure, server products), and More Personal Computing (Windows, Surface, Xbox).',
+  GOOGL: 'Alphabet Inc. provides online advertising services through Google Search, YouTube, and the Google Network. It also offers cloud infrastructure via Google Cloud, the Android operating system, hardware products, and other bets including Waymo autonomous driving.',
+  AMZN: 'Amazon.com, Inc. engages in the retail sale of consumer products and subscriptions in North America and internationally. It operates through online and physical stores, third-party seller services, advertising, and Amazon Web Services (AWS) cloud computing.',
+  NVDA: 'NVIDIA Corporation provides graphics, compute, and networking solutions. Its Graphics segment includes GeForce GPUs for gaming, while its Compute & Networking segment delivers data center accelerators powering artificial intelligence, deep learning, and high-performance computing workloads.',
+  META: 'Meta Platforms, Inc. develops products that enable people to connect through mobile devices, computers, and wearables worldwide. It operates the Family of Apps (Facebook, Instagram, Messenger, WhatsApp) and Reality Labs, which builds augmented and virtual reality hardware and software.',
+  TSLA: 'Tesla, Inc. designs, develops, manufactures, and sells electric vehicles, and energy generation and storage systems. It operates through Automotive and Energy Generation and Storage segments, and offers solar products, battery storage, and full self-driving software.',
+  'BRK-B': 'Berkshire Hathaway Inc. engages in insurance, freight rail transportation, and utility businesses worldwide. Through its subsidiaries it operates in insurance (GEICO), railroads (BNSF), energy, manufacturing, and retailing, and holds a large equity investment portfolio.',
+  JPM: 'JPMorgan Chase & Co. operates as a financial services company worldwide. It operates through Consumer & Community Banking, Corporate & Investment Bank, Commercial Banking, and Asset & Wealth Management segments, providing banking, lending, and investment services.',
+  V: 'Visa Inc. operates as a payments technology company worldwide. It facilitates digital payments among consumers, merchants, financial institutions, and government entities through its VisaNet transaction processing network, enabling authorization, clearing, and settlement.',
+  UNH: 'UnitedHealth Group Incorporated operates as a diversified health care company. It operates through UnitedHealthcare, which provides health benefit plans, and Optum, which delivers health services, pharmacy care, and data analytics across the care continuum.',
+  WMT: 'Walmart Inc. engages in the operation of retail, wholesale, and other units worldwide. It operates supercenters, discount stores, neighborhood markets, and e-commerce websites through Walmart U.S., Walmart International, and Sam’s Club segments.',
+  MA: 'Mastercard Incorporated is a technology company in the global payments industry. It connects consumers, financial institutions, merchants, and businesses through its transaction processing and payment-related products and services across more than 210 countries.',
+  PG: 'The Procter & Gamble Company provides branded consumer packaged goods worldwide. It operates through Beauty, Grooming, Health Care, Fabric & Home Care, and Baby, Feminine & Family Care segments with brands including Tide, Pampers, Gillette, and Crest.',
+  HD: 'The Home Depot, Inc. operates as a home improvement retailer. It sells building materials, home improvement products, lawn and garden products, and decor, and provides installation and tool rental services to do-it-yourself and professional customers.',
+  BAC: 'Bank of America Corporation provides banking and financial products and services worldwide. It operates through Consumer Banking, Global Wealth & Investment Management, Global Banking, and Global Markets segments.',
+  COST: 'Costco Wholesale Corporation engages in the operation of membership warehouses worldwide. It offers branded and private-label products in a range of merchandise categories, along with ancillary services such as gas stations, pharmacies, and optical centers.',
+  NFLX: 'Netflix, Inc. provides entertainment services. It offers TV series, documentaries, feature films, and games across a wide variety of genres and languages to paying members in over 190 countries who can stream content on internet-connected devices.',
+  CRM: 'Salesforce, Inc. provides customer relationship management technology that brings companies and customers together worldwide. Its cloud-based platform includes Sales Cloud, Service Cloud, Marketing Cloud, Slack, and the Data Cloud and Einstein AI offerings.',
+  PLTR: 'Palantir Technologies builds and deploys software platforms for the intelligence community in the United States to assist in counterterrorism investigations and operations. Its platforms—Gotham, Foundry, Apollo, and AIP—serve commercial and government customers seeking to integrate and analyze data at scale.',
+};
+
 const SIM_NEWS = [
   { title:'Federal Reserve Officials Signal Patience on Rate Cuts Amid Sticky Inflation', publisher:'Reuters', age:600 },
   { title:'Tech Stocks Rally as AI Spending Boosts Cloud Revenue Forecasts', publisher:'Bloomberg', age:1200 },
@@ -322,87 +528,89 @@ initSim();
 setInterval(tickSim, 3000);
 
 // ================================================================
-//  API Routes — tries Yahoo Finance, falls back to simulation
+//  API Routes — real providers first (chain), simulation last
 // ================================================================
 
 app.get('/api/quotes', async (req, res) => {
   const symbols = (req.query.symbols || '').split(',').filter(Boolean);
   if (!symbols.length) return res.json({ quotes: [], source: 'none' });
 
-  // Try Yahoo Finance first
-  if (yfAvailable !== false) {
-    try {
-      const key = `yf:quotes:${symbols.sort().join(',')}`;
-      const cached = getCache(key, 12_000);
-      if (cached) return res.json(cached);
-      const data = await yfFetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
-      const result = { quotes: data.quoteResponse?.result || [], source: 'yahoo' };
-      setCache(key, result);
-      return res.json(result);
-    } catch {}
+  const key = `quotes:${symbols.slice().sort().join(',')}`;
+  const cached = getCache(key, 12_000);
+  if (cached) return res.json(cached);
+
+  const r = await resolve('quotes', symbols);
+  if (r) {
+    const result = { quotes: r.data, source: r.source };
+    setCache(key, result);
+    return res.json(result);
   }
 
-  // Fallback: simulation
+  if (!ALLOW_SIM) return res.status(503).json({ quotes: [], source: 'none', error: 'No data provider available' });
   tickSim();
-  const quotes = symbols.map(s => buildQuote(s)).filter(Boolean);
-  res.json({ quotes, source: 'simulation' });
+  res.json({ quotes: symbols.map(buildQuote).filter(Boolean), source: 'simulation' });
 });
 
 app.get('/api/chart', async (req, res) => {
   const { symbol, range = '1d', interval } = req.query;
   if (!symbol) return res.status(400).json({ error: 'symbol required' });
 
-  if (yfAvailable !== false) {
-    try {
-      const key = `yf:chart:${symbol}:${range}:${interval}`;
-      const cached = getCache(key, range === '1d' ? 30_000 : 60_000);
-      if (cached) return res.json(cached);
-      const data = await yfFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval || '5m'}&includePrePost=false`);
-      const result = data.chart?.result?.[0] || null;
-      if (result) { setCache(key, result); return res.json(result); }
-    } catch {}
-  }
+  const key = `chart:${symbol}:${range}`;
+  const cached = getCache(key, range === '1d' ? 30_000 : 60_000);
+  if (cached) return res.json(cached);
 
+  const r = await resolve('chart', symbol, range, interval);
+  if (r) { setCache(key, r.data); return res.json(r.data); }
+
+  if (!ALLOW_SIM) return res.status(503).json({ error: 'No data provider available' });
   const chart = buildChartData(symbol, range);
   if (chart) return res.json(chart);
   res.status(404).json({ error: 'Unknown symbol' });
 });
 
 app.get('/api/search', async (req, res) => {
-  const q = (req.query.q || '').toUpperCase().trim();
+  const q = (req.query.q || '').trim();
   if (!q) return res.json({ quotes: [], news: [] });
 
-  if (yfAvailable !== false) {
-    try {
-      const data = await yfFetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=5`);
-      return res.json({ quotes: data.quotes || [], news: data.news || [] });
-    } catch {}
-  }
+  const r = await resolve('search', q);
+  if (r) return res.json(r.data);
 
+  const qu = q.toUpperCase();
   const matches = Object.entries(SIM_STOCKS)
-    .filter(([sym, info]) => sym.includes(q) || info.name.toUpperCase().includes(q))
+    .filter(([sym, info]) => sym.includes(qu) || info.name.toUpperCase().includes(qu))
     .slice(0, 10)
     .map(([sym, info]) => ({
-      symbol: sym,
-      shortname: info.name,
+      symbol: sym, shortname: info.name,
       quoteType: info.sector === 'Index' ? 'INDEX' : info.sector === 'ETF' ? 'ETF' : 'EQUITY',
       exchange: 'SIM'
     }));
   res.json({ quotes: matches, news: [] });
 });
 
+// Company description / profile text for the detail panel.
+app.get('/api/profile', async (req, res) => {
+  const sym = (req.query.symbol || '').toUpperCase();
+  if (!sym) return res.status(400).json({ error: 'symbol required' });
+  const r = await resolve('quotes', [sym]).catch(() => null);
+  const description = DESCRIPTIONS[sym] || (SIM_STOCKS[sym] ? `${SIM_STOCKS[sym].name} — ${SIM_STOCKS[sym].sector}.` : '');
+  res.json({ symbol: sym, description, source: r?.source || 'none' });
+});
+
 app.get('/api/news', async (req, res) => {
-  if (yfAvailable !== false) {
-    try {
-      const data = await yfFetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(req.query.q || 'stock market')}&quotesCount=0&newsCount=20`);
-      return res.json({ news: data.news || [], source: 'yahoo' });
-    } catch {}
-  }
+  const r = await resolve('news', req.query.q || 'stock market');
+  if (r) return res.json({ news: r.data, source: r.source });
   res.json({ news: buildNews(), source: 'simulation' });
 });
 
 app.get('/api/status', (req, res) => {
-  res.json({ dataSource: yfAvailable === false ? 'simulation' : 'yahoo', uptime: process.uptime() });
+  res.json({
+    provider: PROVIDER,
+    keys: { twelvedata: !!TWELVEDATA_KEY, finnhub: !!FINNHUB_KEY },
+    allowSimulation: ALLOW_SIM,
+    health: providerHealth,
+    chains: { quotes: chain('quotes'), chart: chain('chart'), search: chain('search'), news: chain('news') },
+    uptime: process.uptime(),
+  });
 });
 
 // ================================================================
@@ -414,11 +622,18 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ================================================================
-//  Start
+//  Start — probe providers so the log shows the live data source
 // ================================================================
 (async () => {
-  await ensureCrumb().catch(() => {});
-  if (yfAvailable === false) console.log('Yahoo Finance unavailable — using simulation engine');
-  else console.log('Yahoo Finance connected');
+  let live = null;
+  if (PROVIDER === 'simulation') {
+    console.log('DATA_PROVIDER=simulation — serving simulated market data');
+  } else {
+    const probe = await resolve('quotes', ['AAPL']).catch(() => null);
+    live = probe?.source || null;
+    if (live) console.log(`Live market data: ${live}`);
+    else if (ALLOW_SIM) console.log('No real provider reachable — falling back to simulation engine.\n  → Run locally or add a free TWELVEDATA_API_KEY / FINNHUB_API_KEY for real data (see README).');
+    else console.log('No real provider reachable and ALLOW_SIMULATION=false — data endpoints will 503.');
+  }
   app.listen(PORT, () => console.log(`Godel Terminal running at http://localhost:${PORT}`));
 })();

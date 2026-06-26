@@ -534,6 +534,8 @@ function renderDetail() {
     `<span class="dq-chg ${dir}">${fmtSign(chg)} (${fmtPct(pct)})</span>` +
     `<span class="dq-mkt">${q.marketState || ''}</span>`;
 
+  renderRangeBars(q, price);
+  loadProfile(state.selectedTicker);
   drawDetailMiniChart();
 
   const stats = [
@@ -593,6 +595,43 @@ function drawDetailMiniChart() {
   ctx.fill();
 }
 
+function renderRangeBars(q, price) {
+  const el = document.getElementById('detailRange');
+  const bar = (label, lo, hi, val) => {
+    if (lo == null || hi == null || hi <= lo) return '';
+    const pos = Math.max(0, Math.min(100, ((val - lo) / (hi - lo)) * 100));
+    const col = pos >= 50 ? 'var(--green)' : 'var(--red)';
+    return `<div class="dr-row"><span class="dr-label">${label}</span><span class="dr-lo">${fmt(lo)}</span><div class="dr-track"><div class="dr-fill" style="width:${pos}%;background:${col};opacity:.35"></div><div class="dr-marker" style="left:calc(${pos}% - 1px)"></div></div><span class="dr-hi">${fmt(hi)}</span></div>`;
+  };
+  el.innerHTML =
+    bar('Day', q.regularMarketDayLow, q.regularMarketDayHigh, price) +
+    bar('52wk', q.fiftyTwoWeekLow, q.fiftyTwoWeekHigh, price);
+}
+
+const profileCache = {};
+async function loadProfile(sym) {
+  const el = document.getElementById('detailDesc');
+  if (profileCache[sym] !== undefined) { el.textContent = profileCache[sym]; return; }
+  el.textContent = '';
+  try {
+    const data = await api(`/api/profile?symbol=${encodeURIComponent(sym)}`);
+    profileCache[sym] = data.description || '';
+    if (state.selectedTicker === sym) el.textContent = profileCache[sym];
+  } catch { profileCache[sym] = ''; }
+}
+
+function updateSourceBadge() {
+  const src = state.dataSource || 'unknown';
+  const badge = document.getElementById('dataSource');
+  const dot = document.getElementById('connDot');
+  const isSim = src === 'simulation';
+  const label = { yahoo:'Yahoo', twelvedata:'Twelve Data', finnhub:'Finnhub', simulation:'Simulated' }[src] || src;
+  badge.textContent = label;
+  badge.className = 't-source ' + (isSim ? 'sim' : src === 'unknown' ? '' : 'live');
+  badge.title = isSim ? 'Simulated data — no live provider reachable. See README to enable real data.' : `Live market data via ${label}`;
+  dot.className = 't-dot ' + (isSim ? 'sim' : '');
+}
+
 // ==================== Panel: Indices ====================
 function renderIndices() {
   const body = document.getElementById('idxBody');
@@ -628,8 +667,7 @@ function renderFooterTicker() {
     return `<span class="tk-item"><span class="tk-sym">${sym}</span><span class="tk-price">${fmt(q.regularMarketPrice)}</span><span class="tk-chg ${dir}">${fmtSign(chg)}</span></span><span class="tk-sep">│</span>`;
   });
 
-  const src = state.dataSource === 'simulation' ? '<span class="tk-item" style="color:var(--amber)">SIM</span><span class="tk-sep">│</span>' : '';
-  document.getElementById('footerTicker').innerHTML = src + items.join('');
+  document.getElementById('footerTicker').innerHTML = items.join('');
 }
 
 // ==================== Search ====================
@@ -687,6 +725,7 @@ async function loadAllQuotes() {
   try {
     const quotes = await fetchQuotes(getAllSymbols());
     for (const q of quotes) if (q.symbol) state.quotes[q.symbol] = q;
+    updateSourceBadge();
     renderWatchlist();
     renderHeatmap();
     renderIndices();

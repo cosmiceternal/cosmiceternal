@@ -19,8 +19,9 @@
         <div class="t-search-results" id="searchResults"></div>
       </div>
       <div class="t-header-right">
+        <span class="t-source" id="dataSource" title="Active market-data provider">—</span>
         <span class="t-clock" id="clock"></span>
-        <span class="t-dot"></span>
+        <span class="t-dot" id="connDot"></span>
       </div>
     </header>
 
@@ -100,8 +101,10 @@
         </div>
         <div class="detail-body" id="detailBody">
           <div class="detail-quote" id="detailQuote"></div>
+          <div class="detail-range" id="detailRange"></div>
           <canvas id="detailChart"></canvas>
           <div class="detail-stats" id="detailStats"></div>
+          <div class="detail-desc" id="detailDesc"></div>
         </div>
       </section>
 

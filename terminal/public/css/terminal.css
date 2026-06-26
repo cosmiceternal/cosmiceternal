@@ -47,9 +47,13 @@ input{font-family:inherit;border:none;outline:none;color:inherit;background:none
 .sr-sym{color:var(--amber);font-weight:600}
 .sr-name{color:var(--text2);font-size:11px;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sr-type{color:var(--text3);font-size:10px;text-transform:uppercase}
-.t-header-right{display:flex;align-items:center;gap:10px;min-width:160px;justify-content:flex-end}
+.t-header-right{display:flex;align-items:center;gap:10px;min-width:200px;justify-content:flex-end}
+.t-source{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:3px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.t-source.live{color:var(--green);border-color:rgba(0,200,83,.4);background:var(--green-bg)}
+.t-source.sim{color:var(--amber);border-color:rgba(255,171,0,.4);background:rgba(255,171,0,.1)}
 .t-clock{color:var(--text2);font-size:11px;letter-spacing:.5px}
 .t-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+.t-dot.sim{background:var(--amber);box-shadow:0 0 6px var(--amber)}
 
 /* ===== Grid ===== */
 .t-grid{display:grid;grid-template-columns:1.3fr 1.2fr .85fr;grid-template-rows:1fr 1fr;gap:1px;flex:1;overflow:hidden;background:var(--border)}
@@ -130,10 +134,19 @@ input{font-family:inherit;border:none;outline:none;color:inherit;background:none
 .dq-chg.down{color:var(--red)}
 .dq-mkt{font-size:10px;color:var(--text3)}
 #detailChart{width:100%;height:120px;flex-shrink:0;margin:4px 0}
+.detail-range{display:flex;flex-direction:column;gap:3px;margin:2px 0 6px;flex-shrink:0}
+.dr-row{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3)}
+.dr-label{width:34px;flex-shrink:0}
+.dr-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;position:relative;overflow:hidden}
+.dr-fill{position:absolute;top:0;bottom:0;left:0;border-radius:3px}
+.dr-marker{position:absolute;top:-2px;width:2px;height:9px;background:var(--text);border-radius:1px}
+.dr-lo,.dr-hi{width:48px;flex-shrink:0;color:var(--text2)}
+.dr-hi{text-align:right}
 .detail-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;flex-shrink:0}
 .ds-row{display:flex;justify-content:space-between;padding:4px 6px;background:var(--bg2);font-size:11px}
 .ds-label{color:var(--text3)}
 .ds-val{color:var(--text);font-weight:500}
+.detail-desc{font-size:11px;color:var(--text2);line-height:1.5;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
 
 /* ===== P6: Indices ===== */
 .idx-body{flex:1;display:flex;flex-direction:column;gap:2px;padding:4px;overflow-y:auto}
