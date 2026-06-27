@@ -68,6 +68,26 @@ Check what's live at any time:
 curl localhost:3001/api/status
 ```
 
+## Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `↑` `↓` / `j` `k` | Move selection up/down the watchlist (loads chart + detail). |
+| `[` `]` | Cycle the watchlist tabs (Stocks → ETFs → Futures → Forex → Crypto). |
+| `1`–`6` | Switch the chart range (1D, 1W, 1M, 3M, 1Y, 5Y). |
+| `/` | Jump to the search box. |
+
+Click any watchlist column header to sort by it (click again to reverse,
+a third time to clear).
+
+## Deploy
+
+A [`render.yaml`](./render.yaml) blueprint is included. On
+[Render](https://render.com): **New +** → **Blueprint** → point at this repo.
+After the first deploy, add a free `TWELVEDATA_API_KEY` / `FINNHUB_API_KEY`
+under **Environment** for a reliable live feed (datacenter IPs are often
+blocked by Yahoo).
+
 ## API
 
 | Endpoint | Description |

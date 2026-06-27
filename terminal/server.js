@@ -306,6 +306,15 @@ const SIM_STOCKS = {
   'GC=F':   { name:'Gold Futures', sector:'Futures', base:2680.40, mktCap:0, pe:0, eps:0, beta:0.1, divYield:0, avgVol:185_000 },
   'CL=F':   { name:'Crude Oil WTI', sector:'Futures', base:71.20, mktCap:0, pe:0, eps:0, beta:0.4, divYield:0, avgVol:320_000 },
   'BTC-USD':{ name:'Bitcoin USD', sector:'Crypto', base:104800, mktCap:2.06e12, pe:0, eps:0, beta:1.8, divYield:0, avgVol:28_000_000_000 },
+  'ETH-USD':{ name:'Ethereum USD', sector:'Crypto', base:3320, mktCap:400e9, pe:0, eps:0, beta:2.1, divYield:0, avgVol:14_000_000_000 },
+  'SOL-USD':{ name:'Solana USD', sector:'Crypto', base:212.40, mktCap:101e9, pe:0, eps:0, beta:2.8, divYield:0, avgVol:3_400_000_000 },
+  'BNB-USD':{ name:'BNB USD', sector:'Crypto', base:648.20, mktCap:94e9, pe:0, eps:0, beta:1.9, divYield:0, avgVol:1_800_000_000 },
+  'XRP-USD':{ name:'XRP USD', sector:'Crypto', base:2.32, mktCap:133e9, pe:0, eps:0, beta:2.5, divYield:0, avgVol:6_200_000_000 },
+  'ADA-USD':{ name:'Cardano USD', sector:'Crypto', base:0.892, mktCap:31e9, pe:0, eps:0, beta:2.6, divYield:0, avgVol:1_100_000_000 },
+  'DOGE-USD':{ name:'Dogecoin USD', sector:'Crypto', base:0.382, mktCap:56e9, pe:0, eps:0, beta:3.1, divYield:0, avgVol:4_800_000_000 },
+  'AVAX-USD':{ name:'Avalanche USD', sector:'Crypto', base:38.60, mktCap:15e9, pe:0, eps:0, beta:2.9, divYield:0, avgVol:680_000_000 },
+  'DOT-USD':{ name:'Polkadot USD', sector:'Crypto', base:7.84, mktCap:11e9, pe:0, eps:0, beta:2.7, divYield:0, avgVol:520_000_000 },
+  'MATIC-USD':{ name:'Polygon USD', sector:'Crypto', base:0.524, mktCap:5.4e9, pe:0, eps:0, beta:2.8, divYield:0, avgVol:420_000_000 },
 
   // Futures
   'ES=F':  { name:'E-Mini S&P 500', sector:'Futures', base:5955, mktCap:0, pe:0, eps:0, beta:1.0, divYield:0, avgVol:1_200_000 },

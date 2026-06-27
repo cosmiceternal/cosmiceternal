@@ -70,9 +70,13 @@ input{font-family:inherit;border:none;outline:none;color:inherit;background:none
 .pt.active{background:var(--bg3);color:var(--amber)}
 
 /* ===== P1: Watchlist ===== */
-.wl-hdr{display:flex;align-items:center;height:22px;background:var(--bg2);padding:0 8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.wl-hdr{display:flex;align-items:center;height:22px;background:var(--bg2);padding:0 8px;border-bottom:1px solid var(--border);flex-shrink:0;user-select:none}
+.wl-hdr .wc{cursor:pointer;position:relative;transition:color .1s}
+.wl-hdr .wc:hover{color:var(--text)}
+.wl-hdr .wc.sort-asc::after{content:' ▲';font-size:7px;color:var(--amber)}
+.wl-hdr .wc.sort-desc::after{content:' ▼';font-size:7px;color:var(--amber)}
 .wc{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600}
-.wc-tk{width:52px;flex-shrink:0}
+.wc-tk{width:62px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wc-nm{flex:1;min-width:0}
 .wc-last,.wc-chg,.wc-pct{width:70px;text-align:right;flex-shrink:0}
 .wc-vol{width:80px;text-align:right;flex-shrink:0}
@@ -122,8 +126,9 @@ input{font-family:inherit;border:none;outline:none;color:inherit;background:none
 .chart-info .ci-chg.up{color:var(--green)}
 .chart-info .ci-chg.down{color:var(--red)}
 .chart-info .ci-range{color:var(--text3);font-size:10px;align-self:flex-end}
-#mainChart{flex:1;width:100%;min-height:0}
+#mainChart{flex:1;width:100%;min-height:0;cursor:crosshair}
 #volChart{height:50px;width:100%;flex-shrink:0}
+.crosshair-canvas{z-index:5}
 
 /* ===== P5: Detail ===== */
 .detail-body{flex:1;display:flex;flex-direction:column;padding:6px 10px;overflow-y:auto}
@@ -150,10 +155,12 @@ input{font-family:inherit;border:none;outline:none;color:inherit;background:none
 
 /* ===== P6: Indices ===== */
 .idx-body{flex:1;display:flex;flex-direction:column;gap:2px;padding:4px;overflow-y:auto}
-.idx-card{background:var(--bg2);border-radius:3px;padding:10px 10px;display:flex;flex-direction:column;gap:3px;cursor:pointer;border-left:3px solid transparent}
+.idx-card{background:var(--bg2);border-radius:3px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;border-left:3px solid transparent}
 .idx-card:hover{background:var(--bg3)}
 .idx-card.up{border-left-color:var(--green)}
 .idx-card.down{border-left-color:var(--red)}
+.idx-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.idx-spark{width:56px;height:28px;flex-shrink:0;opacity:.9}
 .idx-top{display:flex;justify-content:space-between;align-items:baseline}
 .idx-sym{font-size:15px;font-weight:700;letter-spacing:.3px}
 .idx-price{font-size:14px;font-weight:600}
@@ -174,6 +181,7 @@ input{font-family:inherit;border:none;outline:none;color:inherit;background:none
 .tk-chg.down{color:var(--red)}
 .tk-sep{color:var(--border2)}
 .t-footer-msg{padding:4px 16px;font-size:10px;color:var(--text3);text-align:center;line-height:1.5}
+.kbd-hint kbd{display:inline-block;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;padding:0 4px;font-size:9px;font-family:var(--mono);color:var(--text2);margin:0 1px;min-width:14px;text-align:center}
 
 /* ===== Utilities ===== */
 .up-text{color:var(--green)!important}

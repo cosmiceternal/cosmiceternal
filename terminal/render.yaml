@@ -1,0 +1,26 @@
+# One-click deploy to Render (https://render.com).
+# Click "New +" → "Blueprint", point it at this repo, and Render reads
+# this file. Yahoo Finance often blocks datacenter IPs, so for a reliable
+# live feed add a free TWELVEDATA_API_KEY and/or FINNHUB_API_KEY in the
+# Render dashboard after the first deploy (Environment → Add).
+services:
+  - type: web
+    name: godel-terminal
+    runtime: node
+    rootDir: terminal
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/status
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATA_PROVIDER
+        value: auto
+      - key: ALLOW_SIMULATION
+        value: "true"
+      # Add these in the dashboard for real data from cloud IPs:
+      - key: TWELVEDATA_API_KEY
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false

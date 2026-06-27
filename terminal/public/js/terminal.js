@@ -9,7 +9,8 @@ const WATCHLISTS = {
   stocks: ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','BRK-B','JPM','V','UNH','WMT','MA','PG','HD','BAC','COST','NFLX','CRM','PLTR'],
   etfs: ['SPY','QQQ','IWM','DIA','VTI','VOO','VEA','VWO','BND','TLT','GLD','SLV','XLK','XLF','XLE','XLV','ARKK','SCHD','VIG','JEPI'],
   futures: ['ES=F','NQ=F','YM=F','RTY=F','CL=F','GC=F','SI=F','ZB=F','ZN=F','6E=F','6J=F','6B=F','NG=F','HG=F','KC=F'],
-  forex: ['EURUSD=X','GBPUSD=X','USDJPY=X','USDCHF=X','AUDUSD=X','USDCAD=X','NZDUSD=X','EURGBP=X','EURJPY=X','GBPJPY=X']
+  forex: ['EURUSD=X','GBPUSD=X','USDJPY=X','USDCHF=X','AUDUSD=X','USDCAD=X','NZDUSD=X','EURGBP=X','EURJPY=X','GBPJPY=X'],
+  crypto: ['BTC-USD','ETH-USD','SOL-USD','BNB-USD','XRP-USD','ADA-USD','DOGE-USD','AVAX-USD','DOT-USD','MATIC-USD']
 };
 
 const SECTOR_MAP = [
@@ -52,7 +53,10 @@ const state = {
   chartData: null,
   prevPrices: {},
   searchTimeout: null,
-  dataSource: 'unknown'
+  dataSource: 'unknown',
+  sortCol: null,
+  sortDir: 1,
+  sparkCache: {},
 };
 
 // ==================== API Layer ====================
@@ -161,8 +165,36 @@ function isMarketOpen() {
 }
 
 // ==================== Panel: Watchlist ====================
+function getSortedSymbols() {
+  const symbols = [...(WATCHLISTS[state.activeList] || [])];
+  if (!state.sortCol) return symbols;
+
+  const val = (sym) => {
+    const q = state.quotes[sym];
+    if (!q) return -Infinity;
+    switch (state.sortCol) {
+      case 'tk': return sym;
+      case 'nm': return (q.shortName || q.longName || '').toLowerCase();
+      case 'last': return q.regularMarketPrice ?? 0;
+      case 'chg': return q.regularMarketChange ?? 0;
+      case 'pct': return q.regularMarketChangePercent ?? 0;
+      case 'vol': return q.regularMarketVolume ?? 0;
+      case 'hi': return q.regularMarketDayHigh ?? 0;
+      case 'lo': return q.regularMarketDayLow ?? 0;
+      default: return 0;
+    }
+  };
+
+  symbols.sort((a, b) => {
+    const va = val(a), vb = val(b);
+    if (typeof va === 'string') return va.localeCompare(vb) * state.sortDir;
+    return (va - vb) * state.sortDir;
+  });
+  return symbols;
+}
+
 function renderWatchlist() {
-  const symbols = WATCHLISTS[state.activeList] || [];
+  const symbols = getSortedSymbols();
   const body = document.getElementById('watchBody');
   const rows = [];
 
@@ -205,6 +237,17 @@ function renderWatchlist() {
   }
 
   body.innerHTML = rows.join('');
+  updateSortIndicators();
+}
+
+function updateSortIndicators() {
+  document.querySelectorAll('.wl-hdr .wc').forEach(el => {
+    el.classList.remove('sort-asc', 'sort-desc');
+    const col = (el.className.match(/wc-(\w+)/) || [])[1];
+    if (col === state.sortCol) {
+      el.classList.add(state.sortDir === 1 ? 'sort-asc' : 'sort-desc');
+    }
+  });
 }
 
 // ==================== Panel: News ====================
@@ -462,14 +505,48 @@ function drawMainChart(timestamps, opens, highs, lows, closes) {
     ctx.fillText(label, xOf(idx), H - 2);
   }
 
-  // Crosshair
+  // Crosshair overlay — positioned to exactly cover the main chart canvas
+  let crosshairCanvas = canvas.parentElement.querySelector('.crosshair-canvas');
+  if (!crosshairCanvas) {
+    crosshairCanvas = document.createElement('canvas');
+    crosshairCanvas.className = 'crosshair-canvas';
+    canvas.parentElement.appendChild(crosshairCanvas);
+  }
+  crosshairCanvas.style.cssText =
+    `position:absolute;top:${canvas.offsetTop}px;left:${canvas.offsetLeft}px;pointer-events:none;`;
+
   canvas.onmousemove = (e) => {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
-    if (mx < pad.left || mx > W - pad.right) return;
+    const my = e.clientY - rect.top;
+    if (mx < pad.left || mx > W - pad.right) { clearCrosshair(crosshairCanvas); return; }
     const i = Math.round((mx - pad.left) / cW * (data.length - 1));
     if (i < 0 || i >= data.length) return;
     const d = data[i];
+
+    const cCtx = setupCanvas(crosshairCanvas, W, H);
+    cCtx.clearRect(0, 0, W, H);
+
+    cCtx.setLineDash([3, 3]);
+    cCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+    cCtx.lineWidth = 0.5;
+    const cx = xOf(i), cy = yOf(d.c);
+    cCtx.beginPath(); cCtx.moveTo(cx, pad.top); cCtx.lineTo(cx, pad.top + cH); cCtx.stroke();
+    cCtx.beginPath(); cCtx.moveTo(pad.left, cy); cCtx.lineTo(W - pad.right, cy); cCtx.stroke();
+    cCtx.setLineDash([]);
+
+    cCtx.fillStyle = '#1c1c28';
+    cCtx.fillRect(W - pad.right, cy - 8, pad.right, 16);
+    cCtx.fillStyle = '#d4d4d8';
+    cCtx.font = '9px monospace';
+    cCtx.textAlign = 'left';
+    cCtx.fillText(fmt(d.c), W - pad.right + 3, cy + 3);
+
+    cCtx.beginPath();
+    cCtx.arc(cx, cy, 3, 0, Math.PI * 2);
+    cCtx.fillStyle = d.c >= data[0].c ? '#00c853' : '#e53935';
+    cCtx.fill();
+
     const info = document.getElementById('chartInfo');
     const pchg = d.c - data[0].c;
     const ppct = data[0].c ? (pchg / data[0].c) * 100 : 0;
@@ -479,7 +556,13 @@ function drawMainChart(timestamps, opens, highs, lows, closes) {
       `<span class="ci-chg ${dr}">O:${fmt(d.o)} H:${fmt(d.h)} L:${fmt(d.l)} C:${fmt(d.c)}</span>` +
       `<span class="ci-range">${fmtPct(ppct)}</span>`;
   };
-  canvas.onmouseleave = () => renderChart();
+  canvas.onmouseleave = () => { clearCrosshair(crosshairCanvas); renderChart(); };
+}
+
+function clearCrosshair(c) {
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
 }
 
 function drawVolumeChart(opens, closes, volumes) {
@@ -632,20 +715,56 @@ function updateSourceBadge() {
   dot.className = 't-dot ' + (isSim ? 'sim' : '');
 }
 
+// ==================== Sparklines ====================
+// Builds a rolling price history per symbol from polled quotes and
+// renders a tiny inline SVG. Seeded from the day's open→price so a
+// trend shows immediately, then refined live as quotes arrive.
+function pushSparkPoint(sym, price) {
+  if (price == null || isNaN(price)) return;
+  let hist = state.sparkCache[sym];
+  if (!hist) {
+    const q = state.quotes[sym];
+    const open = q?.regularMarketOpen ?? q?.regularMarketPreviousClose ?? price;
+    hist = state.sparkCache[sym] = [open];
+  }
+  if (hist[hist.length - 1] !== price) hist.push(price);
+  if (hist.length > 40) hist.shift();
+}
+
+function sparkline(sym, dir) {
+  const hist = state.sparkCache[sym];
+  if (!hist || hist.length < 2) return '<div class="idx-spark"></div>';
+  const W = 56, H = 28, pad = 2;
+  const min = Math.min(...hist), max = Math.max(...hist);
+  const range = max - min || 1;
+  const col = dir === 'up' ? 'var(--green)' : 'var(--red)';
+  const pts = hist.map((v, i) => {
+    const x = pad + (i / (hist.length - 1)) * (W - pad * 2);
+    const y = pad + (1 - (v - min) / range) * (H - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const lastX = pad + (W - pad * 2);
+  const lastY = pad + (1 - (hist[hist.length - 1] - min) / range) * (H - pad * 2);
+  return `<svg class="idx-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">` +
+    `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.2" stroke-linejoin="round"/>` +
+    `<circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="1.6" fill="${col}"/></svg>`;
+}
+
 // ==================== Panel: Indices ====================
 function renderIndices() {
   const body = document.getElementById('idxBody');
   body.innerHTML = INDEX_SYMBOLS.map(idx => {
     const q = state.quotes[idx.symbol];
-    if (!q) return `<div class="idx-card" data-sym="${idx.symbol}"><div class="idx-top"><span class="idx-sym">${idx.symbol.replace('^','')}</span><span class="idx-price">—</span></div><div class="idx-bot"><span class="idx-name">${idx.name}</span><span class="idx-chg">—</span></div></div>`;
+    if (!q) return `<div class="idx-card" data-sym="${idx.symbol}"><div class="idx-main"><div class="idx-top"><span class="idx-sym">${idx.symbol.replace('^','')}</span><span class="idx-price">—</span></div><div class="idx-bot"><span class="idx-name">${idx.name}</span><span class="idx-chg">—</span></div></div></div>`;
 
     const price = q.regularMarketPrice ?? 0;
     const chg = q.regularMarketChange ?? 0;
     const pct = q.regularMarketChangePercent ?? 0;
     const dir = chg >= 0 ? 'up' : 'down';
     const sym = idx.symbol.replace('^','').replace('=F','').replace('-USD','');
+    const spark = sparkline(idx.symbol, dir);
 
-    return `<div class="idx-card ${dir}" data-sym="${idx.symbol}"><div class="idx-top"><span class="idx-sym">${sym}</span><span class="idx-price">${fmt(price)}</span></div><div class="idx-bot"><span class="idx-name">${idx.name}</span><span class="idx-chg">${fmtSign(chg)} (${fmtPct(pct)})</span></div></div>`;
+    return `<div class="idx-card ${dir}" data-sym="${idx.symbol}"><div class="idx-main"><div class="idx-top"><span class="idx-sym">${sym}</span><span class="idx-price">${fmt(price)}</span></div><div class="idx-bot"><span class="idx-name">${idx.name}</span><span class="idx-chg">${fmtSign(chg)} (${fmtPct(pct)})</span></div></div>${spark}</div>`;
   }).join('');
 
   const mkt = isMarketOpen();
@@ -724,7 +843,10 @@ function getAllSymbols() {
 async function loadAllQuotes() {
   try {
     const quotes = await fetchQuotes(getAllSymbols());
-    for (const q of quotes) if (q.symbol) state.quotes[q.symbol] = q;
+    for (const q of quotes) if (q.symbol) {
+      state.quotes[q.symbol] = q;
+      pushSparkPoint(q.symbol, q.regularMarketPrice);
+    }
     updateSourceBadge();
     renderWatchlist();
     renderHeatmap();
@@ -755,10 +877,7 @@ function setupEvents() {
   document.getElementById('watchTabs').addEventListener('click', e => {
     const btn = e.target.closest('.pt');
     if (!btn?.dataset.list) return;
-    state.activeList = btn.dataset.list;
-    document.querySelectorAll('#watchTabs .pt').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    loadAllQuotes();
+    switchList(btn.dataset.list);
   });
 
   document.getElementById('watchBody').addEventListener('click', e => {
@@ -769,10 +888,7 @@ function setupEvents() {
   document.getElementById('chartRanges').addEventListener('click', e => {
     const btn = e.target.closest('.pt');
     if (!btn?.dataset.range) return;
-    state.chartRange = btn.dataset.range;
-    document.querySelectorAll('#chartRanges .pt').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    loadChart();
+    setChartRange(btn.dataset.range);
   });
 
   document.getElementById('heatBody').addEventListener('click', e => {
@@ -785,6 +901,52 @@ function setupEvents() {
     if (card?.dataset.sym) selectTicker(card.dataset.sym);
   });
 
+  // Sortable column headers
+  document.querySelector('.wl-hdr').addEventListener('click', e => {
+    const col = (e.target.className.match(/wc-(\w+)/) || [])[1];
+    if (!col) return;
+    if (state.sortCol === col) {
+      if (state.sortDir === 1) state.sortDir = -1;
+      else { state.sortCol = null; state.sortDir = 1; }  // 3rd click clears
+    } else { state.sortCol = col; state.sortDir = col === 'tk' || col === 'nm' ? 1 : -1; }
+    renderWatchlist();
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    const key = e.key;
+    if (key === '/') { e.preventDefault(); document.getElementById('cmdInput').focus(); return; }
+    if (key === 'ArrowDown' || key === 'ArrowUp' || key === 'j' || key === 'k') {
+      e.preventDefault();
+      const syms = getSortedSymbols();
+      let i = syms.indexOf(state.selectedTicker);
+      if (i === -1) i = 0;
+      else i += (key === 'ArrowDown' || key === 'j') ? 1 : -1;
+      i = Math.max(0, Math.min(syms.length - 1, i));
+      selectTicker(syms[i]);
+      const row = document.querySelector(`.wl-row[data-sym="${CSS.escape(syms[i])}"]`);
+      if (row) row.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    // Tab through watchlists with [ and ]
+    if (key === '[' || key === ']') {
+      e.preventDefault();
+      const lists = Object.keys(WATCHLISTS);
+      let li = lists.indexOf(state.activeList) + (key === ']' ? 1 : -1);
+      li = (li + lists.length) % lists.length;
+      switchList(lists[li]);
+      return;
+    }
+    // Number keys 1-6 switch chart range
+    const ranges = ['1d','5d','1mo','3mo','1y','5y'];
+    if (/^[1-6]$/.test(key)) {
+      e.preventDefault();
+      const r = ranges[parseInt(key, 10) - 1];
+      setChartRange(r);
+    }
+  });
+
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -792,6 +954,18 @@ function setupEvents() {
   });
 
   setupSearch();
+}
+
+function switchList(list) {
+  state.activeList = list;
+  document.querySelectorAll('#watchTabs .pt').forEach(b => b.classList.toggle('active', b.dataset.list === list));
+  loadAllQuotes();
+}
+
+function setChartRange(range) {
+  state.chartRange = range;
+  document.querySelectorAll('#chartRanges .pt').forEach(b => b.classList.toggle('active', b.dataset.range === range));
+  loadChart();
 }
 
 // ==================== Init ====================
