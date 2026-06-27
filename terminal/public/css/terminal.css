@@ -98,8 +98,10 @@ input{font-family:inherit;border:none;outline:none;color:inherit;background:none
 
 /* ===== P2: News ===== */
 .news-body{flex:1;overflow-y:auto;padding:4px 0}
-.news-item{padding:6px 10px;border-bottom:1px solid rgba(37,37,50,.5);cursor:default}
+.news-item{display:block;padding:6px 10px;border-bottom:1px solid rgba(37,37,50,.5);cursor:default;text-decoration:none;color:inherit}
 .news-item:hover{background:var(--bg2)}
+.news-item.linked{cursor:pointer}
+.news-item.linked:hover .news-title{color:var(--blue)}
 .news-title{font-size:11px;color:var(--text);line-height:1.4;margin-bottom:2px}
 .news-meta{font-size:10px;color:var(--text3);display:flex;gap:8px}
 .news-pub{color:var(--text2)}
@@ -107,16 +109,20 @@ input{font-family:inherit;border:none;outline:none;color:inherit;background:none
 .news-loading{padding:20px;text-align:center;color:var(--text3);font-size:11px}
 
 /* ===== P3: Heatmap ===== */
-.heat-legend{display:flex;align-items:center;gap:4px;font-size:10px}
+#heatToggle{margin-right:auto;margin-left:8px}
+.heat-legend{display:flex;align-items:center;gap:3px;font-size:9px;flex-shrink:0}
 .hl-n{color:var(--red)}
 .hl-p{color:var(--green)}
-.hl-bar{width:60px;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--red),#333,var(--green))}
+.hl-bar{width:42px;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--red),#3a3a44,var(--green))}
 .heat-body{flex:1;position:relative;padding:3px;overflow:hidden}
-.heat-cell{border-radius:2px;padding:3px 5px;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;transition:opacity .15s;min-height:0}
-.heat-cell:hover{opacity:.85;outline:1px solid rgba(255,255,255,.25)}
-.heat-cell .hc-name{font-size:11px;font-weight:700;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.7);line-height:1.2}
-.heat-cell .hc-pct{font-size:10px;font-weight:600;color:rgba(255,255,255,.8);text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.heat-cell{position:absolute;border-radius:2px;padding:2px 4px;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;transition:opacity .15s,outline-color .1s;min-height:0;overflow:hidden;outline:1px solid transparent}
+.heat-cell:hover{opacity:.88;outline-color:rgba(255,255,255,.5);z-index:3}
+.heat-cell .hc-name{font-size:11px;font-weight:700;color:rgba(255,255,255,.95);text-shadow:0 1px 3px rgba(0,0,0,.8);line-height:1.15;white-space:nowrap}
+.heat-cell .hc-name.sm{font-size:9px}
+.heat-cell .hc-pct{font-size:10px;font-weight:600;color:rgba(255,255,255,.82);text-shadow:0 1px 3px rgba(0,0,0,.8)}
 .heat-cell .hc-etf{font-size:8px;color:rgba(255,255,255,.55);margin-top:1px}
+.heat-cell.stock{border-radius:1px}
+.heat-sector-label{position:absolute;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.9);text-shadow:0 1px 4px rgba(0,0,0,.95);pointer-events:none;z-index:2}
 
 /* ===== P4: Chart ===== */
 .chart-wrap{flex:1;display:flex;flex-direction:column;padding:4px 8px 2px;overflow:hidden;position:relative}

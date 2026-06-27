@@ -65,11 +65,15 @@
       <!-- P3: Heatmap -->
       <section class="panel p-heat">
         <div class="ph">
-          <span class="ph-title">Sectors</span>
+          <span class="ph-title">Heatmap</span>
+          <div class="ph-tabs" id="heatToggle">
+            <button class="pt active" data-heat="sectors">Sectors</button>
+            <button class="pt" data-heat="stocks">Stocks</button>
+          </div>
           <div class="heat-legend">
-            <span class="hl-n">-5%</span>
+            <span class="hl-n">-3%</span>
             <div class="hl-bar"></div>
-            <span class="hl-p">+5%</span>
+            <span class="hl-p">+3%</span>
           </div>
         </div>
         <div class="heat-body" id="heatBody"></div>

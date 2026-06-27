@@ -27,6 +27,17 @@ const SECTOR_MAP = [
   { name:'Materials', etf:'XLB', weight:2 }
 ];
 
+// Sector assignment for the large-cap names, used by the Finviz-style
+// stock heatmap (grouped by sector, sized by market cap).
+const STOCK_SECTORS = {
+  AAPL:'Technology', MSFT:'Technology', NVDA:'Technology', CRM:'Technology', PLTR:'Technology',
+  GOOGL:'Comm. Svcs', META:'Comm. Svcs', NFLX:'Comm. Svcs',
+  AMZN:'Cons. Disc.', TSLA:'Cons. Disc.', HD:'Cons. Disc.',
+  'BRK-B':'Financials', JPM:'Financials', V:'Financials', MA:'Financials', BAC:'Financials',
+  UNH:'Healthcare',
+  WMT:'Cons. Staples', PG:'Cons. Staples', COST:'Cons. Staples'
+};
+
 const INDEX_SYMBOLS = [
   { symbol:'QQQ', name:'Invesco QQQ' },
   { symbol:'SPY', name:'SPDR S&P 500' },
@@ -57,7 +68,31 @@ const state = {
   sortCol: null,
   sortDir: 1,
   sparkCache: {},
+  heatView: 'sectors',
 };
+
+// ==================== Persistence ====================
+const PREFS_KEY = 'godel.prefs.v1';
+function loadPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PREFS_KEY)) || {};
+    if (p.activeList && WATCHLISTS[p.activeList]) state.activeList = p.activeList;
+    if (p.selectedTicker) state.selectedTicker = p.selectedTicker;
+    if (p.chartRange) state.chartRange = p.chartRange;
+    if (p.sortCol !== undefined) state.sortCol = p.sortCol;
+    if (p.sortDir) state.sortDir = p.sortDir;
+    if (p.heatView) state.heatView = p.heatView;
+  } catch {}
+}
+function savePrefs() {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({
+      activeList: state.activeList, selectedTicker: state.selectedTicker,
+      chartRange: state.chartRange, sortCol: state.sortCol, sortDir: state.sortDir,
+      heatView: state.heatView,
+    }));
+  } catch {}
+}
 
 // ==================== API Layer ====================
 async function api(path) {
@@ -266,7 +301,10 @@ function renderNews(items) {
 
   body.innerHTML = items.map(n => {
     const time = n.providerPublishTime ? timeAgo(n.providerPublishTime) : '';
-    return `<div class="news-item"><div class="news-title">${escHtml(n.title || '')}</div><div class="news-meta"><span class="news-pub">${escHtml(n.publisher || '')}</span><span class="news-time">${time}</span></div></div>`;
+    const link = n.link && n.link !== '#' ? n.link : null;
+    const tag = link ? 'a' : 'div';
+    const attrs = link ? ` href="${escHtml(link)}" target="_blank" rel="noopener noreferrer"` : '';
+    return `<${tag} class="news-item${link ? ' linked' : ''}"${attrs}><div class="news-title">${escHtml(n.title || '')}</div><div class="news-meta"><span class="news-pub">${escHtml(n.publisher || '')}</span><span class="news-time">${time}</span></div></${tag}>`;
   }).join('');
 
   document.getElementById('newsTs').textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
@@ -278,7 +316,11 @@ function renderHeatmap() {
   const W = body.clientWidth - 6;
   const H = body.clientHeight - 6;
   if (W < 20 || H < 20) return;
+  if (state.heatView === 'stocks') renderStockHeatmap(body, W, H);
+  else renderSectorHeatmap(body, W, H);
+}
 
+function renderSectorHeatmap(body, W, H) {
   const items = SECTOR_MAP.map(sec => {
     const q = state.quotes[sec.etf];
     const pct = q?.regularMarketChangePercent ?? 0;
@@ -290,8 +332,58 @@ function renderHeatmap() {
   body.innerHTML = rects.map((r, i) => {
     const sec = items[i];
     const bg = heatColor(sec.pct);
-    return `<div class="heat-cell" style="position:absolute;left:${r.x+3}px;top:${r.y+3}px;width:${r.w-2}px;height:${r.h-2}px;background:${bg}" data-sym="${sec.etf}"><span class="hc-name">${sec.name}</span><span class="hc-pct">${fmtPct(sec.pct)}</span><span class="hc-etf">${sec.etf}</span></div>`;
+    return `<div class="heat-cell" style="left:${r.x+3}px;top:${r.y+3}px;width:${r.w-2}px;height:${r.h-2}px;background:${bg}" data-sym="${sec.etf}"><span class="hc-name">${sec.name}</span><span class="hc-pct">${fmtPct(sec.pct)}</span><span class="hc-etf">${sec.etf}</span></div>`;
   }).join('');
+}
+
+// Finviz-style nested treemap: stocks grouped by sector, each group sized
+// by total market cap, each tile sized by the stock's market cap and
+// colored by its % change.
+function renderStockHeatmap(body, W, H) {
+  const groups = {};
+  for (const [sym, sec] of Object.entries(STOCK_SECTORS)) {
+    const q = state.quotes[sym];
+    if (!q || q.regularMarketPrice == null) continue;
+    (groups[sec] ||= []).push({
+      sym, pct: q.regularMarketChangePercent ?? 0,
+      area: q.marketCap || 5e10,
+    });
+  }
+
+  const sectors = Object.entries(groups)
+    .map(([name, stocks]) => ({ name, stocks, area: stocks.reduce((s, x) => s + x.area, 0) }))
+    .sort((a, b) => b.area - a.area);
+
+  if (!sectors.length) {
+    body.innerHTML = '<div class="no-data">No constituent data</div>';
+    return;
+  }
+
+  const sectorRects = squarify(sectors, { x: 0, y: 0, w: W, h: H });
+  let html = '';
+
+  sectors.forEach((sec, si) => {
+    const sr = sectorRects[si];
+    const stocks = sec.stocks.slice().sort((a, b) => b.area - a.area);
+    const inner = squarify(stocks, { x: 0, y: 0, w: sr.w, h: sr.h });
+
+    stocks.forEach((st, i) => {
+      const r = inner[i];
+      const x = sr.x + r.x, y = sr.y + r.y;
+      const bg = heatColor(st.pct);
+      const w = r.w - 2, h = r.h - 2;
+      let label = '';
+      if (w > 40 && h > 26) label = `<span class="hc-name">${st.sym}</span><span class="hc-pct">${fmtPct(st.pct)}</span>`;
+      else if (w > 24 && h > 13) label = `<span class="hc-name sm">${st.sym}</span>`;
+      html += `<div class="heat-cell stock" style="left:${x+3}px;top:${y+3}px;width:${w}px;height:${h}px;background:${bg}" data-sym="${st.sym}">${label}</div>`;
+    });
+
+    if (sr.w > 54 && sr.h > 28) {
+      html += `<span class="heat-sector-label" style="left:${sr.x+5}px;top:${sr.y+3}px">${sec.name}</span>`;
+    }
+  });
+
+  body.innerHTML = html;
 }
 
 function squarify(items, rect) {
@@ -836,6 +928,7 @@ function getAllSymbols() {
   (WATCHLISTS[state.activeList] || []).forEach(x => s.add(x));
   SECTOR_MAP.forEach(x => s.add(x.etf));
   INDEX_SYMBOLS.forEach(x => s.add(x.symbol));
+  Object.keys(STOCK_SECTORS).forEach(x => s.add(x));  // stock-heatmap constituents
   s.add(state.selectedTicker);
   return [...s];
 }
@@ -861,6 +954,7 @@ async function loadAllQuotes() {
 async function selectTicker(sym) {
   state.selectedTicker = sym;
   document.getElementById('chartTicker').textContent = sym;
+  savePrefs();
   if (!state.quotes[sym]) {
     try {
       const quotes = await fetchQuotes([sym]);
@@ -909,7 +1003,13 @@ function setupEvents() {
       if (state.sortDir === 1) state.sortDir = -1;
       else { state.sortCol = null; state.sortDir = 1; }  // 3rd click clears
     } else { state.sortCol = col; state.sortDir = col === 'tk' || col === 'nm' ? 1 : -1; }
+    savePrefs();
     renderWatchlist();
+  });
+
+  document.getElementById('heatToggle').addEventListener('click', e => {
+    const btn = e.target.closest('.pt');
+    if (btn?.dataset.heat) setHeatView(btn.dataset.heat);
   });
 
   // Keyboard navigation
@@ -959,17 +1059,28 @@ function setupEvents() {
 function switchList(list) {
   state.activeList = list;
   document.querySelectorAll('#watchTabs .pt').forEach(b => b.classList.toggle('active', b.dataset.list === list));
+  savePrefs();
   loadAllQuotes();
 }
 
 function setChartRange(range) {
   state.chartRange = range;
   document.querySelectorAll('#chartRanges .pt').forEach(b => b.classList.toggle('active', b.dataset.range === range));
+  savePrefs();
   loadChart();
+}
+
+function setHeatView(view) {
+  state.heatView = view;
+  document.querySelectorAll('#heatToggle .pt').forEach(b => b.classList.toggle('active', b.dataset.heat === view));
+  savePrefs();
+  renderHeatmap();
 }
 
 // ==================== Init ====================
 async function init() {
+  loadPrefs();
+  applyPrefsToUI();
   updateClock();
   setInterval(updateClock, 1000);
   setupEvents();
@@ -980,6 +1091,14 @@ async function init() {
   setInterval(loadAllQuotes, QUOTE_INTERVAL);
   setInterval(loadChart, CHART_INTERVAL);
   setInterval(loadNews, NEWS_INTERVAL);
+}
+
+// Reflect restored preferences in the UI controls before first render.
+function applyPrefsToUI() {
+  document.getElementById('chartTicker').textContent = state.selectedTicker;
+  document.querySelectorAll('#watchTabs .pt').forEach(b => b.classList.toggle('active', b.dataset.list === state.activeList));
+  document.querySelectorAll('#chartRanges .pt').forEach(b => b.classList.toggle('active', b.dataset.range === state.chartRange));
+  document.querySelectorAll('#heatToggle .pt').forEach(b => b.classList.toggle('active', b.dataset.heat === state.heatView));
 }
 
 init();
