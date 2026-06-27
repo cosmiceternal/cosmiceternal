@@ -1,0 +1,4 @@
+# Windows batch files must keep CRLF line endings or cmd.exe mis-parses
+# multi-line ( ... ) blocks. Force it regardless of the cloner's platform.
+*.bat text eol=crlf
+*.cmd text eol=crlf

@@ -9,6 +9,13 @@ panel, and live market indices.
 
 ## Quick start
 
+**Windows (easiest):** double-click **`Start Godel Terminal.bat`**. On first
+run it installs dependencies, then it starts the server and opens your
+browser automatically. Keep the window open while you use it; close it to
+stop the server. (Requires [Node.js 18+](https://nodejs.org/).)
+
+**Any platform / terminal:**
+
 ```bash
 npm install
 npm start
