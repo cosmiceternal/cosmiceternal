@@ -20,15 +20,35 @@ and similar regulatory work. See the README's warning paragraph.
 - **Account lockout:** per-username, 5 failed attempts within 15 min
   (configurable via `LOCKOUT_THRESHOLD` / `LOCKOUT_WINDOW_MS`) returns 429.
   Lockout-deflected attempts are intentionally not counted as new fails.
-- **Sessions:** stateless signed cookie (`cs_session`), HMAC-SHA256 over
-  the user id with a per-instance `SESSION_SECRET`. `HttpOnly`,
+- **Sessions:** stateless signed cookie (`cs_session`), HMAC-SHA256 with a
+  per-instance `SESSION_SECRET`. Tokens are versioned (`v2`) and carry an
+  issued-at timestamp — enforced server-side (30 days), so a stolen token
+  expires even if the cookie attributes are stripped — plus a per-user
+  `session_epoch`. Changing your password bumps the epoch, which instantly
+  invalidates every other session for that account. `HttpOnly`,
   `SameSite=Lax`, `Secure` when `SECURE_COOKIES=1`.
+- **Lockout integrity:** the failed-attempt write is awaited before the
+  response is sent, so rapid parallel login attempts can't race past the
+  lockout threshold while earlier failures are still in flight.
 
 ## CSRF
 
 - Double-submit cookie pattern. A non-`HttpOnly` `csrf` cookie is auto-issued
   on the first request; the client echoes it back as `X-CSRF-Token` on every
-  `POST`/`PUT`/`PATCH`/`DELETE`. Mismatch → 403.
+  `POST`/`PUT`/`PATCH`/`DELETE`. Mismatch → 403. The comparison is
+  constant-time (`crypto.timingSafeEqual`).
+- The CoinPayments IPN webhook (`/api/vault/webhook`) is intentionally exempt
+  — it authenticates via an HMAC-SHA512 signature over the raw body instead.
+
+## Admin
+
+- Admin endpoints are gated by a `requireAdmin` middleware backed by an
+  `is_admin` column (promoted at boot via `ADMIN_USERNAME`, or by another
+  admin). All admin mutations (balance changes, locks, promotions) are
+  written to the audit log as `admin.*` events with the acting admin's id.
+- Self-demotion is rejected so the last admin can't lock themselves out.
+- Locked accounts are refused at login *and* on every authenticated request,
+  so locking a user kills their live sessions too.
 
 ## Transport / browser headers
 
@@ -43,6 +63,8 @@ and similar regulatory work. See the README's warning paragraph.
   payment, USB, FLoC),  `Cross-Origin-Opener-Policy: same-origin`,
   `Cross-Origin-Resource-Policy: same-origin`, `X-DNS-Prefetch-Control: off`.
 - `x-powered-by` disabled.
+- `Cache-Control: no-store` on every `/api` response — balances, audit rows
+  and session state never land in the browser or proxy cache.
 
 ## Rate limiting
 

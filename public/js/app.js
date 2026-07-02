@@ -278,6 +278,11 @@
     const fn = (global.Games || {})[game];
     if (!fn) { pane.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted)">Game not found.</div>`; return; }
     unmount = fn(pane);
+    // Restart the entrance animation on every switch (class swap alone
+    // wouldn't retrigger it when it's already applied).
+    pane.classList.remove('pane-enter');
+    void pane.offsetWidth;
+    pane.classList.add('pane-enter');
   }
   tabs.forEach(t => t.addEventListener('click', () => {
     tabs.forEach(x => x.classList.remove('active'));

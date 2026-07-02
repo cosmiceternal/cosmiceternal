@@ -117,6 +117,10 @@ app.post('/api/vault/webhook',
 
 app.use(express.json({ limit: '32kb' }));
 
+// API responses carry balances, audit rows, session state — never cache them
+// (browser back button, shared proxies).
+app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+
 // ---------------- CSRF (double-submit cookie) ----------------
 // Every visitor gets a random `csrf` cookie (readable by JS so the client can
 // echo it back in X-CSRF-Token on state-changing requests). SameSite=Lax on
@@ -137,12 +141,16 @@ function csrf(req, res, next) {
   }
   if (STATE_CHANGING.has(req.method)) {
     const header = req.headers['x-csrf-token'];
-    if (!header || header !== cookies[CSRF_COOKIE]) {
+    if (!header || typeof header !== 'string' || !timingSafeEq(header, cookies[CSRF_COOKIE])) {
       auth.logAudit(req, 'security.csrf_fail', req.user?.id, { path: req.path });
       return res.status(403).json({ error: 'Invalid or missing CSRF token.' });
     }
   }
   next();
+}
+function timingSafeEq(a, b) {
+  const ba = Buffer.from(String(a)), bb = Buffer.from(String(b));
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
 }
 app.use(csrf);
 app.use(auth.authenticate);
@@ -171,14 +179,14 @@ const h = (fn) => async (req, res) => {
 app.post('/api/auth/register', h(async (req, res) => {
   const { username, password } = req.body || {};
   const user = await auth.register(req, username, password);
-  auth.setSessionCookie(res, user.id);
+  auth.setSessionCookie(res, user.id, Number(user.session_epoch || 0));
   res.json({ user: auth.publicUser(user) });
 }));
 
 app.post('/api/auth/login', h(async (req, res) => {
   const { username, password } = req.body || {};
   const user = await auth.login(req, username, password);
-  auth.setSessionCookie(res, user.id);
+  auth.setSessionCookie(res, user.id, Number(user.session_epoch || 0));
   res.json({ user: auth.publicUser(user) });
 }));
 
@@ -192,9 +200,12 @@ app.get('/api/me', (req, res) => {
   res.json({ user: req.user ? auth.publicUser(req.user) : null });
 });
 
-app.post('/api/auth/password', auth.requireAuth, h(async (req) => {
+app.post('/api/auth/password', auth.requireAuth, h(async (req, res) => {
   const { current, next } = req.body || {};
-  await auth.changePassword(req, req.user.id, current, next);
+  const { newEpoch } = await auth.changePassword(req, req.user.id, current, next);
+  // Every OTHER session just died (epoch bump) — re-issue this one so the
+  // user who changed the password stays signed in.
+  auth.setSessionCookie(res, req.user.id, newEpoch);
   return { ok: true };
 }));
 
@@ -293,12 +304,16 @@ app.get('/api/feed/global', auth.requireAuth, h(async (req) => ({
 app.get('/api/leaderboard', auth.requireAuth, h((req) => games.leaderboard(req.user.id, req.query.metric, req.query.limit)));
 
 // ---------------- Admin (requires is_admin flag) ----------------
+const intId = (req, res, next) => {
+  if (!/^\d{1,12}$/.test(String(req.params.id))) return res.status(400).json({ error: 'Invalid user id.' });
+  next();
+};
 app.get( '/api/admin/overview', auth.requireAuth, auth.requireAdmin, h(()    => admin.overview()));
 app.get( '/api/admin/users',    auth.requireAuth, auth.requireAdmin, h((req) => admin.listUsers(req.query)));
-app.get( '/api/admin/user/:id', auth.requireAuth, auth.requireAdmin, h((req) => admin.userDetail(req.params.id)));
-app.post('/api/admin/user/:id/balance', auth.requireAuth, auth.requireAdmin, h((req) => admin.adjustBalance(req, req.params.id, req.body || {})));
-app.post('/api/admin/user/:id/lock',    auth.requireAuth, auth.requireAdmin, h((req) => admin.setLock(req,    req.params.id, req.body || {})));
-app.post('/api/admin/user/:id/admin',   auth.requireAuth, auth.requireAdmin, h((req) => admin.setAdmin(req,   req.params.id, req.body || {})));
+app.get( '/api/admin/user/:id', auth.requireAuth, auth.requireAdmin, intId, h((req) => admin.userDetail(req.params.id)));
+app.post('/api/admin/user/:id/balance', auth.requireAuth, auth.requireAdmin, intId, h((req) => admin.adjustBalance(req, req.params.id, req.body || {})));
+app.post('/api/admin/user/:id/lock',    auth.requireAuth, auth.requireAdmin, intId, h((req) => admin.setLock(req,    req.params.id, req.body || {})));
+app.post('/api/admin/user/:id/admin',   auth.requireAuth, auth.requireAdmin, intId, h((req) => admin.setAdmin(req,   req.params.id, req.body || {})));
 app.get( '/api/admin/bets',     auth.requireAuth, auth.requireAdmin, h((req) => admin.recentBets(req.query)));
 app.get( '/api/admin/audit',    auth.requireAuth, auth.requireAdmin, h((req) => admin.recentAudit(req.query)));
 
