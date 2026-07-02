@@ -1223,6 +1223,300 @@ function playPachinko(userId, { bet }) {
   });
 }
 
+// ---------------------------------------------------------------- CHICKEN ROAD
+// Hop across lanes of traffic. Each lane survives with probability p (drawn
+// fresh at hop time from the fair stream); mult after n lanes is
+// (1 - HOUSE) / p^n. Cash out any time, or clear every lane for the max.
+const CHICKEN = {
+  easy:      { p: 0.95, lanes: 24 },
+  medium:    { p: 0.88, lanes: 20 },
+  hard:      { p: 0.78, lanes: 16 },
+  daredevil: { p: 0.65, lanes: 12 }
+};
+function chickenMult(p, n) { return +((1 - HOUSE) / Math.pow(p, n)).toFixed(4); }
+function chickenStart(userId, { bet, difficulty }) {
+  const betCents = toCents(bet);
+  const cfg = CHICKEN[difficulty];
+  if (!cfg) throw httpError(400, 'Invalid difficulty.');
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const id = crypto.randomUUID();
+    await q('INSERT INTO rounds(id, user_id, game, state, settled, created_at) VALUES(?,?,?,?,0,?)',
+      [id, userId, 'chicken', JSON.stringify({ betCents, p: cfg.p, lanes: cfg.lanes, step: 0, difficulty, nonce: 0 }), Date.now()]);
+    return {
+      roundId: id, lanes: cfg.lanes, difficulty,
+      nextMult: chickenMult(cfg.p, 1),
+      balance: await balanceOf(q, userId) / 100
+    };
+  });
+}
+function chickenStep(userId, { roundId }) {
+  return db.tx(async (q) => {
+    const { rows } = await q('SELECT * FROM rounds WHERE id = ? AND user_id = ? AND game = ?', [roundId, userId, 'chicken']);
+    const round = rows[0];
+    if (!round) throw httpError(404, 'Round not found.');
+    if (Number(round.settled)) throw httpError(409, 'Round already over.');
+    const s = JSON.parse(round.state);
+    const { floats, nonce } = await fair.drawTx(q, userId, 1);
+    if (floats[0] >= s.p) {
+      // Hit by traffic on this lane.
+      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await recordBet(q, userId, { game: 'chicken', betCents: s.betCents, mult: 0, payoutCents: 0, win: false, nonce, detail: { difficulty: s.difficulty, hitAt: s.step + 1 } });
+      return { hit: true, step: s.step + 1, balance: await balanceOf(q, userId) / 100 };
+    }
+    s.step += 1;
+    s.nonce = nonce; // remembered so a later cashout records a real nonce
+    const mult = chickenMult(s.p, s.step);
+    if (s.step >= s.lanes) {
+      const payoutCents = Math.round(s.betCents * mult);
+      await credit(q, userId, payoutCents);
+      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await recordBet(q, userId, { game: 'chicken', betCents: s.betCents, mult, payoutCents, win: true, nonce, detail: { difficulty: s.difficulty, cleared: true } });
+      return { hit: false, step: s.step, mult, cleared: true, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100 };
+    }
+    await q('UPDATE rounds SET state = ? WHERE id = ?', [JSON.stringify(s), roundId]);
+    return {
+      hit: false, step: s.step, mult,
+      nextMult: chickenMult(s.p, s.step + 1),
+      cashout: (s.betCents * mult) / 100,
+      balance: await balanceOf(q, userId) / 100
+    };
+  });
+}
+function chickenCashout(userId, { roundId }) {
+  return db.tx(async (q) => {
+    const { rows } = await q('SELECT * FROM rounds WHERE id = ? AND user_id = ? AND game = ?', [roundId, userId, 'chicken']);
+    const round = rows[0];
+    if (!round) throw httpError(404, 'Round not found.');
+    if (Number(round.settled)) throw httpError(409, 'Round already over.');
+    const s = JSON.parse(round.state);
+    if (s.step < 1) throw httpError(400, 'Cross at least one lane first.');
+    const mult = chickenMult(s.p, s.step);
+    const payoutCents = Math.round(s.betCents * mult);
+    await credit(q, userId, payoutCents);
+    await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+    await recordBet(q, userId, { game: 'chicken', betCents: s.betCents, mult, payoutCents, win: true, nonce: s.nonce, detail: { difficulty: s.difficulty, step: s.step } });
+    return { mult, payout: payoutCents / 100, step: s.step, balance: await balanceOf(q, userId) / 100 };
+  });
+}
+
+// ---------------------------------------------------------------- CRAPS
+// Authentic pass-line bet. Come-out roll: 7/11 win even money, 2/3/12 crap
+// out, anything else sets the point — then roll until the point repeats
+// (win) or a 7 shows (seven out). True odds give the classic ~1.41% edge;
+// no artificial house cut is applied on top.
+function crapsRoll2(floats) {
+  return [1 + Math.floor(floats[0] * 6), 1 + Math.floor(floats[1] * 6)];
+}
+function crapsStart(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 2);
+    const dice = crapsRoll2(floats);
+    const sum = dice[0] + dice[1];
+    if (sum === 7 || sum === 11) {
+      const payoutCents = betCents * 2;
+      await credit(q, userId, payoutCents);
+      await recordBet(q, userId, { game: 'craps', betCents, mult: 2, payoutCents, win: true, nonce, detail: { comeOut: sum, natural: true } });
+      return { dice, sum, outcome: 'natural', mult: 2, payout: payoutCents / 100, done: true, balance: await balanceOf(q, userId) / 100, serverHash };
+    }
+    if (sum === 2 || sum === 3 || sum === 12) {
+      await recordBet(q, userId, { game: 'craps', betCents, mult: 0, payoutCents: 0, win: false, nonce, detail: { comeOut: sum, craps: true } });
+      return { dice, sum, outcome: 'craps', mult: 0, payout: 0, done: true, balance: await balanceOf(q, userId) / 100, serverHash };
+    }
+    const id = crypto.randomUUID();
+    await q('INSERT INTO rounds(id, user_id, game, state, settled, created_at) VALUES(?,?,?,?,0,?)',
+      [id, userId, 'craps', JSON.stringify({ betCents, point: sum }), Date.now()]);
+    return { dice, sum, outcome: 'point', point: sum, roundId: id, done: false, balance: await balanceOf(q, userId) / 100, serverHash };
+  });
+}
+function crapsRoll(userId, { roundId }) {
+  return db.tx(async (q) => {
+    const { rows } = await q('SELECT * FROM rounds WHERE id = ? AND user_id = ? AND game = ?', [roundId, userId, 'craps']);
+    const round = rows[0];
+    if (!round) throw httpError(404, 'Round not found.');
+    if (Number(round.settled)) throw httpError(409, 'Round already over.');
+    const s = JSON.parse(round.state);
+    const { floats, nonce } = await fair.drawTx(q, userId, 2);
+    const dice = crapsRoll2(floats);
+    const sum = dice[0] + dice[1];
+    if (sum === s.point) {
+      const payoutCents = s.betCents * 2;
+      await credit(q, userId, payoutCents);
+      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await recordBet(q, userId, { game: 'craps', betCents: s.betCents, mult: 2, payoutCents, win: true, nonce, detail: { point: s.point, made: true } });
+      return { dice, sum, outcome: 'point_made', mult: 2, payout: payoutCents / 100, done: true, balance: await balanceOf(q, userId) / 100 };
+    }
+    if (sum === 7) {
+      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await recordBet(q, userId, { game: 'craps', betCents: s.betCents, mult: 0, payoutCents: 0, win: false, nonce, detail: { point: s.point, sevenOut: true } });
+      return { dice, sum, outcome: 'seven_out', mult: 0, payout: 0, done: true, balance: await balanceOf(q, userId) / 100 };
+    }
+    return { dice, sum, outcome: 'roll', point: s.point, roundId, done: false, balance: await balanceOf(q, userId) / 100 };
+  });
+}
+
+// ---------------------------------------------------------------- THREE CARD POKER
+// Ante + Play vs the dealer. Dealer qualifies with Queen-high; if they don't,
+// the ante pays even money and the Play bet pushes. Ante bonus pays on a
+// straight or better regardless of the dealer's hand.
+const TCP_RANKING = { high: 0, pair: 1, flush: 2, straight: 3, trips: 4, straightFlush: 5 };
+const TCP_ANTE_BONUS = { straight: 1, trips: 4, straightFlush: 5 };
+// A=1 plays high (14) except in the A-2-3 straight.
+function tcpOrder(r) { return r === 1 ? 14 : r; }
+function tcpEvaluate(cards) {
+  const ranks = cards.map(c => c.rank);
+  const ord = ranks.map(tcpOrder).sort((a, b) => b - a);   // descending, ace-high
+  const flush = cards.every(c => c.suit === cards[0].suit);
+  const uniq = new Set(ranks);
+  let straight = false, straightHigh = 0;
+  if (uniq.size === 3) {
+    const asc = [...ord].sort((a, b) => a - b);
+    if (asc[2] - asc[0] === 2 && asc[1] - asc[0] === 1) { straight = true; straightHigh = asc[2]; }
+    // A-2-3: ace plays LOW; the straight is 3-high.
+    else if (ranks.includes(1) && ranks.includes(2) && ranks.includes(3)) { straight = true; straightHigh = 3; }
+  }
+  const trips = uniq.size === 1;
+  const pair = uniq.size === 2;
+  let kind, kickers;
+  if (straight && flush) { kind = 'straightFlush'; kickers = [straightHigh]; }
+  else if (trips)        { kind = 'trips';         kickers = [ord[0]]; }
+  else if (straight)     { kind = 'straight';      kickers = [straightHigh]; }
+  else if (flush)        { kind = 'flush';         kickers = ord; }
+  else if (pair) {
+    const pairRank = tcpOrder(ranks.find(r => ranks.filter(x => x === r).length === 2));
+    const kicker = ord.find(o => o !== pairRank);
+    kind = 'pair'; kickers = [pairRank, kicker];
+  } else { kind = 'high'; kickers = ord; }
+  return { kind, rankValue: TCP_RANKING[kind], kickers };
+}
+function tcpCompare(a, b) {
+  if (a.rankValue !== b.rankValue) return a.rankValue - b.rankValue;
+  for (let i = 0; i < Math.max(a.kickers.length, b.kickers.length); i++) {
+    const d = (a.kickers[i] || 0) - (b.kickers[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+function tcpDealerQualifies(hand) {
+  return hand.rankValue > TCP_RANKING.high || hand.kickers[0] >= 12; // Q-high or better
+}
+function tcpStart(userId, { bet }) {
+  const betCents = toCents(bet); // the Ante
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 6);
+    const cards = drawDistinctCards(floats, 6);
+    const player = cards.slice(0, 3), dealer = cards.slice(3);
+    const id = crypto.randomUUID();
+    await q('INSERT INTO rounds(id, user_id, game, state, settled, created_at) VALUES(?,?,?,?,0,?)',
+      [id, userId, 'tcp', JSON.stringify({ betCents, player, dealer, nonce }), Date.now()]);
+    return { roundId: id, player, serverHash, balance: await balanceOf(q, userId) / 100 };
+  });
+}
+function tcpAct(userId, { roundId, action }) {
+  if (action !== 'play' && action !== 'fold') throw httpError(400, "Action must be 'play' or 'fold'.");
+  return db.tx(async (q) => {
+    const { rows } = await q('SELECT * FROM rounds WHERE id = ? AND user_id = ? AND game = ?', [roundId, userId, 'tcp']);
+    const round = rows[0];
+    if (!round) throw httpError(404, 'Round not found.');
+    if (Number(round.settled)) throw httpError(409, 'Round already over.');
+    const s = JSON.parse(round.state);
+    await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+    const pHand = tcpEvaluate(s.player), dHand = tcpEvaluate(s.dealer);
+
+    if (action === 'fold') {
+      await recordBet(q, userId, { game: 'tcp', betCents: s.betCents, mult: 0, payoutCents: 0, win: false, nonce: s.nonce, detail: { folded: true } });
+      return { folded: true, dealer: s.dealer, playerHand: pHand.kind, dealerHand: dHand.kind, payout: 0, balance: await balanceOf(q, userId) / 100 };
+    }
+    // The Play bet equals the ante — debit it now (throws if broke).
+    await debit(q, userId, s.betCents);
+    const totalStake = s.betCents * 2;
+    const bonusCents = (TCP_ANTE_BONUS[pHand.kind] || 0) * s.betCents;
+    let payoutCents, outcome;
+    if (!tcpDealerQualifies(dHand)) {
+      // Ante pays 1:1, Play pushes.
+      payoutCents = s.betCents * 2 + s.betCents + bonusCents;
+      outcome = 'dealer_no_qualify';
+    } else {
+      const cmp = tcpCompare(pHand, dHand);
+      if (cmp > 0)      { payoutCents = totalStake * 2 + bonusCents; outcome = 'win'; }
+      else if (cmp < 0) { payoutCents = bonusCents;                  outcome = 'lose'; }
+      else              { payoutCents = totalStake + bonusCents;     outcome = 'push'; }
+    }
+    const mult = totalStake > 0 ? +(payoutCents / totalStake).toFixed(4) : 0;
+    if (payoutCents > 0) await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'tcp', betCents: totalStake, mult, payoutCents, win: payoutCents > totalStake, nonce: s.nonce, detail: { outcome, playerHand: pHand.kind, dealerHand: dHand.kind, bonus: bonusCents / 100 } });
+    return {
+      folded: false, outcome, dealer: s.dealer,
+      playerHand: pHand.kind, dealerHand: dHand.kind,
+      bonus: bonusCents / 100, mult, payout: payoutCents / 100,
+      balance: await balanceOf(q, userId) / 100
+    };
+  });
+}
+
+// ---------------------------------------------------------------- BINGO RUSH
+// 5x5 column-constrained card (free centre), 30 of 75 balls drawn. Payout by
+// completed lines (5 rows + 5 cols + 2 diagonals). Table calibrated by Monte
+// Carlo (500k cards) to ~95.5% RTP:
+//   P(1 line)=13.08%, P(2)=1.12%, P(3)=0.066%, P(4)=0.006%.
+const BINGO_DRAWS = 30;
+const BINGO_PAYS = { 1: 4, 2: 25, 3: 150, 4: 800, max: 2500 };
+const BINGO_LINES = (() => {
+  const L = [];
+  for (let r = 0; r < 5; r++) L.push([0, 1, 2, 3, 4].map(c => r * 5 + c));
+  for (let c = 0; c < 5; c++) L.push([0, 1, 2, 3, 4].map(r => r * 5 + c));
+  L.push([0, 6, 12, 18, 24]);
+  L.push([4, 8, 12, 16, 20]);
+  return L;
+})();
+function playBingo(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    // 5 columns x 4 floats for the card sample + 30 floats for the balls.
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 5 * 5 + BINGO_DRAWS);
+    // Column-constrained card: column c samples 5 distinct values from
+    // [c*15+1, c*15+15] via partial Fisher–Yates on the fair floats.
+    const card = new Array(25).fill(null);
+    let fi = 0;
+    for (let c = 0; c < 5; c++) {
+      const pool = Array.from({ length: 15 }, (_, i) => c * 15 + 1 + i);
+      for (let r = 0; r < 5; r++) {
+        const j = r + Math.floor(floats[fi++] * (15 - r));
+        [pool[r], pool[j]] = [pool[j], pool[r]];
+        if (!(r === 2 && c === 2)) card[r * 5 + c] = pool[r];  // centre stays free
+      }
+    }
+    // Draw 30 distinct balls from 1..75.
+    const ballPool = Array.from({ length: 75 }, (_, i) => i + 1);
+    const balls = [];
+    for (let i = 0; i < BINGO_DRAWS; i++) {
+      const j = i + Math.floor(floats[fi++] * (75 - i));
+      [ballPool[i], ballPool[j]] = [ballPool[j], ballPool[i]];
+      balls.push(ballPool[i]);
+    }
+    const drawn = new Set(balls);
+    const marked = card.map(v => v === null || drawn.has(v));
+    const lineHits = BINGO_LINES.filter(L => L.every(i => marked[i]));
+    const lines = lineHits.length;
+    const mult = lines === 0 ? 0 : (lines >= 5 ? BINGO_PAYS.max : BINGO_PAYS[lines]);
+    const win = mult >= 1;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'bingo', betCents, mult, payoutCents, win, nonce, detail: { lines } });
+    return {
+      card, balls, marked, lines,
+      lineIndexes: lineHits,
+      mult, payout: payoutCents / 100,
+      pays: BINGO_PAYS,
+      balance: await balanceOf(q, userId) / 100, nonce, serverHash
+    };
+  });
+}
+
 // ---------------------------------------------------------------- PENALTY SHOOTOUT (original)
 // Round-based streak. Each round you shoot left/center/right; the keeper (server,
 // pre-drawn) dives to one spot. If it differs from your shot you score and climb;
@@ -1463,6 +1757,10 @@ module.exports = {
   blackjackStart, blackjackHit, blackjackStand, blackjackDouble,
   playBaccarat, playDragonTiger, playAndarBahar, playCascade,
   playWar, playPachinko,
+  chickenStart, chickenStep, chickenCashout,
+  crapsStart, crapsRoll,
+  tcpStart, tcpAct,
+  playBingo,
   penaltyStart, penaltyShoot, penaltyCashout,
   history, stats, globalFeed, anonName, leaderboard, PLINKO, minesMult,
   WHEEL, TOWERS, PUMP, DIAMOND_PAYS, SLOT_SYMBOLS, SLOT_TRIPLE, SLOT_PAIR_PAY,

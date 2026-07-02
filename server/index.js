@@ -275,6 +275,18 @@ app.post('/api/play/cascade',     auth.requireAuth, h((req) => games.playCascade
 app.post('/api/play/war',         auth.requireAuth, h((req) => games.playWar(req.user.id, req.body || {})));
 app.post('/api/play/pachinko',    auth.requireAuth, h((req) => games.playPachinko(req.user.id, req.body || {})));
 
+app.post('/api/play/chicken/start',   auth.requireAuth, h((req) => games.chickenStart(req.user.id, req.body || {})));
+app.post('/api/play/chicken/step',    auth.requireAuth, h((req) => games.chickenStep(req.user.id, req.body || {})));
+app.post('/api/play/chicken/cashout', auth.requireAuth, h((req) => games.chickenCashout(req.user.id, req.body || {})));
+
+app.post('/api/play/craps/start', auth.requireAuth, h((req) => games.crapsStart(req.user.id, req.body || {})));
+app.post('/api/play/craps/roll',  auth.requireAuth, h((req) => games.crapsRoll(req.user.id, req.body || {})));
+
+app.post('/api/play/tcp/start', auth.requireAuth, h((req) => games.tcpStart(req.user.id, req.body || {})));
+app.post('/api/play/tcp/act',   auth.requireAuth, h((req) => games.tcpAct(req.user.id, req.body || {})));
+
+app.post('/api/play/bingo', auth.requireAuth, h((req) => games.playBingo(req.user.id, req.body || {})));
+
 app.post('/api/play/penalty/start',   auth.requireAuth, h((req) => games.penaltyStart(req.user.id, req.body || {})));
 app.post('/api/play/penalty/shoot',   auth.requireAuth, h((req) => games.penaltyShoot(req.user.id, req.body || {})));
 app.post('/api/play/penalty/cashout', auth.requireAuth, h((req) => games.penaltyCashout(req.user.id, req.body || {})));
