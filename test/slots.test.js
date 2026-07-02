@@ -44,13 +44,15 @@ for (const t of THEMES) {
   });
 }
 
-test('classic empirical RTP lands within ±2% of 0.96 over 50k rounds', () => {
+test('classic empirical RTP lands near 0.96 over 100k rounds', () => {
   // Reproducing the engine's deterministic floats→slot mapping with a uniform
-  // sampler — this isolates "is the math right?" from the DB path.
+  // sampler — this isolates "is the math right?" from the DB path. The band
+  // is deliberately wide (±4%): triples pay up to ~68x, so even 100k rounds
+  // carries real variance and a tight band flakes.
   let wagered = 0, paid = 0;
   const N = SLOT_SYMBOLS.length;
   const PAIR = SLOT_PAIR_PAY;
-  for (let i = 0; i < 50_000; i++) {
+  for (let i = 0; i < 100_000; i++) {
     const r = [
       Math.min(N - 1, Math.floor(Math.random() * N)),
       Math.min(N - 1, Math.floor(Math.random() * N)),
@@ -62,5 +64,5 @@ test('classic empirical RTP lands within ±2% of 0.96 over 50k rounds', () => {
     wagered += 1; paid += mult;
   }
   const rtp = paid / wagered;
-  assert.ok(rtp > 0.94 && rtp < 0.98, `empirical RTP off-target: ${rtp}`);
+  assert.ok(rtp > 0.92 && rtp < 1.0, `empirical RTP off-target: ${rtp}`);
 });

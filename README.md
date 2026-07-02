@@ -1,6 +1,6 @@
 # Crypt Casino
 
-A **play-money**, provably-fair casino with **27 games** — including an **AI Dealer**
+A **play-money**, provably-fair casino with **33 games** — including an **AI Dealer**
 (personable AI croupiers hosting real provably-fair Blackjack, with switchable
 personalities and reactive banter) — real user accounts, and a server-authoritative
 backend. Built with vanilla JS on the front end and Node + Express
@@ -9,7 +9,7 @@ service to any Node host.
 
 Games: Crash, AI Dealer, Mines, Towers, Pump, Penalty Shootout, Cascade, Limbo, Plinko,
 Dice, Hi-Lo, Blackjack, Video Poker, Baccarat, Dragon Tiger, Andar Bahar, Wheel, Roulette,
-Keno, Sic Bo, Diamonds, Slots, Lucky Sevens, Cosmic Reels, Coin Flip, Scratch and Color.
+Keno, Bingo Rush, Craps, Chicken Road, Three Card Poker, Sic Bo, Diamonds, Slots, Lucky Sevens, Cosmic Reels, Coin Flip, Scratch and Color.
 
 > ⚠️ **Play money only.** Balances are fun credits with no cash value. This is a hobby /
 > learning project, not a real gambling service. Operating a real-money casino is

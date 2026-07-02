@@ -1827,3 +1827,121 @@ input { font-family: inherit; }
   .pane-enter, .auth-card, .auth-gate::before { animation: none !important; }
   .confetti-piece { display: none; }
 }
+
+/* ---------- Shared select (chicken difficulty etc.) ---------- */
+.game-select {
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--text);
+  padding: 9px 10px; border-radius: 8px; font-size: 13px; outline: none; cursor: pointer;
+}
+.game-select:focus { border-color: var(--accent); }
+
+/* ---------- Chicken Road ---------- */
+.chicken-stage { gap: 18px; padding: 24px 16px; justify-content: center; }
+.chicken-road {
+  display: flex; gap: 6px; width: 100%; max-width: 720px;
+  justify-content: center; align-items: stretch;
+  margin: 0 auto;
+}
+.ch-lane {
+  flex: 1 1 0; min-width: 44px; max-width: 68px;
+  aspect-ratio: 0.62;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border-radius: 10px;
+  background: repeating-linear-gradient(180deg, #17172c 0 14px, #1d1d33 14px 28px);
+  border: 1px solid var(--line);
+  transition: 180ms;
+  position: relative;
+}
+.ch-lane.start   { background: linear-gradient(180deg, rgba(109,217,184,0.14), rgba(109,217,184,0.05)); border-color: rgba(109,217,184,0.4); }
+.ch-lane.crossed { background: linear-gradient(180deg, rgba(109,217,184,0.10), transparent); border-color: rgba(109,217,184,0.3); }
+.ch-lane.ahead .ch-lane-icon { opacity: 0.55; }
+.ch-lane.hit {
+  background: linear-gradient(180deg, rgba(255,107,107,0.25), rgba(255,107,107,0.08));
+  border-color: #ff6b6b;
+  animation: chShake 300ms ease;
+}
+@keyframes chShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); } 75% { transform: translateX(4px); }
+}
+.ch-lane-icon { font-size: 24px; line-height: 1; }
+.ch-lane-n { font-size: 10px; color: var(--muted); font-weight: 700; }
+
+/* ---------- Craps ---------- */
+.craps-stage { gap: 20px; padding: 24px 16px; justify-content: center; }
+.craps-table { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.craps-dice { display: flex; gap: 18px; }
+.craps-die {
+  font-size: clamp(64px, 8vw, 96px); line-height: 1;
+  color: var(--text);
+  text-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  transition: transform 150ms;
+}
+.craps-die.land { animation: crapsLand 300ms ease; }
+@keyframes crapsLand {
+  0% { transform: scale(1.25) rotate(-6deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+.craps-point-row { display: flex; gap: 8px; }
+.craps-puck {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 15px;
+  background: var(--bg-3); border: 2px solid var(--line); color: var(--muted);
+  transition: 180ms;
+}
+.craps-puck.on {
+  background: var(--gold, #ffb449); color: #0e0d1a; border-color: #fff;
+  box-shadow: 0 0 18px rgba(255, 180, 73, 0.55);
+  transform: scale(1.1);
+}
+
+/* ---------- Three Card Poker ---------- */
+.tcp-stage { gap: 18px; padding: 24px 16px; justify-content: center; }
+.tcp-table { display: flex; flex-direction: column; gap: 26px; align-items: center; width: 100%; }
+.tcp-side { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+
+/* ---------- Bingo Rush ---------- */
+.bingo-stage { gap: 14px; padding: 18px 14px; justify-content: flex-start; overflow-y: auto; }
+.bingo-wrap { display: flex; flex-direction: column; gap: 10px; align-items: center; width: 100%; }
+.bingo-head { display: grid; grid-template-columns: repeat(5, 52px); gap: 6px; }
+.bingo-col-h {
+  text-align: center; font-weight: 800; font-size: 16px;
+  color: var(--accent); letter-spacing: 1px;
+}
+.bingo-grid { display: grid; grid-template-columns: repeat(5, 52px); gap: 6px; }
+.bingo-cell {
+  width: 52px; height: 52px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--text);
+  transition: 180ms;
+}
+.bingo-cell.free { color: var(--gold, #ffb449); background: rgba(255,180,73,0.08); border-color: rgba(255,180,73,0.3); }
+.bingo-cell.marked {
+  background: rgba(109, 217, 184, 0.16); border-color: rgba(109, 217, 184, 0.55);
+  color: var(--teal, #6dd9b8);
+  animation: bingoPop 220ms ease;
+}
+.bingo-cell.line {
+  background: var(--accent); color: #0e0d1a; border-color: #fff;
+  box-shadow: 0 0 14px rgba(255, 94, 156, 0.6);
+}
+@keyframes bingoPop { 0% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.bingo-balls {
+  display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+  max-width: 420px; min-height: 56px;
+}
+.bingo-ball {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--muted);
+  animation: bingoPop 200ms ease;
+}
+.bingo-ball.hit { background: rgba(109,217,184,0.2); border-color: var(--teal, #6dd9b8); color: var(--teal, #6dd9b8); }
+.bg-paytable { font-size: 10.5px; text-align: center; line-height: 1.6; }
+@media (max-width: 480px) {
+  .bingo-head, .bingo-grid { grid-template-columns: repeat(5, 44px); }
+  .bingo-cell { width: 44px; height: 44px; font-size: 13px; }
+}
