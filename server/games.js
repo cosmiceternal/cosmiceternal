@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const db = require('./db');
 const fair = require('./fair');
 const progression = require('./progression');
-const { httpError } = require('./auth');
+const { httpError, logAudit } = require('./auth');
 
 const HOUSE = 0.01;
 const CRASH_BASE = 1.13;
@@ -758,6 +758,42 @@ function playDiamonds(userId, { bet }) {
 }
 
 // ---------------------------------------------------------------- SLOTS
+// ---- Progressive jackpot (shared across all slot themes) ----
+// The pot lives in the settings table, seeded at 1,000 CRYPT and fed 1.5% of
+// every slot wager (house-funded — spin RTP is unchanged). Each spin draws
+// one extra fair float; the drop chance scales with the bet
+// (1.00 CRYPT ≈ 1-in-50,000), so grinding pennies can't fish the pot.
+// Read-modify-write is safe on SQLite (tx is fully serialized); on Postgres a
+// concurrent-contribution race can drop a few cents of contribution, which is
+// acceptable for a play-money pot.
+const JACKPOT_KEY = 'jackpot_cents';
+const JACKPOT_SEED_CENTS = 100_000;
+const JACKPOT_CONTRIB = 0.015;
+const JACKPOT_ODDS_PER_CENT = 1 / 5_000_000; // per-cent-of-bet drop probability
+async function jackpotGet(q) {
+  const { rows } = await q('SELECT value FROM settings WHERE key = ?', [JACKPOT_KEY]);
+  if (!rows[0]) {
+    await q('INSERT INTO settings(key, value) VALUES(?, ?)', [JACKPOT_KEY, String(JACKPOT_SEED_CENTS)]);
+    return JACKPOT_SEED_CENTS;
+  }
+  return Number(rows[0].value) || JACKPOT_SEED_CENTS;
+}
+async function jackpotTick(q, userId, betCents, dropFloat) {
+  const pot = await jackpotGet(q) + Math.round(betCents * JACKPOT_CONTRIB);
+  const pWin = Math.min(0.01, betCents * JACKPOT_ODDS_PER_CENT);
+  if (dropFloat < pWin) {
+    await credit(q, userId, pot);
+    await q('UPDATE settings SET value = ? WHERE key = ?', [String(JACKPOT_SEED_CENTS), JACKPOT_KEY]);
+    return { won: true, amount: pot / 100, pot: JACKPOT_SEED_CENTS / 100 };
+  }
+  await q('UPDATE settings SET value = ? WHERE key = ?', [String(pot), JACKPOT_KEY]);
+  return { won: false, amount: 0, pot: pot / 100 };
+}
+async function jackpotState() {
+  const { rows } = await db.query('SELECT value FROM settings WHERE key = ?', [JACKPOT_KEY]);
+  return { pot: (Number(rows[0]?.value) || JACKPOT_SEED_CENTS) / 100 };
+}
+
 // Shared engine: any theme key from SLOT_THEMES routes through here. The
 // per-bet record's `game` column is the theme key so leaderboards / history
 // can tell Lucky Sevens spins apart from classic Slots.
@@ -767,9 +803,9 @@ async function playSlotsThemed(userId, { bet }, themeKey) {
   const betCents = toCents(bet);
   return db.tx(async (q) => {
     await debit(q, userId, betCents);
-    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 3);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 4); // 3 reels + 1 jackpot drop
     const N = theme.symbols.length;
-    const reels = floats.map(f => Math.min(N - 1, Math.floor(f * N)));
+    const reels = floats.slice(0, 3).map(f => Math.min(N - 1, Math.floor(f * N)));
     let mult = 0, kind = 'none';
     if (reels[0] === reels[1] && reels[1] === reels[2]) { mult = theme.triple[reels[0]]; kind = 'triple'; }
     else if (reels[0] === reels[1] || reels[1] === reels[2] || reels[0] === reels[2]) { mult = theme.pairPay; kind = 'pair'; }
@@ -777,7 +813,9 @@ async function playSlotsThemed(userId, { bet }, themeKey) {
     const payoutCents = Math.round(betCents * mult);
     await credit(q, userId, payoutCents);
     await recordBet(q, userId, { game: themeKey === 'classic' ? 'slots' : themeKey, betCents, mult, payoutCents, win, nonce, detail: { reels, kind, theme: themeKey } });
-    return { reels, symbols: reels.map(i => theme.symbols[i]), kind, mult, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash, theme: themeKey };
+    const jackpot = await jackpotTick(q, userId, betCents, floats[3]);
+    if (jackpot.won) logAudit(null, 'jackpot.won', userId, { amount: jackpot.amount, theme: themeKey });
+    return { reels, symbols: reels.map(i => theme.symbols[i]), kind, mult, payout: payoutCents / 100, jackpot, balance: await balanceOf(q, userId) / 100, nonce, serverHash, theme: themeKey };
   });
 }
 
@@ -1761,6 +1799,7 @@ module.exports = {
   crapsStart, crapsRoll,
   tcpStart, tcpAct,
   playBingo,
+  jackpotState,
   penaltyStart, penaltyShoot, penaltyCashout,
   history, stats, globalFeed, anonName, leaderboard, PLINKO, minesMult,
   WHEEL, TOWERS, PUMP, DIAMOND_PAYS, SLOT_SYMBOLS, SLOT_TRIPLE, SLOT_PAIR_PAY,

@@ -32,15 +32,47 @@
     activeTab = name;
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.atab === name));
     [
-      ['overview', 'adminOverview'],
-      ['users',    'adminUsersPane'],
-      ['bets',     'adminBetsPane'],
-      ['audit',    'adminAuditPane']
+      ['overview',    'adminOverview'],
+      ['users',       'adminUsersPane'],
+      ['bets',        'adminBetsPane'],
+      ['withdrawals', 'adminWithdrawalsPane'],
+      ['audit',       'adminAuditPane']
     ].forEach(([k, id]) => $(id).classList.toggle('hidden', k !== name));
-    if (name === 'overview') loadOverview();
-    if (name === 'users')    loadUsers();
-    if (name === 'bets')     loadBets();
-    if (name === 'audit')    loadAudit();
+    if (name === 'overview')    loadOverview();
+    if (name === 'users')       loadUsers();
+    if (name === 'bets')        loadBets();
+    if (name === 'withdrawals') loadWithdrawals();
+    if (name === 'audit')       loadAudit();
+  }
+
+  async function loadWithdrawals() {
+    try {
+      const r = await API.adminWithdrawals({ limit: 100 });
+      const tbody = $('adminWdTable').querySelector('tbody');
+      tbody.innerHTML = (r.withdrawals || []).map(w => {
+        const actions = w.status === 'pending'
+          ? `<button class="btn btn-ghost adm-wd" data-id="${w.id}" data-action="complete">✓ Complete</button>
+             <button class="btn btn-ghost adm-wd" data-id="${w.id}" data-action="cancel">✕ Refund</button>`
+          : '';
+        return `<tr>
+          <td>${w.id}</td>
+          <td>${escapeHtml(w.username)}</td>
+          <td>${escapeHtml(w.currency)}</td>
+          <td class="num">${w.amount}</td>
+          <td class="num">${fmt(w.funDebited)}</td>
+          <td><code title="${escapeHtml(w.address)}">${escapeHtml(w.address.slice(0, 14))}…</code></td>
+          <td>${escapeHtml(w.status)}</td>
+          <td>${actions}</td>
+        </tr>`;
+      }).join('') || `<tr><td colspan="8" class="adm-empty">No withdrawals.</td></tr>`;
+      tbody.querySelectorAll('.adm-wd').forEach(b => b.addEventListener('click', async () => {
+        try {
+          await API.adminSettleWithdrawal(Number(b.dataset.id), { action: b.dataset.action });
+          Toast.info(b.dataset.action === 'complete' ? 'Marked completed' : 'Cancelled + refunded');
+          loadWithdrawals();
+        } catch (e) { Toast.error(e.message); }
+      }));
+    } catch (e) { Toast.error(e.message); }
   }
 
   async function loadOverview() {

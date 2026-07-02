@@ -127,6 +127,17 @@
     confirmDeposit:  (b)    => request('POST', '/api/vault/confirm', b),
     cancelDeposit:   (b)    => request('POST', '/api/vault/cancel',  b),
     listDeposits:    (n)    => request('GET',  '/api/vault/history?limit=' + (n || 25)),
+    withdraw:        (b)    => request('POST', '/api/vault/withdraw', b),
+    cancelWithdraw:  (b)    => request('POST', '/api/vault/withdraw/cancel', b),
+    listWithdrawals: (n)    => request('GET',  '/api/vault/withdrawals?limit=' + (n || 25)),
+
+    // Social & economy
+    jackpot:   ()        => request('GET',  '/api/jackpot'),
+    chatList:  (since)   => request('GET',  '/api/chat?since=' + (since || 0)),
+    chatSend:  (text)    => request('POST', '/api/chat/send', { text }),
+    race:      ()        => request('GET',  '/api/race'),
+    adminWithdrawals:    (q)     => request('GET',  '/api/admin/withdrawals?' + new URLSearchParams(q || {}).toString()),
+    adminSettleWithdrawal: (id, b) => request('POST', '/api/admin/withdrawal/' + encodeURIComponent(id), b),
 
     // Admin
     adminOverview:   ()     => request('GET',  '/api/admin/overview'),

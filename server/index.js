@@ -12,6 +12,8 @@ const vault = require('./vault');
 const dealer = require('./dealer');
 const progression = require('./progression');
 const admin = require('./admin');
+const chat = require('./chat');
+const race = require('./race');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -297,6 +299,15 @@ app.post('/api/vault/deposit', auth.requireAuth, h((req) => vault.createDeposit(
 app.post('/api/vault/confirm', auth.requireAuth, h((req) => vault.confirmDeposit(req, req.user.id, req.body || {})));
 app.post('/api/vault/cancel',  auth.requireAuth, h((req) => vault.cancelDeposit(req, req.user.id, req.body || {})));
 app.get('/api/vault/history',  auth.requireAuth, h(async (req) => ({ deposits: await vault.listDeposits(req.user.id, req.query.limit) })));
+app.post('/api/vault/withdraw',        auth.requireAuth, h((req) => vault.createWithdrawal(req, req.user.id, req.body || {})));
+app.post('/api/vault/withdraw/cancel', auth.requireAuth, h((req) => vault.cancelWithdrawal(req, req.user.id, req.body || {})));
+app.get('/api/vault/withdrawals',      auth.requireAuth, h(async (req) => ({ withdrawals: await vault.listWithdrawals(req.user.id, req.query.limit) })));
+
+// ---------------- Social & economy ----------------
+app.get('/api/jackpot', auth.requireAuth, h(() => games.jackpotState()));
+app.get('/api/chat',      auth.requireAuth, h((req) => chat.list(req.query.since, req.query.limit)));
+app.post('/api/chat/send', auth.requireAuth, h((req) => chat.send(req.user.id, (req.body || {}).text)));
+app.get('/api/race', auth.requireAuth, h((req) => race.state(req.user.id)));
 
 // ---------------- Progression (XP, levels, streak, achievements) ----------------
 app.get('/api/progression',                auth.requireAuth, h((req) => progression.snapshot(req.user.id)));
@@ -328,6 +339,9 @@ app.post('/api/admin/user/:id/lock',    auth.requireAuth, auth.requireAdmin, int
 app.post('/api/admin/user/:id/admin',   auth.requireAuth, auth.requireAdmin, intId, h((req) => admin.setAdmin(req,   req.params.id, req.body || {})));
 app.get( '/api/admin/bets',     auth.requireAuth, auth.requireAdmin, h((req) => admin.recentBets(req.query)));
 app.get( '/api/admin/audit',    auth.requireAuth, auth.requireAdmin, h((req) => admin.recentAudit(req.query)));
+app.get( '/api/admin/withdrawals', auth.requireAuth, auth.requireAdmin, h((req) => vault.adminListWithdrawals(req.query)));
+app.post('/api/admin/withdrawal/:id', auth.requireAuth, auth.requireAdmin, intId, h((req) =>
+  vault.adminSettleWithdrawal(req, { withdrawalId: req.params.id, action: (req.body || {}).action, txid: (req.body || {}).txid })));
 
 // Unmatched API routes return JSON, not the SPA shell.
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
@@ -357,6 +371,10 @@ db.init()
     // If ADMIN_USERNAME is set, promote that user at startup so it sticks
     // across restarts and Postgres → SQLite swaps.
     await auth.ensureAdminUser();
+    // Race payouts are lazy (first /api/race call settles the last hour) —
+    // this timer is the backstop so winners get paid even on a quiet server.
+    race.settlePrevious().catch(() => {});
+    setInterval(() => race.settlePrevious().catch(() => {}), 60_000).unref();
     app.listen(PORT, () => console.log(`Crypt Casino listening on http://localhost:${PORT}`));
   })
   .catch((e) => {

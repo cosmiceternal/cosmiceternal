@@ -184,7 +184,51 @@
     if (metric === 'xp')      return Bankroll.fmtCompact(+v);
     return v;
   }
+  // ----- Hourly race (inside the leaderboard modal) -----
+  let raceTimer = null;
+  function stopRaceCountdown() { if (raceTimer) { clearInterval(raceTimer); raceTimer = null; } }
+  async function loadRace() {
+    try {
+      const r = await API.race();
+      const list = document.getElementById('lbList');
+      const banner = document.getElementById('raceBanner');
+      banner.classList.remove('hidden');
+      document.getElementById('racePrizes').textContent =
+        `Prizes ${r.prizes.map((p, i) => `#${i + 1} ${Bankroll.fmt(p)}`).join(' · ')} — wager ${Bankroll.fmt(r.minWager)}+ to qualify`;
+      stopRaceCountdown();
+      const cd = document.getElementById('raceCountdown');
+      const tick = () => {
+        const left = Math.max(0, r.endsAt - Date.now());
+        const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+        cd.textContent = `🏁 Ends in ${m}:${String(s).padStart(2, '0')}`;
+        if (left <= 0) { stopRaceCountdown(); loadRace(); }
+      };
+      tick();
+      raceTimer = setInterval(tick, 1000);
+      list.innerHTML = r.top.length
+        ? r.top.map(row => `
+            <li class="lb-row">
+              <span class="lb-rank">${row.rank <= 3 ? ['🥇','🥈','🥉'][row.rank - 1] : row.rank}</span>
+              <span class="lb-player">${row.player}</span>
+              <span class="lb-level">L${row.level}</span>
+              <span class="lb-value">${Bankroll.fmtCompact(row.wagered)}</span>
+            </li>`).join('')
+        : `<li class="feed-empty">No wagers this hour yet — every bet counts toward the race.</li>`;
+      const youEl = document.getElementById('lbYou');
+      if (r.you && !r.top.some(t => t.userId === r.you.userId)) {
+        youEl.innerHTML = `
+          <span class="lb-rank">${r.you.rank ? '#' + r.you.rank : '—'}</span>
+          <span class="lb-player">You</span>
+          <span class="lb-value">${Bankroll.fmtCompact(r.you.wagered)}</span>`;
+        youEl.classList.remove('hidden');
+      } else youEl.classList.add('hidden');
+    } catch (e) { Toast.error(e.message); }
+  }
+
   async function loadLeaderboard(metric) {
+    document.getElementById('raceBanner').classList.add('hidden');
+    stopRaceCountdown();
+    if (metric === 'race') return loadRace();
     try {
       const r = await API.leaderboard(metric, 10);
       const list = document.getElementById('lbList');
@@ -214,8 +258,8 @@
     leadersModal.classList.remove('hidden');
     loadLeaderboard(lbMetric);
   });
-  document.getElementById('leadersClose').addEventListener('click', () => leadersModal.classList.add('hidden'));
-  leadersModal.addEventListener('click', e => { if (e.target === leadersModal) leadersModal.classList.add('hidden'); });
+  document.getElementById('leadersClose').addEventListener('click', () => { stopRaceCountdown(); leadersModal.classList.add('hidden'); });
+  leadersModal.addEventListener('click', e => { if (e.target === leadersModal) { stopRaceCountdown(); leadersModal.classList.add('hidden'); } });
   document.querySelectorAll('.lb-tab').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('.lb-tab').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
@@ -305,6 +349,20 @@
     if (global.Progression) { Progression.seed(user); Progression.init(); }
     if (global.Vault) Vault.wire();
     if (global.Admin) Admin.wire(user);
+    if (global.Jackpot) Jackpot.init();
+
+    // Sound: mute toggle + a soft click on primary buttons.
+    const muteBtn = document.getElementById('btnMute');
+    if (muteBtn && global.Sound) {
+      muteBtn.textContent = Sound.isMuted() ? '🔇' : '🔊';
+      muteBtn.addEventListener('click', () => {
+        muteBtn.textContent = Sound.toggleMute() ? '🔇' : '🔊';
+        Sound.play('click');
+      });
+      document.addEventListener('click', (e) => {
+        if (e.target.closest && e.target.closest('.btn-primary')) Sound.play('click');
+      });
+    }
 
     authGate.classList.add('hidden');
     appEl.classList.remove('hidden');

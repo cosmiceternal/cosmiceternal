@@ -36,6 +36,8 @@ const DEFAULT_CAP_CENTS = Math.round(
   Number(process.env.DAILY_DEPOSIT_CAP_CRYPT || process.env.DAILY_DEPOSIT_CAP_FUN || 5000) * 100
 );
 const MAX_PENDING = Number(process.env.MAX_PENDING_DEPOSITS || 5);
+const WITHDRAW_CAP_CENTS = Math.round(Number(process.env.DAILY_WITHDRAW_CAP_CRYPT || 5000) * 100);
+const WITHDRAW_MIN_CENTS = Math.round(Number(process.env.MIN_WITHDRAW_CRYPT || 10) * 100);
 
 function fmtCurrency(currency, units) {
   const cfg = CURRENCIES[currency];
@@ -315,6 +317,130 @@ async function listDeposits(userId, limit = 25) {
   }));
 }
 
+// ---------------- Withdrawals ----------------
+// Play-money mode completes instantly with a simulated txid. Real-processor
+// mode records the request as 'pending' — the operator settles it manually
+// (or via the admin console) after the on-chain payout; the balance is
+// debited up-front atomically so a user can't spend CRYPT that's queued to
+// leave. Cancelling a pending withdrawal refunds it.
+async function withdrawnToday(q, userId) {
+  const { rows } = await q(
+    "SELECT COALESCE(SUM(fun_debited), 0) AS t FROM withdrawals WHERE user_id = ? AND status IN ('pending','completed') AND created_at >= ?",
+    [userId, startOfDay()]
+  );
+  return Number(rows[0]?.t || 0);
+}
+
+async function createWithdrawal(req, userId, { currency, amount, address }) {
+  const cfg = CURRENCIES[currency];
+  if (!cfg) throw httpError(400, 'Unsupported currency.');
+  const units = Number(amount);
+  if (!isFinite(units) || units <= 0) throw httpError(400, 'Invalid amount.');
+  const addr = String(address || '').trim();
+  if (addr.length < 10 || addr.length > 120) throw httpError(400, 'Enter a valid destination address.');
+  const funCents = Math.round(units * cfg.rate * 100);
+  if (funCents < WITHDRAW_MIN_CENTS) {
+    throw httpError(400, `Minimum withdrawal is ${(WITHDRAW_MIN_CENTS / 100).toFixed(2)} CRYPT.`);
+  }
+  return db.tx(async (q) => {
+    const used = await withdrawnToday(q, userId);
+    if (used + funCents > WITHDRAW_CAP_CENTS) {
+      const remaining = Math.max(0, (WITHDRAW_CAP_CENTS - used) / 100);
+      throw httpError(429, `Daily withdrawal cap reached. Remaining today: ${remaining.toFixed(2)} CRYPT.`);
+    }
+    // Atomic conditional debit — doubles as the balance check.
+    const upd = await q(
+      'UPDATE users SET balance_cents = balance_cents - ? WHERE id = ? AND balance_cents >= ?',
+      [funCents, userId, funCents]
+    );
+    if (!upd.rowCount) throw httpError(400, 'Insufficient balance.');
+    const instant = isPlaymoney();
+    const status = instant ? 'completed' : 'pending';
+    const txid = instant ? crypto.randomBytes(32).toString('hex') : null;
+    const ins = await q(
+      `INSERT INTO withdrawals(user_id, processor, currency, amount_units, fun_debited, address, status, txid, created_at)
+       VALUES(?,?,?,?,?,?,?,?,?) RETURNING id`,
+      [userId, PROCESSOR_NAME, currency, units, funCents, addr, status, txid, Date.now()]
+    );
+    const id = Number(ins.rows[0].id);
+    logAudit(req, 'vault.withdrawal_created', userId, { withdrawalId: id, currency, units, funCents, status });
+    const { rows: balRow } = await q('SELECT balance_cents FROM users WHERE id = ?', [userId]);
+    return {
+      withdrawalId: id, currency, amount: units,
+      funDebited: funCents / 100, address: addr, status, txid,
+      playmoney: instant,
+      balance: Number(balRow[0].balance_cents) / 100
+    };
+  });
+}
+
+async function cancelWithdrawal(req, userId, { withdrawalId }) {
+  return db.tx(async (q) => {
+    const upd = await q(
+      "UPDATE withdrawals SET status = 'cancelled' WHERE id = ? AND user_id = ? AND status = 'pending'",
+      [withdrawalId, userId]
+    );
+    if (!upd.rowCount) throw httpError(404, 'No pending withdrawal with that id.');
+    const { rows } = await q('SELECT fun_debited FROM withdrawals WHERE id = ?', [withdrawalId]);
+    await q('UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?', [Number(rows[0].fun_debited), userId]);
+    logAudit(req, 'vault.withdrawal_cancelled', userId, { withdrawalId: Number(withdrawalId) });
+    const { rows: balRow } = await q('SELECT balance_cents FROM users WHERE id = ?', [userId]);
+    return { withdrawalId: Number(withdrawalId), status: 'cancelled', balance: Number(balRow[0].balance_cents) / 100 };
+  });
+}
+
+async function listWithdrawals(userId, limit = 25) {
+  limit = Math.max(1, Math.min(100, Number(limit) || 25));
+  const { rows } = await db.query(
+    'SELECT id, processor, currency, amount_units, fun_debited, address, status, txid, created_at FROM withdrawals WHERE user_id = ? ORDER BY id DESC LIMIT ?',
+    [userId, limit]
+  );
+  return rows.map(r => ({
+    id: Number(r.id), processor: r.processor, currency: r.currency,
+    amount: Number(r.amount_units), funDebited: Number(r.fun_debited) / 100,
+    address: r.address, status: r.status, txid: r.txid, ts: Number(r.created_at)
+  }));
+}
+
+// Admin: complete (operator has paid out on-chain) or cancel-with-refund a
+// pending withdrawal, for any user.
+async function adminSettleWithdrawal(req, { withdrawalId, action, txid }) {
+  if (action !== 'complete' && action !== 'cancel') throw httpError(400, "Action must be 'complete' or 'cancel'.");
+  return db.tx(async (q) => {
+    const next = action === 'complete' ? 'completed' : 'cancelled';
+    const upd = await q(
+      "UPDATE withdrawals SET status = ?, txid = COALESCE(?, txid) WHERE id = ? AND status = 'pending'",
+      [next, txid || null, withdrawalId]
+    );
+    if (!upd.rowCount) throw httpError(404, 'No pending withdrawal with that id.');
+    const { rows } = await q('SELECT user_id, fun_debited FROM withdrawals WHERE id = ?', [withdrawalId]);
+    if (action === 'cancel') {
+      await q('UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?', [Number(rows[0].fun_debited), Number(rows[0].user_id)]);
+    }
+    logAudit(req, `admin.withdrawal_${action}`, req.user.id, { withdrawalId: Number(withdrawalId), target: Number(rows[0].user_id) });
+    return { withdrawalId: Number(withdrawalId), status: next };
+  });
+}
+
+async function adminListWithdrawals({ status = null, limit = 100 } = {}) {
+  limit = Math.min(500, Math.max(1, Number(limit) || 100));
+  let sql = `SELECT w.id, w.user_id, u.username, w.processor, w.currency, w.amount_units, w.fun_debited, w.address, w.status, w.txid, w.created_at
+             FROM withdrawals w JOIN users u ON u.id = w.user_id`;
+  const params = [];
+  if (status) { sql += ' WHERE w.status = ?'; params.push(String(status)); }
+  sql += ' ORDER BY w.id DESC LIMIT ?';
+  params.push(limit);
+  const { rows } = await db.query(sql, params);
+  return {
+    withdrawals: rows.map(r => ({
+      id: Number(r.id), userId: Number(r.user_id), username: r.username,
+      processor: r.processor, currency: r.currency,
+      amount: Number(r.amount_units), funDebited: Number(r.fun_debited) / 100,
+      address: r.address, status: r.status, txid: r.txid, ts: Number(r.created_at)
+    }))
+  };
+}
+
 // Throws at startup if VAULT_PROCESSOR points at something this build doesn't
 // know about. Surfaces the typo at deploy instead of on the first user request.
 function validate() {
@@ -327,6 +453,8 @@ function validate() {
 
 module.exports = {
   publicSnapshot, createDeposit, confirmDeposit, cancelDeposit, listDeposits,
+  createWithdrawal, cancelWithdrawal, listWithdrawals,
+  adminSettleWithdrawal, adminListWithdrawals,
   handleWebhook, validate,
-  CURRENCIES, DEFAULT_CAP_CENTS, MAX_PENDING, isPlaymoney
+  CURRENCIES, DEFAULT_CAP_CENTS, MAX_PENDING, WITHDRAW_CAP_CENTS, WITHDRAW_MIN_CENTS, isPlaymoney
 };

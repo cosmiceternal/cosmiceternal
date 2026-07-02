@@ -59,6 +59,13 @@
     if (win) Toast.win(`+${Bankroll.fmt((res.payout || 0) - betAmt)} @ ${mult.toFixed(2)}×`);
     else Toast.loss(`−${Bankroll.fmt(betAmt)}`);
     if (win && mult >= 10 && global.Confetti) Confetti.burst({ count: mult >= 50 ? 140 : 90 });
+    if (global.Sound) Sound.play(win ? (mult >= 10 ? 'bigwin' : 'win') : 'loss');
+    // Progressive jackpot piggybacks on slot responses: keep the ticker live,
+    // and go loud when it actually drops.
+    if (res.jackpot && global.Jackpot) {
+      Jackpot.setPot(res.jackpot.pot);
+      if (res.jackpot.won) Jackpot.celebrate(res.jackpot.amount);
+    }
   }
 
   function cardLabel(rank) { return RANKS[rank] || String(rank); }
