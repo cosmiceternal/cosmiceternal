@@ -66,22 +66,36 @@ function validatePasswordPolicy(password, username) {
   }
 }
 
-// Stateless signed-cookie session: "userId.HMAC(userId)".
-function signToken(userId) {
-  const mac = crypto.createHmac('sha256', db.sessionSecret()).update(String(userId)).digest('hex');
-  return `${userId}.${mac}`;
+// Stateless signed-cookie session, v2: "v2.userId.epoch.iat.HMAC(payload)".
+//   - iat (issued-at, seconds) gives tokens a real server-side expiry —
+//     the cookie Max-Age alone is advisory and a stolen token would
+//     otherwise outlive it.
+//   - epoch is a per-user counter bumped on password change, so changing
+//     your password invalidates every other session immediately.
+// Legacy "userId.mac" tokens are rejected (users just sign in again).
+const TOKEN_VERSION = 'v2';
+function signToken(userId, epoch = 0, iatSec = Math.floor(Date.now() / 1000)) {
+  const payload = `${TOKEN_VERSION}.${userId}.${epoch}.${iatSec}`;
+  const mac = crypto.createHmac('sha256', db.sessionSecret()).update(payload).digest('hex');
+  return `${payload}.${mac}`;
 }
 function verifyToken(token) {
   if (!token || typeof token !== 'string') return null;
-  const idx = token.lastIndexOf('.');
-  if (idx < 0) return null;
-  const id = token.slice(0, idx);
-  const mac = token.slice(idx + 1);
-  const expected = crypto.createHmac('sha256', db.sessionSecret()).update(id).digest('hex');
+  const parts = token.split('.');
+  if (parts.length !== 5 || parts[0] !== TOKEN_VERSION) return null;
+  const [, id, epoch, iat, mac] = parts;
+  const payload = `${TOKEN_VERSION}.${id}.${epoch}.${iat}`;
+  const expected = crypto.createHmac('sha256', db.sessionSecret()).update(payload).digest('hex');
   const a = Buffer.from(mac), b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  const iatSec = Number(iat);
+  if (!Number.isInteger(iatSec)) return null;
+  const ageSec = Math.floor(Date.now() / 1000) - iatSec;
+  if (ageSec < 0 || ageSec > MAX_AGE_DAYS * 24 * 60 * 60) return null;
   const userId = Number(id);
-  return Number.isInteger(userId) ? userId : null;
+  const epochNum = Number(epoch);
+  if (!Number.isInteger(userId) || !Number.isInteger(epochNum)) return null;
+  return { userId, epoch: epochNum };
 }
 
 function parseCookies(req) {
@@ -96,8 +110,8 @@ function parseCookies(req) {
   return out;
 }
 
-function setSessionCookie(res, userId) {
-  const token = signToken(userId);
+function setSessionCookie(res, userId, epoch = 0) {
+  const token = signToken(userId, epoch);
   const attrs = [
     `${COOKIE}=${encodeURIComponent(token)}`,
     'HttpOnly', 'Path=/', 'SameSite=Lax',
@@ -201,7 +215,10 @@ async function login(req, username, password) {
     // Burn time so timing doesn't leak whether the username exists.
     try { await argon2.verify('$argon2id$v=19$m=19456,t=2,p=1$YWFhYWFhYWFhYWFhYWFhYQ$Yu0YyVN05F5cV6PvoKjklj0z4j1uTl1z3a9JxRZ3X7M', password); } catch (_) {}
   }
-  logLoginAttempt(username, ip, ok);
+  // Awaited on purpose: the lockout check reads this table, so the write must
+  // land before we respond — otherwise rapid-fire attempts race past the
+  // threshold while earlier failures are still in flight.
+  await logLoginAttempt(username, ip, ok);
   if (!ok) {
     logAudit(req, 'auth.login_fail', user?.id, { username });
     throw httpError(401, 'Invalid username or password.');
@@ -226,9 +243,13 @@ async function changePassword(req, userId, currentPassword, newPassword) {
   }
   validatePasswordPolicy(newPassword, user.username);
   const hash = await hashPassword(newPassword);
-  await db.query('UPDATE users SET pass_hash = ?, pass_salt = ? WHERE id = ?', [hash, '', userId]);
+  // Bump session_epoch so every other session (other devices, stolen cookies)
+  // is invalidated the moment the password changes. The caller gets a fresh
+  // cookie minted at the new epoch by the route handler.
+  const newEpoch = Number(user.session_epoch || 0) + 1;
+  await db.query('UPDATE users SET pass_hash = ?, pass_salt = ?, session_epoch = ? WHERE id = ?', [hash, '', newEpoch, userId]);
   logAudit(req, 'auth.password_change', userId, null);
-  return true;
+  return { newEpoch };
 }
 
 async function userAuditLog(userId, limit = 25) {
@@ -250,10 +271,12 @@ async function authenticate(req, res, next) {
   try {
     const cookies = parseCookies(req);
     const token = cookies[COOKIE] || cookies[LEGACY_COOKIE];
-    const userId = verifyToken(token);
-    if (userId != null) {
-      const user = await getUserById(userId);
-      if (user) req.user = user;
+    const session = verifyToken(token);
+    if (session != null) {
+      const user = await getUserById(session.userId);
+      // Epoch mismatch = password changed since this token was minted —
+      // the session is dead even though the signature still verifies.
+      if (user && Number(user.session_epoch || 0) === session.epoch) req.user = user;
     }
   } catch (e) { /* ignore — treated as logged out */ }
   next();
