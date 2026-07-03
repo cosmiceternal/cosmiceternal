@@ -11,6 +11,7 @@ const db = require('./db');
 const fair = require('./fair');
 const progression = require('./progression');
 const { httpError, logAudit } = require('./auth');
+const limits = require('./limits');
 
 const HOUSE = 0.01;
 const CRASH_BASE = 1.13;
@@ -261,6 +262,10 @@ function toCents(dollars) {
 
 // Atomic, dialect-portable debit. Throws if the balance is insufficient.
 async function debit(q, userId, betCents) {
+  // Responsible-gaming gate lives in the wager chokepoint: every game's stake
+  // (including doubles and Play bets) passes through here, so loss limits and
+  // self-exclusion can't be bypassed by any client.
+  await limits.enforceWagerEligibility(q, userId);
   const r = await q('UPDATE users SET balance_cents = balance_cents - ? WHERE id = ? AND balance_cents >= ?',
     [betCents, userId, betCents]);
   if (!r.rowCount) throw httpError(400, 'Insufficient balance.');

@@ -1995,3 +1995,31 @@ input { font-family: inherit; }
   font-size: 13px; font-weight: 700;
 }
 .race-banner .muted { font-size: 10.5px; font-weight: 500; }
+
+/* ---------- RTP disclosure (Fair modal) ---------- */
+.rtp-details { margin-bottom: 14px; }
+.rtp-details summary {
+  cursor: pointer; font-size: 12px; font-weight: 700; color: var(--text);
+  padding: 8px 10px; background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px;
+}
+.rtp-grid {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 4px 14px; font-size: 11.5px;
+  padding: 10px 12px;
+}
+.rtp-grid span:nth-child(even) { font-weight: 700; color: var(--teal, #6dd9b8); text-align: right; }
+
+/* ---------- Play Limits modal ---------- */
+.limits-modal { max-width: 460px; }
+.limits-body { display: flex; flex-direction: column; gap: 14px; padding-bottom: 18px; }
+.limits-section h3 { margin: 0 0 4px; font-size: 14px; }
+.limits-section p { margin: 0 0 8px; font-size: 12px; line-height: 1.5; }
+.limits-status { font-size: 11.5px; margin-bottom: 8px; }
+.limits-row { display: flex; gap: 8px; }
+.limits-row input {
+  flex: 1; min-width: 0;
+  background: var(--bg-3); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; color: var(--text);
+}
+.limits-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.limits-toggle input { accent-color: var(--accent); width: 16px; height: 16px; }

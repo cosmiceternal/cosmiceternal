@@ -2,6 +2,7 @@
 
 const path = require('path');
 const express = require('express');
+const compression = require('compression');
 
 const crypto = require('crypto');
 const db = require('./db');
@@ -14,6 +15,7 @@ const progression = require('./progression');
 const admin = require('./admin');
 const chat = require('./chat');
 const race = require('./race');
+const limits = require('./limits');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,6 +26,23 @@ const SECURE = auth.SECURE;
 // Behind a hosting proxy (Render/Railway/Fly/Heroku/nginx) that terminates TLS.
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
+app.use(compression());
+
+// Structured error/slow-request log: one line per 5xx or >1s request. No
+// per-request noise — this is the signal an operator actually reads.
+app.use((req, res, next) => {
+  const t0 = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - t0;
+    if (res.statusCode >= 500 || ms > 1000) {
+      console.log(JSON.stringify({
+        t: new Date().toISOString(), method: req.method, path: req.path,
+        status: res.statusCode, ms, user: req.user ? Number(req.user.id) : null
+      }));
+    }
+  });
+  next();
+});
 
 // ---------------- Security headers ----------------
 const CSP = [
@@ -309,6 +328,11 @@ app.get('/api/chat',      auth.requireAuth, h((req) => chat.list(req.query.since
 app.post('/api/chat/send', auth.requireAuth, h((req) => chat.send(req.user.id, (req.body || {}).text)));
 app.get('/api/race', auth.requireAuth, h((req) => race.state(req.user.id)));
 
+// ---------------- Responsible gaming ----------------
+app.get( '/api/limits',              auth.requireAuth, h((req) => limits.state(req.user.id)));
+app.post('/api/limits/loss-limit',   auth.requireAuth, h((req) => limits.setLossLimit(req, req.user.id, req.body || {})));
+app.post('/api/limits/self-exclude', auth.requireAuth, h((req) => limits.selfExclude(req, req.user.id, req.body || {})));
+
 // ---------------- Progression (XP, levels, streak, achievements) ----------------
 app.get('/api/progression',                auth.requireAuth, h((req) => progression.snapshot(req.user.id)));
 app.post('/api/progression/claim-daily',   auth.requireAuth, h((req) => progression.claimDaily(req.user.id)));
@@ -376,7 +400,16 @@ db.init()
     // this timer is the backstop so winners get paid even on a quiet server.
     race.settlePrevious().catch(() => {});
     setInterval(() => race.settlePrevious().catch(() => {}), 60_000).unref();
-    app.listen(PORT, () => console.log(`Crypt Casino listening on http://localhost:${PORT}`));
+    const server = app.listen(PORT, () => console.log(`Crypt Casino listening on http://localhost:${PORT}`));
+    // Graceful shutdown: let in-flight requests (wager transactions!) finish
+    // before the process exits on a deploy or Ctrl+C. Hard-exit after 8s.
+    const shutdown = (sig) => {
+      console.log(`${sig} — draining connections…`);
+      server.close(() => process.exit(0));
+      setTimeout(() => process.exit(0), 8000).unref();
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch((e) => {
     console.error('Failed to initialize:', e.message);

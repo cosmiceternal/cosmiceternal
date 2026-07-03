@@ -15,6 +15,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { httpError, logAudit } = require('./auth');
+const limits = require('./limits');
 
 // Fixed-rate conversion table. Real processors will quote market rates; the
 // play-money processor uses these as the displayed "exchange rate". `rate` is
@@ -175,6 +176,7 @@ async function publicSnapshot(userId) {
 }
 
 async function createDeposit(req, userId, { currency, amount }) {
+  await limits.enforceDepositEligibility(db.query, userId);
   const cfg = CURRENCIES[currency];
   if (!cfg) throw httpError(400, 'Unsupported currency.');
   const units = Number(amount);

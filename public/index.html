@@ -4,11 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Crypt Casino — Provably Fair</title>
-  <meta name="description" content="Crypt Casino — a play-money, provably-fair casino with 19 games, server-verified fairness and persistent accounts." />
+  <meta name="description" content="Crypt Casino — a play-money, provably-fair casino with 33 games, an AI dealer, a progressive jackpot, hourly races and server-verified fairness." />
   <meta property="og:title" content="Crypt Casino — Provably Fair" />
-  <meta property="og:description" content="Play-money, provably-fair casino with 19 games — Crash, Blackjack, Towers, Wheel and more." />
+  <meta property="og:description" content="Play-money, provably-fair casino with 33 games — AI Dealer blackjack, Crash, Chicken Road, Craps, slots with a progressive jackpot, and more." />
   <meta property="og:type" content="website" />
   <meta name="theme-color" content="#0c0817" />
+  <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="css/style.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2222%22 fill=%22%23ffb449%22>✦</text></svg>" />
 </head>
@@ -19,7 +20,7 @@
       <div class="auth-brand"><span class="brand-mark">✦</span> CRYPT<span class="accent"> CASINO</span></div>
       <p class="auth-tag">Play-money, provably-fair casino</p>
       <div class="auth-highlights">
-        <span>🎰 29 games</span><span class="auth-dot">·</span>
+        <span>🎰 33 games</span><span class="auth-dot">·</span>
         <span>🤖 AI dealers</span><span class="auth-dot">·</span>
         <span>🔐 Provably fair</span>
       </div>
@@ -104,6 +105,7 @@
         <div class="user-menu">
           <button class="btn btn-ghost" id="btnUser"><span id="userName">player</span> ▾</button>
           <div class="user-dropdown hidden" id="userDropdown">
+            <button id="btnLimits">🛡️ Play Limits</button>
             <button id="btnLogout">Sign Out</button>
           </div>
         </div>
@@ -143,6 +145,24 @@
         <button class="btn btn-ghost" id="fairClose">✕</button>
       </div>
       <div class="modal-body">
+        <details class="rtp-details">
+          <summary>Game RTPs (return to player)</summary>
+          <div class="rtp-grid muted">
+            <span>Craps (pass line)</span><span>98.6%</span>
+            <span>Blackjack / AI Dealer</span><span>~99.5%</span>
+            <span>Dice · Limbo · Crash · Wheel · Chicken Road</span><span>99%</span>
+            <span>Baccarat (player)</span><span>98.8%</span>
+            <span>Roulette (European)</span><span>97.3%</span>
+            <span>Three Card Poker</span><span>~96.6%</span>
+            <span>War</span><span>96.2%</span>
+            <span>Slots (all three)</span><span>96%</span>
+            <span>Video Poker (JoB)</span><span>~99.5%*</span>
+            <span>Mines · Towers · Pump · Penalty</span><span>97–99%</span>
+            <span>Keno · Sic Bo · Color · Scratch</span><span>95–97%</span>
+            <span>Bingo Rush · Pachinko</span><span>95%</span>
+          </div>
+          <p class="muted" style="font-size:10px;">*with optimal play. All outcomes are drawn from the verifiable HMAC stream below — the math is auditable in the open-source server code.</p>
+        </details>
         <p class="muted">
           Outcomes are generated server-side by HMAC-SHA256(<em>server seed</em>, <em>client seed</em>:<em>nonce</em>).
           The server seed is committed (its hash is shown) before you play. Rotate the seed to reveal the original — then
@@ -204,6 +224,48 @@
   </div>
 
   <!-- Leaderboard Modal -->
+  <!-- Responsible gaming: limits & self-exclusion -->
+  <div class="modal-backdrop hidden" id="limitsModal">
+    <div class="modal limits-modal">
+      <div class="modal-header">
+        <h2>🛡️ Play Limits</h2>
+        <button class="btn btn-ghost" id="limitsClose">✕</button>
+      </div>
+      <div class="modal-body limits-body">
+        <div class="limits-section">
+          <h3>Daily loss limit</h3>
+          <p class="muted">Once your net loss for the day reaches this amount, wagers are paused until midnight. Enforced on the server.</p>
+          <div class="limits-status muted" id="lossLimitStatus"></div>
+          <div class="limits-row">
+            <input id="lossLimitInput" type="number" min="1" step="1" placeholder="e.g. 500" />
+            <button class="btn btn-primary" id="lossLimitSet">Set</button>
+            <button class="btn" id="lossLimitClear">Remove</button>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="limits-section">
+          <h3>Self-exclusion</h3>
+          <p class="muted">Locks wagering and deposits for the period you choose. <b>Cannot be undone early.</b> Withdrawals stay available the whole time.</p>
+          <div class="limits-status muted" id="excludeStatus"></div>
+          <div class="limits-row">
+            <button class="btn" data-exclude="1">1 day</button>
+            <button class="btn" data-exclude="7">7 days</button>
+            <button class="btn" data-exclude="30">30 days</button>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="limits-section">
+          <h3>Reality check</h3>
+          <p class="muted">A reminder with your session time and net result, every 30 minutes.</p>
+          <label class="limits-toggle"><input type="checkbox" id="realityCheckToggle" checked /> Enabled</label>
+        </div>
+        <p class="muted" style="font-size:10.5px;line-height:1.5;">
+          If gambling stops being fun, help exists: <b>begambleaware.org</b> · <b>gamblersanonymous.org</b>
+        </p>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop hidden" id="leadersModal">
     <div class="modal lb-modal">
       <div class="modal-header">
@@ -479,6 +541,7 @@
   <script src="js/progression.js"></script>
   <script src="js/vault.js"></script>
   <script src="js/jackpot.js"></script>
+  <script src="js/limits.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/tour.js"></script>
   <script src="js/app.js"></script>
