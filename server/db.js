@@ -158,6 +158,26 @@ const SCHEMA_SQLITE = `
     UNIQUE(user_id, key)
   );
   CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id, unlocked_at DESC);
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_chat_recent ON chat_messages(id DESC);
+  CREATE TABLE IF NOT EXISTS withdrawals (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    processor    TEXT NOT NULL,
+    currency     TEXT NOT NULL,
+    amount_units REAL NOT NULL,
+    fun_debited  INTEGER NOT NULL,
+    address      TEXT NOT NULL,
+    status       TEXT NOT NULL,
+    txid         TEXT,
+    created_at   INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_withdrawals_user ON withdrawals(user_id, id DESC);
 `;
 
 const SCHEMA_PG = `
@@ -245,6 +265,26 @@ const SCHEMA_PG = `
     UNIQUE(user_id, key)
   );
   CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id, unlocked_at DESC);
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text       TEXT NOT NULL,
+    created_at BIGINT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_chat_recent ON chat_messages(id DESC);
+  CREATE TABLE IF NOT EXISTS withdrawals (
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    processor    TEXT NOT NULL,
+    currency     TEXT NOT NULL,
+    amount_units DOUBLE PRECISION NOT NULL,
+    fun_debited  BIGINT NOT NULL,
+    address      TEXT NOT NULL,
+    status       TEXT NOT NULL,
+    txid         TEXT,
+    created_at   BIGINT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_withdrawals_user ON withdrawals(user_id, id DESC);
 `;
 
 // Idempotent migrations for already-deployed installs. SQLite doesn't support

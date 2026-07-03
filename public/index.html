@@ -85,6 +85,10 @@
         <button class="tab" data-game="color"><span class="tab-icon">🎨</span>Color</button>
       </nav>
       <div class="wallet">
+        <div class="jackpot-ticker" id="jackpotTicker" title="Progressive jackpot — hits on any slot spin">
+          <span class="jp-label">💰 JACKPOT</span>
+          <span class="jp-value" id="jackpotValue">—</span>
+        </div>
         <div class="level-badge" id="lvlBadge" title="Level"></div>
         <div class="balance">
           <span class="balance-label">Balance</span>
@@ -96,6 +100,7 @@
         <button class="btn btn-ghost" id="btnStats" title="Your stats">Stats</button>
         <button class="btn btn-ghost" id="btnLeaders" title="Leaderboard">🏆</button>
         <button class="btn btn-ghost" id="btnFair" title="Provably Fair">Fair</button>
+        <button class="btn btn-ghost" id="btnMute" title="Toggle sound">🔊</button>
         <div class="user-menu">
           <button class="btn btn-ghost" id="btnUser"><span id="userName">player</span> ▾</button>
           <div class="user-dropdown hidden" id="userDropdown">
@@ -115,12 +120,17 @@
             <button class="feed-tab active" data-feed="all">Yours</button>
             <button class="feed-tab" data-feed="high">Big</button>
             <button class="feed-tab" data-feed="live"><span class="live-dot"></span> Live</button>
+            <button class="feed-tab" data-feed="chat">💬 Chat</button>
           </div>
         </div>
-        <div class="feed-table-head">
+        <div class="feed-table-head" id="feedTableHead">
           <span>Game</span><span>Player</span><span>Bet</span><span>Mult</span><span>Profit</span>
         </div>
         <ul class="feed-list" id="feedList"></ul>
+        <div class="chat-input-row hidden" id="chatInputRow">
+          <input id="chatInput" type="text" maxlength="200" placeholder="Say something…" autocomplete="off" />
+          <button class="btn btn-primary" id="chatSend">Send</button>
+        </div>
       </aside>
     </main>
   </div>
@@ -206,6 +216,11 @@
           <button class="lb-tab" data-metric="level">Level</button>
           <button class="lb-tab" data-metric="wins">Wins</button>
           <button class="lb-tab" data-metric="biggest">Biggest Hit</button>
+          <button class="lb-tab" data-metric="race">🏁 Race</button>
+        </div>
+        <div class="race-banner hidden" id="raceBanner">
+          <span id="raceCountdown">—</span>
+          <span class="muted" id="racePrizes"></span>
         </div>
         <ol class="lb-list" id="lbList"></ol>
         <div class="lb-you hidden" id="lbYou"></div>
@@ -226,6 +241,7 @@
           <button class="admin-tab active" data-atab="overview">Overview</button>
           <button class="admin-tab" data-atab="users">Users</button>
           <button class="admin-tab" data-atab="bets">Bets</button>
+          <button class="admin-tab" data-atab="withdrawals">Withdrawals</button>
           <button class="admin-tab" data-atab="audit">Audit</button>
         </div>
         <div class="admin-pane" id="adminOverview">
@@ -247,6 +263,14 @@
           <table class="admin-table" id="adminBetsTable">
             <thead>
               <tr><th>ID</th><th>User</th><th>Game</th><th>Bet</th><th>Mult</th><th>Profit</th><th>When</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="admin-pane hidden" id="adminWithdrawalsPane">
+          <table class="admin-table" id="adminWdTable">
+            <thead>
+              <tr><th>ID</th><th>User</th><th>Currency</th><th>Amount</th><th>CRYPT</th><th>Address</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -283,6 +307,7 @@
       <div class="modal-body vault-body">
         <div class="vault-tabs">
           <button class="vault-tab active" data-vtab="deposit">Deposit</button>
+          <button class="vault-tab" data-vtab="withdraw">Withdraw</button>
           <button class="vault-tab" data-vtab="history">History</button>
         </div>
         <div class="vault-processor-line muted" id="vaultProcessorLine"></div>
@@ -325,6 +350,33 @@
           </div>
         </div>
 
+        <div class="vault-pane hidden" id="vaultWithdrawPane">
+          <div class="vault-field">
+            <label>Currency</label>
+            <select id="wdCurrency" class="game-select">
+              <option value="BTC">BTC</option>
+              <option value="ETH">ETH</option>
+              <option value="USDT" selected>USDT</option>
+              <option value="SOL">SOL</option>
+            </select>
+          </div>
+          <div class="vault-field">
+            <label>Amount <span class="muted" id="wdCurrencyLabel">USDT</span></label>
+            <input id="wdAmount" type="number" min="0" step="any" value="10" />
+          </div>
+          <div class="vault-field">
+            <label>Destination address</label>
+            <input id="wdAddress" type="text" maxlength="120" placeholder="Your wallet address" autocomplete="off" />
+          </div>
+          <div class="vault-summary">
+            <span>You'll send</span>
+            <span class="vault-summary-value" id="wdPreview">0.00 CRYPT</span>
+          </div>
+          <div class="vault-cap muted" id="wdCapLine"></div>
+          <button class="btn btn-primary btn-block" id="wdSubmit">Request Withdrawal</button>
+          <p class="muted" id="wdHint" style="font-size:11px;text-align:center;margin:8px 0 0;"></p>
+          <ul class="vault-history" id="wdList"></ul>
+        </div>
         <div class="vault-pane hidden" id="vaultHistoryPane">
           <ul class="vault-history" id="vaultHistoryList"></ul>
         </div>
@@ -385,6 +437,7 @@
   <div class="toast-stack" id="toasts"></div>
 
   <script src="js/api.js"></script>
+  <script src="js/sound.js"></script>
   <script src="js/fair.js"></script>
   <script src="js/bankroll.js"></script>
   <script src="js/feed.js"></script>
@@ -425,6 +478,7 @@
   <script src="js/games/aidealer.js"></script>
   <script src="js/progression.js"></script>
   <script src="js/vault.js"></script>
+  <script src="js/jackpot.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/tour.js"></script>
   <script src="js/app.js"></script>

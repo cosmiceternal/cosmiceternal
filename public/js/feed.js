@@ -59,8 +59,59 @@
     return li;
   }
 
-  function emptyMsg() { return mode === 'live' ? 'No live wins yet — be the first.' : 'Your bets will appear here'; }
+  function emptyMsg() {
+    if (mode === 'chat') return 'No messages yet — say hi!';
+    return mode === 'live' ? 'No live wins yet — be the first.' : 'Your bets will appear here';
+  }
   function renderEmpty() { if (listEl) listEl.innerHTML = `<li class="feed-empty">${emptyMsg()}</li>`; }
+
+  // ---- Chat mode ----
+  let chatMsgs = [], chatLastId = 0, chatTimer = null;
+  const CHAT_POLL_MS = 5000;
+  function chatRowEl(m) {
+    // Built with textContent throughout — chat text never becomes HTML.
+    const li = document.createElement('li');
+    li.className = 'chat-row';
+    const who = document.createElement('span');
+    who.className = 'chat-who';
+    who.textContent = m.user;
+    const lvl = document.createElement('span');
+    lvl.className = 'chat-lvl';
+    lvl.textContent = 'L' + m.level;
+    const text = document.createElement('span');
+    text.className = 'chat-text';
+    text.textContent = m.text;
+    li.append(who, lvl, text);
+    return li;
+  }
+  function renderChat() {
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    if (!chatMsgs.length) { renderEmpty(); return; }
+    chatMsgs.slice(-80).forEach(m => listEl.appendChild(chatRowEl(m)));
+    listEl.scrollTop = listEl.scrollHeight;
+  }
+  async function loadChat() {
+    try {
+      const r = await API.chatList(chatLastId);
+      if (r.messages && r.messages.length) {
+        chatMsgs.push(...r.messages);
+        chatLastId = r.messages[r.messages.length - 1].id;
+        if (chatMsgs.length > 200) chatMsgs = chatMsgs.slice(-120);
+        if (mode === 'chat') renderChat();
+      } else if (mode === 'chat' && !chatMsgs.length) renderEmpty();
+    } catch (e) { if (mode === 'chat' && !chatMsgs.length) renderEmpty(); }
+  }
+  async function sendChat() {
+    const input = document.getElementById('chatInput');
+    const text = (input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    try {
+      await API.chatSend(text);
+      await loadChat();
+    } catch (e) { Toast.warn(e.message); input.value = text; }
+  }
 
   function visibleRows() {
     if (mode === 'live') return liveRows;
@@ -96,6 +147,11 @@
     pollTimer = setInterval(() => { if (mode === 'live') loadLive(); }, POLL_MS);
   }
   function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+  function startChatPolling() {
+    stopChatPolling();
+    chatTimer = setInterval(() => { if (mode === 'chat') loadChat(); }, CHAT_POLL_MS);
+  }
+  function stopChatPolling() { if (chatTimer) { clearInterval(chatTimer); chatTimer = null; } }
 
   function prepend(r) {
     yoursRows.unshift(r);
@@ -108,6 +164,14 @@
 
   function setMode(m) {
     mode = m;
+    const inputRow = document.getElementById('chatInputRow');
+    const tableHead = document.getElementById('feedTableHead');
+    const isChat = mode === 'chat';
+    if (inputRow) inputRow.classList.toggle('hidden', !isChat);
+    if (tableHead) tableHead.classList.toggle('hidden', isChat);
+    if (listEl) listEl.classList.toggle('chat-mode', isChat);
+    if (isChat) { stopPolling(); loadChat(); startChatPolling(); renderChat(); return; }
+    stopChatPolling();
     if (mode === 'live') { loadLive(); startPolling(); }
     else { stopPolling(); render(); }
   }
@@ -121,6 +185,10 @@
         setMode(btn.dataset.feed);
       });
     });
+    const sendBtn = document.getElementById('chatSend');
+    const chatInput = document.getElementById('chatInput');
+    if (sendBtn) sendBtn.addEventListener('click', sendChat);
+    if (chatInput) chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
     renderEmpty();
     loadYours();
   }

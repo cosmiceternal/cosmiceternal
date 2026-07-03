@@ -47,9 +47,74 @@
 
   function showPane(name) {
     $('vaultDepositPane').classList.toggle('hidden', name !== 'deposit');
+    $('vaultWithdrawPane').classList.toggle('hidden', name !== 'withdraw');
     $('vaultHistoryPane').classList.toggle('hidden', name !== 'history');
     document.querySelectorAll('.vault-tab').forEach(t => t.classList.toggle('active', t.dataset.vtab === name));
     if (name === 'history') renderHistory();
+    if (name === 'withdraw') { syncWdPreview(); renderWithdrawals(); }
+  }
+
+  // ---- Withdraw pane ----
+  function wdCfg() { return snap && snap.currencies.find(c => c.code === $('wdCurrency').value); }
+  function syncWdPreview() {
+    const cfg = wdCfg();
+    if (!cfg) return;
+    $('wdCurrencyLabel').textContent = cfg.code;
+    const amt = Number($('wdAmount').value) || 0;
+    $('wdPreview').textContent = fmtCrypt(amt * cfg.funPerUnit) + ' CRYPT';
+    $('wdHint').textContent = snap.playmoney
+      ? 'Play-money mode — withdrawals complete instantly (nothing really leaves).'
+      : 'Real-processor mode — requests are queued and paid out by the operator.';
+  }
+  async function submitWithdrawal() {
+    const cfg = wdCfg();
+    if (!cfg) return;
+    const amount = Number($('wdAmount').value);
+    const address = $('wdAddress').value.trim();
+    if (!isFinite(amount) || amount <= 0) { Toast.warn('Enter an amount'); return; }
+    if (address.length < 10) { Toast.warn('Enter a destination address'); return; }
+    $('wdSubmit').disabled = true;
+    try {
+      const res = await API.withdraw({ currency: cfg.code, amount, address });
+      if (typeof res.balance === 'number' && global.Bankroll) Bankroll.set(res.balance);
+      Toast[res.status === 'completed' ? 'win' : 'info'](
+        res.status === 'completed'
+          ? `−${fmtCrypt(res.funDebited)} CRYPT withdrawn`
+          : `Withdrawal queued (−${fmtCrypt(res.funDebited)} CRYPT held)`
+      );
+      renderWithdrawals();
+      refreshSnapshot();
+    } catch (e) { Toast.error(e.message); }
+    $('wdSubmit').disabled = false;
+  }
+  async function renderWithdrawals() {
+    try {
+      const out = await API.listWithdrawals(25);
+      const list = $('wdList');
+      if (!out.withdrawals || !out.withdrawals.length) { list.innerHTML = ''; return; }
+      list.innerHTML = out.withdrawals.map(w => {
+        const cls = w.status === 'completed' ? 'win' : (w.status === 'cancelled' ? 'loss' : '');
+        const cancelBtn = w.status === 'pending'
+          ? `<button class="btn btn-ghost wd-cancel" data-id="${w.id}">Cancel</button>` : '';
+        return `<li class="vh-row ${cls}">
+          <span class="vh-currency">${w.currency}</span>
+          <span class="vh-amount">${w.amount}</span>
+          <span class="vh-fun">−${fmtCrypt(w.funDebited)} CRYPT</span>
+          <span class="vh-status">${w.status}</span>
+          <span class="vh-txid muted" title="${w.address}">${truncate(w.address, 12)}</span>
+          <span class="vh-when muted">${new Date(w.ts).toLocaleString()}</span>
+          ${cancelBtn}
+        </li>`;
+      }).join('');
+      list.querySelectorAll('.wd-cancel').forEach(b => b.addEventListener('click', async () => {
+        try {
+          const r = await API.cancelWithdraw({ withdrawalId: Number(b.dataset.id) });
+          if (typeof r.balance === 'number' && global.Bankroll) Bankroll.set(r.balance);
+          Toast.info('Withdrawal cancelled — CRYPT refunded');
+          renderWithdrawals();
+        } catch (e) { Toast.error(e.message); }
+      }));
+    } catch (e) {}
   }
   function showCreateForm() {
     $('vaultDepositState').classList.add('hidden');
@@ -277,6 +342,9 @@
       Toast[ok ? 'info' : 'warn'](ok ? 'Address copied' : 'Copy failed — long-press to copy manually');
     });
     $('vaultCancel').addEventListener('click', cancel);
+    $('wdCurrency').addEventListener('change', syncWdPreview);
+    $('wdAmount').addEventListener('input', syncWdPreview);
+    $('wdSubmit').addEventListener('click', submitWithdrawal);
     $('vaultDone').addEventListener('click', () => {
       pendingDepositId = null;
       $('vaultCancel').classList.remove('hidden');

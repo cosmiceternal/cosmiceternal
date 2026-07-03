@@ -1945,3 +1945,53 @@ input { font-family: inherit; }
   .bingo-head, .bingo-grid { grid-template-columns: repeat(5, 44px); }
   .bingo-cell { width: 44px; height: 44px; font-size: 13px; }
 }
+
+/* ---------- Jackpot ticker ---------- */
+.jackpot-ticker {
+  display: flex; align-items: baseline; gap: 7px;
+  padding: 6px 12px; border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255,180,73,0.12), rgba(255,94,156,0.10));
+  border: 1px solid rgba(255, 180, 73, 0.35);
+  white-space: nowrap;
+}
+.jp-label { font-size: 9px; font-weight: 800; letter-spacing: 1px; color: var(--gold, #ffb449); }
+.jp-value { font-size: 14px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.jackpot-ticker.jp-hit { animation: jpHit 1.2s ease; }
+@keyframes jpHit {
+  0%, 100% { transform: scale(1); box-shadow: none; }
+  20% { transform: scale(1.12); box-shadow: 0 0 24px rgba(255, 180, 73, 0.8); }
+  60% { transform: scale(1.05); }
+}
+
+/* ---------- Chat ---------- */
+.feed-list.chat-mode { display: flex; flex-direction: column; gap: 2px; }
+.chat-row {
+  display: block;
+  padding: 5px 8px; border-radius: 8px;
+  font-size: 12px; line-height: 1.45;
+  background: rgba(255,255,255,0.02);
+}
+.chat-who { font-weight: 700; color: var(--accent); margin-right: 4px; }
+.chat-lvl { font-size: 9px; color: var(--muted); background: var(--bg-3); border-radius: 4px; padding: 1px 4px; margin-right: 6px; vertical-align: 1px; }
+.chat-text { color: var(--text); word-break: break-word; }
+.chat-input-row {
+  display: flex; gap: 6px; padding: 8px;
+  border-top: 1px solid var(--line);
+}
+.chat-input-row input {
+  flex: 1; min-width: 0;
+  background: var(--bg-3); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; color: var(--text);
+}
+.chat-input-row input:focus { border-color: var(--accent); outline: none; }
+
+/* ---------- Race banner ---------- */
+.race-banner {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 12px; margin-bottom: 8px;
+  background: rgba(109, 217, 184, 0.07);
+  border: 1px solid rgba(109, 217, 184, 0.25);
+  border-radius: 10px;
+  font-size: 13px; font-weight: 700;
+}
+.race-banner .muted { font-size: 10.5px; font-weight: 500; }

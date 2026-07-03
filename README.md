@@ -89,6 +89,9 @@ variables on your host.
 | `VAULT_PROCESSOR`         | `playmoney`           | Crypto-vault adapter. Real processors plug in by config.                 |
 | `DAILY_DEPOSIT_CAP_CRYPT`   | `5000`                | Per-user per-day cap (in CRYPT) on play-money deposits.                    |
 | `MAX_PENDING_DEPOSITS`    | `5`                   | Per-user limit on in-flight (pending) deposits.                          |
+| `DAILY_WITHDRAW_CAP_CRYPT`| `5000`                | Per-user per-day withdrawal cap (in CRYPT).                              |
+| `MIN_WITHDRAW_CRYPT`      | `10`                  | Minimum single withdrawal (in CRYPT).                                    |
+| `ADMIN_USERNAME`          | _(unset)_             | Username auto-promoted to admin at startup.                              |
 
 See [`SECURITY.md`](SECURITY.md) for the full security model (argon2id, account
 lockout, CSRF, CSP/HSTS, audit log, server-authoritative wagers, prompt-injection

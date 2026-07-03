@@ -145,13 +145,15 @@ async function getUserById(id) {
 
 // ---- Audit log & login attempts (queryable security telemetry) ----
 function clientIp(req) {
+  if (!req) return '';
   return (req.headers['x-forwarded-for'] || req.ip || req.socket?.remoteAddress || '').toString().split(',')[0].trim();
 }
+// `req` may be null for server-originated events (jackpot drops, race payouts).
 async function logAudit(req, event, userId, meta) {
   try {
     await db.query(
       'INSERT INTO audit_log(event, user_id, ip, ua, meta, created_at) VALUES(?,?,?,?,?,?)',
-      [event, userId || null, clientIp(req), (req.headers['user-agent'] || '').slice(0, 240), meta ? JSON.stringify(meta) : null, Date.now()]
+      [event, userId || null, clientIp(req), ((req && req.headers['user-agent']) || '').slice(0, 240), meta ? JSON.stringify(meta) : null, Date.now()]
     );
   } catch (_) { /* never block a request on audit-log write failures */ }
 }
