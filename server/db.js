@@ -297,7 +297,9 @@ const MIGRATIONS = [
   "ALTER TABLE users ADD COLUMN last_bonus_at BIGINT",
   "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE users ADD COLUMN locked INTEGER NOT NULL DEFAULT 0",
-  "ALTER TABLE users ADD COLUMN session_epoch INTEGER NOT NULL DEFAULT 0"
+  "ALTER TABLE users ADD COLUMN session_epoch INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN loss_limit_cents BIGINT",
+  "ALTER TABLE users ADD COLUMN excluded_until BIGINT"
 ];
 
 async function init() {

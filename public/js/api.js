@@ -136,6 +136,9 @@
     chatList:  (since)   => request('GET',  '/api/chat?since=' + (since || 0)),
     chatSend:  (text)    => request('POST', '/api/chat/send', { text }),
     race:      ()        => request('GET',  '/api/race'),
+    limits:        ()    => request('GET',  '/api/limits'),
+    setLossLimit:  (v)   => request('POST', '/api/limits/loss-limit', { lossLimit: v }),
+    selfExclude:   (d)   => request('POST', '/api/limits/self-exclude', { days: d }),
     adminWithdrawals:    (q)     => request('GET',  '/api/admin/withdrawals?' + new URLSearchParams(q || {}).toString()),
     adminSettleWithdrawal: (id, b) => request('POST', '/api/admin/withdrawal/' + encodeURIComponent(id), b),
 
