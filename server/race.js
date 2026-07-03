@@ -42,6 +42,11 @@ async function settlePrevious() {
   const prev = hourKey() - 1;
   const lockKey = `race_paid_${prev}`;
   const paid = [];
+  // Fast path: once the hour is paid, every subsequent caller sees the lock
+  // row and skips the transaction entirely (no throwaway INSERT + exception
+  // per /api/race request).
+  const { rows: existing } = await db.query('SELECT 1 FROM settings WHERE key = ?', [lockKey]);
+  if (existing[0]) return paid;
   try {
     await db.tx(async (q) => {
       await q('INSERT INTO settings(key, value) VALUES(?, ?)', [lockKey, 'paying']);

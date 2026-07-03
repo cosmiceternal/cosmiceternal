@@ -127,12 +127,15 @@
     visible.slice(0, MAX_ROWS).forEach(r => listEl.appendChild(rowEl(r, mode === 'live')));
   }
 
+  // Modes that render bet rows into the list. Chat owns the list otherwise —
+  // a bet placed while the chat tab is open must not repaint it with bets.
+  const betModes = () => mode === 'all' || mode === 'high';
   async function loadYours() {
     try {
       const r = await API.history(MAX_ROWS);
       yoursRows = r.bets || [];
-      if (mode !== 'live') render();
-    } catch (e) { if (mode !== 'live') renderEmpty(); }
+      if (betModes()) render();
+    } catch (e) { if (betModes()) renderEmpty(); }
   }
   async function loadLive() {
     try {
@@ -156,7 +159,7 @@
   function prepend(r) {
     yoursRows.unshift(r);
     if (yoursRows.length > MAX_ROWS * 2) yoursRows = yoursRows.slice(0, MAX_ROWS);
-    if (mode !== 'live') render();
+    if (betModes()) render();
   }
   function recordPlayerBet({ game, bet, mult, win, payout }) {
     prepend({ game, bet, mult: win ? mult : 0, win, payout, profit: win ? payout - bet : -bet, ts: Date.now() });

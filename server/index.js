@@ -371,6 +371,7 @@ db.init()
     // If ADMIN_USERNAME is set, promote that user at startup so it sticks
     // across restarts and Postgres → SQLite swaps.
     await auth.ensureAdminUser();
+    await games.jackpotEnsure();
     // Race payouts are lazy (first /api/race call settles the last hour) —
     // this timer is the backstop so winners get paid even on a quiet server.
     race.settlePrevious().catch(() => {});
