@@ -343,17 +343,21 @@ async function createWithdrawal(req, userId, { currency, amount, address }) {
     throw httpError(400, `Minimum withdrawal is ${(WITHDRAW_MIN_CENTS / 100).toFixed(2)} CRYPT.`);
   }
   return db.tx(async (q) => {
-    const used = await withdrawnToday(q, userId);
-    if (used + funCents > WITHDRAW_CAP_CENTS) {
-      const remaining = Math.max(0, (WITHDRAW_CAP_CENTS - used) / 100);
-      throw httpError(429, `Daily withdrawal cap reached. Remaining today: ${remaining.toFixed(2)} CRYPT.`);
-    }
-    // Atomic conditional debit — doubles as the balance check.
+    // Debit FIRST: the conditional UPDATE doubles as the balance check AND
+    // (on Postgres) takes the user row lock, serializing concurrent
+    // withdrawals for the same user. The cap check runs after, so the second
+    // of two racing requests sees the first's committed row and can't
+    // breach the daily cap. Throwing rolls the debit back.
     const upd = await q(
       'UPDATE users SET balance_cents = balance_cents - ? WHERE id = ? AND balance_cents >= ?',
       [funCents, userId, funCents]
     );
     if (!upd.rowCount) throw httpError(400, 'Insufficient balance.');
+    const used = await withdrawnToday(q, userId);
+    if (used + funCents > WITHDRAW_CAP_CENTS) {
+      const remaining = Math.max(0, (WITHDRAW_CAP_CENTS - used) / 100);
+      throw httpError(429, `Daily withdrawal cap reached. Remaining today: ${remaining.toFixed(2)} CRYPT.`);
+    }
     const instant = isPlaymoney();
     const status = instant ? 'completed' : 'pending';
     const txid = instant ? crypto.randomBytes(32).toString('hex') : null;

@@ -778,6 +778,11 @@ async function jackpotGet(q) {
   }
   return Number(rows[0].value) || JACKPOT_SEED_CENTS;
 }
+// Seed the pot row at boot so two first-ever spins on Postgres can't race the
+// INSERT inside their transactions (unique violation would fail a spin).
+async function jackpotEnsure() {
+  try { await jackpotGet(db.query); } catch (_) { /* concurrent boot seeded it */ }
+}
 async function jackpotTick(q, userId, betCents, dropFloat) {
   const pot = await jackpotGet(q) + Math.round(betCents * JACKPOT_CONTRIB);
   const pWin = Math.min(0.01, betCents * JACKPOT_ODDS_PER_CENT);
@@ -1799,7 +1804,7 @@ module.exports = {
   crapsStart, crapsRoll,
   tcpStart, tcpAct,
   playBingo,
-  jackpotState,
+  jackpotState, jackpotEnsure,
   penaltyStart, penaltyShoot, penaltyCashout,
   history, stats, globalFeed, anonName, leaderboard, PLINKO, minesMult,
   WHEEL, TOWERS, PUMP, DIAMOND_PAYS, SLOT_SYMBOLS, SLOT_TRIPLE, SLOT_PAIR_PAY,
