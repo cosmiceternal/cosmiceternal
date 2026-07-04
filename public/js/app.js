@@ -386,8 +386,9 @@
       }
     } catch (e) {}
 
-    let initial = 'crash';
-    try { initial = localStorage.getItem('neonstake.lastGame') || 'crash'; } catch (e) {}
+    // The lobby is the front door; returning players land on their last game.
+    let initial = 'lobby';
+    try { initial = localStorage.getItem('neonstake.lastGame') || 'lobby'; } catch (e) {}
     const initTab = Array.from(tabs).find(t => t.dataset.game === initial) || tabs[0];
     tabs.forEach(x => x.classList.remove('active'));
     initTab.classList.add('active');
