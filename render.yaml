@@ -1,20 +1,28 @@
 # Render blueprint — https://render.com
-# Deploy: push to GitHub, then Render → New → Blueprint and point it at this repo
-# (or click the "Deploy to Render" button in the README). This provisions a FREE
-# PostgreSQL database and a web service wired to it, so accounts/balances persist
-# across restarts — and gives you a public HTTPS URL to share.
+# ONE-TIME LAUNCH: click the "Deploy to Render" button in the README, sign in,
+# and hit Apply. Render provisions a PostgreSQL database + this web service and
+# gives you a public HTTPS URL.
+#
+# AFTER LAUNCH you never need GitHub or a terminal again:
+#   - autoDeploy below means every change merged to main goes live on its own
+#     within a couple of minutes.
+#   - All day-to-day settings (admin username, AI key, CoinPayments) are plain
+#     environment variables in the Render dashboard → your service →
+#     Environment tab.
 
 databases:
-  - name: neonstake-db
+  - name: cryptcasino-db
     plan: free
-    databaseName: neonstake
-    user: neonstake
+    databaseName: cryptcasino
+    user: cryptcasino
 
 services:
   - type: web
-    name: neonstake
+    name: crypt-casino
     runtime: node
     plan: free
+    autoDeploy: true
+    branch: main
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /healthz
@@ -22,7 +30,7 @@ services:
       # Persistent Postgres connection (data survives restarts/sleep).
       - key: DATABASE_URL
         fromDatabase:
-          name: neonstake-db
+          name: cryptcasino-db
           property: connectionString
       # Auto-generated, stable secret so sessions survive restarts.
       - key: SESSION_SECRET
@@ -32,22 +40,27 @@ services:
         value: "1"
       - key: NODE_VERSION
         value: "20"
+      # ----- Your admin account -----
+      # Fill this in with the username you register in the casino: that account
+      # gets the ⚡ Admin console (users, balances, locks, withdrawals).
+      - key: ADMIN_USERNAME
+        sync: false
       # ----- Optional: live AI dealer banter -----
-      # Set ANTHROPIC_API_KEY in the Render dashboard to enable Claude-driven
-      # AI Dealer lines (falls back to the built-in scripted persona library
-      # when unset). Leave the next line as a sync: false placeholder so Render
-      # surfaces it as a manual-fill env var without overwriting it on deploy.
+      # Set ANTHROPIC_API_KEY to enable Claude-driven AI Dealer lines (falls
+      # back to the built-in scripted persona library when unset).
       - key: ANTHROPIC_API_KEY
         sync: false
-      # ----- Optional: crypto vault processor -----
-      # Default 'playmoney' settles deposits in-app (no real funds). Swap to
-      # 'coinpayments' once you've added the COINPAYMENTS_* vars below and
-      # pointed your IPN URL at https://<your-render-url>/api/vault/webhook.
+      # ----- Crypto vault -----
+      # 'playmoney' settles deposits/withdrawals in-app (no real funds). Swap
+      # to 'coinpayments' once the COINPAYMENTS_* vars are filled and your IPN
+      # URL points at https://<your-render-url>/api/vault/webhook.
       - key: VAULT_PROCESSOR
         value: playmoney
       - key: DAILY_DEPOSIT_CAP_CRYPT
         value: "5000"
-      # ----- CoinPayments (set in Render dashboard when you go live) -----
+      - key: DAILY_WITHDRAW_CAP_CRYPT
+        value: "5000"
+      # ----- CoinPayments (fill in the dashboard when you go real-money) -----
       # https://www.coinpayments.net/acct-api-keys
       - key: COINPAYMENTS_KEY
         sync: false
@@ -62,11 +75,9 @@ services:
         sync: false
 
 # Notes:
-# - Render's FREE plans are perfect for letting friends try it. The free web
-#   service sleeps when idle (first hit ~30s to wake); the free Postgres has a
-#   limited lifetime (Render emails you before it expires) but persists data
-#   across restarts in the meantime. Upgrade either to a paid plan to remove
-#   those limits.
-# - Prefer Neon (https://neon.tech) for a longer-lived free Postgres? Skip the
-#   `databases:` block, create a Neon project, and set DATABASE_URL to its
-#   connection string in the service's environment instead.
+# - Free tier: the web service sleeps when idle (first hit ~30s to wake) and
+#   the free Postgres has a limited lifetime (Render emails you before it
+#   expires). For a real launch, upgrade the web service to Starter and the
+#   database to Basic in the dashboard — no code changes needed.
+# - Custom domain: dashboard → your service → Settings → Custom Domains, add
+#   yourdomain.com, create the CNAME record it shows you. HTTPS is automatic.
