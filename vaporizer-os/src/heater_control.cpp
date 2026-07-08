@@ -34,6 +34,17 @@ void HeaterControl::update(float current_f, uint32_t now_ms) {
   }
 
   float error = target_f_ - current_f;
+
+  // Rapid-heat: while still far below target, drive near-full power instead of
+  // letting the PID ramp gently. Hand off to the PID once inside the band so
+  // we approach target under control and don't overshoot.
+  if (error > cfg::RAPID_HEAT_HANDOFF_F) {
+    integral_ = 0.0f;       // don't accumulate windup during the open-loop dash
+    prev_error_ = error;
+    writeDuty(cfg::RAPID_HEAT_DUTY);
+    return;
+  }
+
   integral_ += error * dt_s;
   // Clamp integral so a long cold-start ramp can't windup the term into a
   // multi-second overshoot once the sensor catches up.

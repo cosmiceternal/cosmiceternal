@@ -63,18 +63,29 @@ tool for a battery-powered handheld.
 
 | Module | Responsibility |
 |---|---|
-| `state_machine` | Top-level session states: `IDLE → HEATING → READY → ACTIVE_SESSION → COOLDOWN`, plus `FAULT` |
+| `state_machine` | Central coordinator + session lifecycle: `IDLE → HEATING → READY → ACTIVE_SESSION → COOLDOWN`, plus `FAULT`. Owns the control-critical subsystems. |
 | `temp_sensor` | Reads + filters (EMA) the temperature sensor, converts ADC counts → °F |
-| `heater_control` | PID loop driving the heater PWM duty cycle toward the active profile's target temp |
-| `session_profiles` | Named temp curves (Flavor / Standard / Boost), like Puffco's preset heat profiles |
-| `safety` | Independent watchdog: absolute max temp, max session duration, thermal-runaway (rate-of-rise) detection, cuts heater power regardless of what the control loop is doing |
-| `battery` | Fuel gauge (state of charge) + charge-controller status polling |
-| `ble_service` | GATT service exposing target temp/profile, live telemetry, start/stop, OTA trigger |
+| `heater_control` | PID loop + rapid-heat dash driving the heater PWM toward the active target temp |
+| `session_profiles` | Preset + concentrate + custom (NVS) heat profiles, incl. guided ramps |
+| `safety` | Independent watchdog: over-temp, thermal-runaway, session timeout, stale sensor, under-voltage, over-current, enclosure over-temp, no-load — cuts heater power regardless of the control loop |
+| `battery` | Fuel gauge (SoC) + charger status, low-battery warning, under-charge lockout |
+| `atomizer` | Coil-resistance measurement → presence + type auto-detect |
+| `draw_sensor` | Inhale detection for hit counting and auto-draw sessions |
+| `stats` | NVS-persisted usage: session history, hit counter/limit, cleaning reminder |
+| `device_mode` | Normal / Stealth / Party modes + child-lock |
+| `input` | Debounced multi-tap / hold gesture decoder |
+| `haptics` | Non-blocking haptic feedback patterns |
+| `led_ring` | Signature RGB status ring (heating fill, ready breathe, fault flash) |
+| `ble_service` | GATT service: session control, settings, live telemetry, OTA |
+| `ota` | Safe-gated firmware update (flash write/verify/reboot) |
 | `display` | Thin status-render layer (OLED), decoupled from control logic |
 
 Safety is intentionally **not** part of the PID/control path — `safety.cpp` runs as an
 independent check every loop tick and can cut heater power even if `heater_control` or BLE
 gets into a bad state. Don't collapse that separation when extending this.
+
+See **[FEATURES.md](FEATURES.md)** for the full Tier 1–3 feature list, per-feature
+implementation status, the button gesture map, and the BLE command protocol.
 
 ## Suggested bill of materials (beyond the MCU)
 
@@ -89,13 +100,15 @@ gets into a bad state. Don't collapse that separation when extending this.
 
 ## Status
 
-Firmware in `src/` is a structural scaffold: it compiles conceptually against the ESP32
-Arduino core and is organized so each hardware subsystem is swappable, but it has not been
-flashed or run against real hardware in this session — there's no toolchain/hardware here to
-validate against. Before powering a real coil: bench-test `safety.cpp`'s cutoffs in isolation,
-verify your thermocouple/thermistor calibration against a known reference, and confirm PWM
-frequency doesn't create audible whine or excessive MOSFET switching loss for your coil's
-inductance.
+Firmware in `src/` is a structural scaffold covering Tier 1–3 features (see
+[FEATURES.md](FEATURES.md)): control logic and module interfaces are implemented, while the
+actual sensor reads / IC register access are clearly-marked hooks. It is organized so each
+hardware subsystem is swappable. The gesture decoder (`input.cpp`) has a native unit test;
+the rest has **not** been flashed or run against real hardware in this session — there's no
+ESP32 toolchain or hardware here to validate against. Before powering a real coil: bench-test
+`safety.cpp`'s cutoffs in isolation (trip every `FaultReason`), verify your
+thermocouple/thermistor calibration against a known reference, and confirm PWM frequency
+doesn't create audible whine or excessive MOSFET switching loss for your coil's inductance.
 
 ## Build
 

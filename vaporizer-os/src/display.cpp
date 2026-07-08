@@ -4,6 +4,8 @@
 #include <Adafruit_SSD1306.h>
 #include <Arduino.h>
 
+#include "safety.h"
+
 namespace {
 constexpr uint32_t kRenderIntervalMs = 200;
 constexpr int kScreenWidth = 128;
@@ -39,8 +41,16 @@ void Display::update(const StateMachine& machine, uint32_t now_ms) {
   g_oled.setTextSize(1);
   g_oled.setTextColor(SSD1306_WHITE);
   g_oled.setCursor(0, 0);
-  g_oled.printf("%s\n", stateLabel(machine.state()));
-  g_oled.printf("%.0fF -> %.0fF\n", machine.currentTempF(), machine.targetTempF());
+
+  if (machine.state() == State::kFault) {
+    g_oled.printf("FAULT\n%s\n", faultLabel(machine.faultReason()));
+  } else {
+    g_oled.printf("%s\n", stateLabel(machine.state()));
+    g_oled.printf("%.0fF -> %.0fF\n", machine.currentTempF(), machine.targetTempF());
+  }
   g_oled.printf("batt %.0f%%\n", machine.batteryPercent());
+  if (machine.cleaningDue()) {
+    g_oled.printf("* clean me\n");
+  }
   g_oled.display();
 }

@@ -15,6 +15,7 @@ class HeaterControl {
   void update(float current_f, uint32_t now_ms);
 
   float dutyFraction() const { return duty_; }  // 0.0-1.0, for telemetry/UI
+  bool isEnergized() const { return enabled_ && duty_ > 0.01f; }
 
  private:
   void writeDuty(float duty_0_to_1);
