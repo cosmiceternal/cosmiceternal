@@ -395,12 +395,26 @@
     mount(initTab.dataset.game);
   }
 
-  // Check for an existing session.
+  // Check for an existing session. On free-tier hosting the server sleeps
+  // when idle and the first request can take ~30s — tell the visitor what's
+  // happening instead of showing a dead page.
   (async function init() {
+    const wakeHint = setTimeout(() => {
+      const el = document.createElement('div');
+      el.id = 'wakeHint';
+      el.className = 'wake-hint';
+      el.textContent = '☕ Waking the casino up — first visit after a quiet spell takes ~30 seconds…';
+      document.body.appendChild(el);
+    }, 2500);
     try {
       const { user } = await API.me();
+      clearTimeout(wakeHint);
+      document.getElementById('wakeHint')?.remove();
       if (user) { bootApp(user); return; }
-    } catch (e) {}
+    } catch (e) {
+      clearTimeout(wakeHint);
+      document.getElementById('wakeHint')?.remove();
+    }
     authGate.classList.remove('hidden');
     authUser.focus();
   })();

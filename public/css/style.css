@@ -1386,7 +1386,15 @@ input { font-family: inherit; }
 
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 1fr; }
-  .feed-pane { display: none; }
+  /* The rail holds Chat + Live wins now — stack it under the game pane
+     instead of hiding the social layer on phones and tablets. */
+  .feed-pane {
+    max-height: 46vh;
+    min-height: 240px;
+    display: flex;
+    flex-direction: column;
+  }
+  .feed-list { flex: 1; overflow-y: auto; }
 }
 @media (max-width: 720px) {
   /* Switch the fixed-viewport desktop shell to natural document scrolling. */
@@ -2072,3 +2080,22 @@ input { font-family: inherit; }
 .lobby-star:hover { opacity: 1; transform: scale(1.2); }
 .lobby-star.on { color: var(--gold, #ffb449); opacity: 1; text-shadow: 0 0 10px rgba(255, 180, 73, 0.6); }
 .lobby-empty { grid-column: 1 / -1; text-align: center; padding: 40px 0; }
+
+/* Very small screens: jackpot ticker collapses to the coin + number. */
+@media (max-width: 480px) {
+  .jp-label { font-size: 0; }
+  .jp-label::before { content: '💰'; font-size: 12px; }
+  .jackpot-ticker { padding: 5px 10px; }
+}
+
+/* Cold-start hint (free-tier server waking up) */
+.wake-hint {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+  background: var(--bg-3); border: 1px solid var(--line);
+  color: var(--text); font-size: 12.5px;
+  padding: 10px 18px; border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  z-index: 200; white-space: nowrap; max-width: 92vw;
+  overflow: hidden; text-overflow: ellipsis;
+  animation: authCardIn 400ms ease;
+}
