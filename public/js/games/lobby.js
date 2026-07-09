@@ -41,7 +41,12 @@
     { key: 'cosmic',      name: 'Cosmic Reels',   icon: '🌌', cat: 'slots',     tag: 'to 190×' },
     { key: 'coin',        name: 'Coin Flip',      icon: '🪙', cat: 'originals', tag: 'double up' },
     { key: 'scratch',     name: 'Scratch',        icon: '🎫', cat: 'originals', tag: 'instant' },
-    { key: 'color',       name: 'Color',          icon: '🎨', cat: 'originals', tag: 'predict' }
+    { key: 'color',       name: 'Color',          icon: '🎨', cat: 'originals', tag: 'predict' },
+    { key: 'derby',       name: 'Derby',          icon: '🏇', cat: 'tables',    tag: 'live race' },
+    { key: 'cashhunt',    name: 'Cash Hunt',      icon: '🎁', cat: 'originals', tag: '25 tiles' },
+    { key: 'bigcatch',    name: 'Big Catch',      icon: '🎣', cat: 'originals', tag: '40× whale' },
+    { key: 'rps',         name: 'RPS Duel',       icon: '✊', cat: 'originals', tag: 'vs house' },
+    { key: 'neonfruits',  name: 'Neon Fruits',    icon: '🍒', cat: 'slots',     tag: '10 lines' }
   ];
   const CATS = [
     { key: 'all',       label: 'All' },

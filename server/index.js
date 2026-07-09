@@ -307,6 +307,11 @@ app.post('/api/play/tcp/start', auth.requireAuth, h((req) => games.tcpStart(req.
 app.post('/api/play/tcp/act',   auth.requireAuth, h((req) => games.tcpAct(req.user.id, req.body || {})));
 
 app.post('/api/play/bingo', auth.requireAuth, h((req) => games.playBingo(req.user.id, req.body || {})));
+app.post('/api/play/derby',     auth.requireAuth, h((req) => games.playDerby(req.user.id, req.body || {})));
+app.post('/api/play/cashhunt',  auth.requireAuth, h((req) => games.playCashHunt(req.user.id, req.body || {})));
+app.post('/api/play/bigcatch',  auth.requireAuth, h((req) => games.playBigCatch(req.user.id, req.body || {})));
+app.post('/api/play/rps',       auth.requireAuth, h((req) => games.playRps(req.user.id, req.body || {})));
+app.post('/api/play/neonfruits', auth.requireAuth, h((req) => games.playNeonFruits(req.user.id, req.body || {})));
 
 app.post('/api/play/penalty/start',   auth.requireAuth, h((req) => games.penaltyStart(req.user.id, req.body || {})));
 app.post('/api/play/penalty/shoot',   auth.requireAuth, h((req) => games.penaltyShoot(req.user.id, req.body || {})));
