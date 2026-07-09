@@ -312,6 +312,11 @@ app.post('/api/play/cashhunt',  auth.requireAuth, h((req) => games.playCashHunt(
 app.post('/api/play/bigcatch',  auth.requireAuth, h((req) => games.playBigCatch(req.user.id, req.body || {})));
 app.post('/api/play/rps',       auth.requireAuth, h((req) => games.playRps(req.user.id, req.body || {})));
 app.post('/api/play/neonfruits', auth.requireAuth, h((req) => games.playNeonFruits(req.user.id, req.body || {})));
+app.post('/api/play/megawheel',  auth.requireAuth, h((req) => games.playMegaWheel(req.user.id, req.body || {})));
+app.post('/api/play/tenpin',     auth.requireAuth, h((req) => games.playTenPin(req.user.id, req.body || {})));
+app.post('/api/play/bullseye',   auth.requireAuth, h((req) => games.playBullseye(req.user.id, req.body || {})));
+app.post('/api/play/firecracker', auth.requireAuth, h((req) => games.playFirecracker(req.user.id, req.body || {})));
+app.post('/api/play/sugarblast', auth.requireAuth, h((req) => games.playSugarBlast(req.user.id, req.body || {})));
 
 app.post('/api/play/penalty/start',   auth.requireAuth, h((req) => games.penaltyStart(req.user.id, req.body || {})));
 app.post('/api/play/penalty/shoot',   auth.requireAuth, h((req) => games.penaltyShoot(req.user.id, req.body || {})));

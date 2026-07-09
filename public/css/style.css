@@ -2202,3 +2202,69 @@ input { font-family: inherit; }
 @keyframes nfLand { 0%{ transform: scale(1.2);} 100%{ transform: scale(1);} }
 .nf-cell.win { background: rgba(255,180,73,0.25); box-shadow: 0 0 14px rgba(255,180,73,0.6); animation: nfWin 0.6s ease infinite alternate; }
 @keyframes nfWin { to { box-shadow: 0 0 22px var(--accent-glow); } }
+
+/* ==================== Mega Wheel ==================== */
+.megawheel-stage { gap: 16px; padding: 20px; justify-content: center; }
+.mw-wrap { position: relative; width: min(340px, 80vw); margin: 0 auto; }
+.mw-canvas { width: 100%; height: auto; display: block; filter: drop-shadow(0 8px 24px rgba(0,0,0,0.5)); }
+.mw-pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 26px; color: var(--gold, #ffb449); z-index: 3; text-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+
+/* ==================== Ten Pin ==================== */
+.tenpin-stage { gap: 18px; padding: 20px; justify-content: center; }
+.bowling-lane {
+  position: relative; width: min(340px, 80vw); height: 300px; margin: 0 auto;
+  background: linear-gradient(180deg, #3a2410 0%, #52341a 60%, #2a1a0c 100%);
+  border-radius: 12px 12px 40px 40px / 12px 12px 20px 20px;
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.4);
+  overflow: hidden;
+}
+.bowling-lane::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 3px; background: rgba(0,0,0,0.2); box-shadow: 324px 0 rgba(0,0,0,0.2); }
+.bowling-pins { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px 8px; width: 140px; justify-items: center; }
+.bowl-pin { font-size: 22px; transition: 200ms; }
+.bowl-pin:nth-child(1) { grid-column: 2; } .bowl-pin:nth-child(2) { grid-column: 3; }
+.bowl-pin.down { opacity: 0.15; transform: rotate(70deg) translateY(14px); }
+.bowling-ball { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 30px; }
+.bowling-ball.rolling { animation: bowlRoll 0.9s ease-in forwards; }
+@keyframes bowlRoll { 0%{ bottom: 14px; transform: translateX(-50%) scale(1);} 100%{ bottom: 210px; transform: translateX(-50%) scale(0.6);} }
+.bowling-ball.rolled { bottom: 210px; transform: translateX(-50%) scale(0.6); opacity: 0; }
+
+/* ==================== Bullseye ==================== */
+.bullseye-stage { gap: 18px; padding: 20px; justify-content: center; }
+.darts-board { position: relative; width: min(300px, 70vw); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; background: #1a1a2e; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+.dart-ring { position: absolute; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+.dart-r3 { width: 96%; height: 96%; background: #2a3a1e; border: 2px solid rgba(255,255,255,0.08); }
+.dart-r2 { width: 62%; height: 62%; background: #3a2a1e; }
+.dart-r1 { width: 34%; height: 34%; background: #4a1e2e; }
+.dart-bull { position: absolute; width: 12%; height: 12%; top: 50%; left: 50%; transform: translate(-50%,-50%); border-radius: 50%; background: var(--accent, #ff5e9c); box-shadow: 0 0 14px var(--accent-glow); }
+.dart-marker { position: absolute; font-size: 20px; transform: translate(-50%,-50%); animation: dartHit 0.3s ease; z-index: 3; }
+@keyframes dartHit { 0%{ transform: translate(-50%,-140%) scale(1.6); opacity: 0;} 100%{ transform: translate(-50%,-50%) scale(1); opacity: 1;} }
+
+/* ==================== Firecracker ==================== */
+.firecracker-stage { gap: 18px; padding: 24px; justify-content: center; }
+.fc-scene { position: relative; width: 100%; max-width: 440px; height: 300px; margin: 0 auto; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(255,94,156,0.08), transparent 70%); border-radius: 16px; }
+.fc-chain { display: flex; gap: 10px; }
+.fc-cracker { font-size: 42px; transition: 200ms; }
+.fc-cracker.popped { opacity: 0.2; transform: scale(0.7) rotate(20deg); }
+.fc-burst { position: absolute; font-size: 46px; font-weight: 900; opacity: 0; color: var(--gold, #ffb449); }
+.fc-burst.show { animation: fcBurst 0.6s cubic-bezier(0.22,1,0.36,1) forwards; }
+.fc-burst.big { font-size: 60px; color: var(--accent, #ff5e9c); }
+.fc-burst.huge { font-size: 76px; color: var(--gold, #ffb449); text-shadow: 0 0 30px var(--accent-glow); }
+@keyframes fcBurst { 0%{ opacity: 0; transform: scale(0.2);} 60%{ opacity: 1; transform: scale(1.3);} 100%{ opacity: 1; transform: scale(1);} }
+
+/* ==================== Sugar Blast ==================== */
+.sugarblast-stage { gap: 14px; padding: 18px; justify-content: center; }
+.sugar-board {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  width: 100%; max-width: 460px; margin: 0 auto; padding: 10px;
+  border-radius: 16px; background: linear-gradient(180deg, #3a1a4a, #241030);
+  border: 2px solid rgba(255,94,156,0.3);
+}
+.sugar-cell {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  font-size: clamp(18px, 3vw, 28px); border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+}
+.sugar-cell.dropping { animation: sugarDrop 0.35s cubic-bezier(0.22,1,0.36,1); }
+@keyframes sugarDrop { 0%{ transform: translateY(-30px); opacity: 0;} 100%{ transform: translateY(0); opacity: 1;} }
+.sugar-cell.exploding { animation: sugarPop 0.35s ease forwards; }
+@keyframes sugarPop { 0%{ transform: scale(1);} 50%{ transform: scale(1.4); filter: brightness(1.6);} 100%{ transform: scale(0); opacity: 0;} }
