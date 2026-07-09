@@ -46,7 +46,12 @@
     { key: 'cashhunt',    name: 'Cash Hunt',      icon: '🎁', cat: 'originals', tag: '25 tiles' },
     { key: 'bigcatch',    name: 'Big Catch',      icon: '🎣', cat: 'originals', tag: '40× whale' },
     { key: 'rps',         name: 'RPS Duel',       icon: '✊', cat: 'originals', tag: 'vs house' },
-    { key: 'neonfruits',  name: 'Neon Fruits',    icon: '🍒', cat: 'slots',     tag: '10 lines' }
+    { key: 'neonfruits',  name: 'Neon Fruits',    icon: '🍒', cat: 'slots',     tag: '10 lines' },
+    { key: 'megawheel',   name: 'Mega Wheel',     icon: '🎡', cat: 'tables',    tag: 'money wheel' },
+    { key: 'tenpin',      name: 'Ten Pin',        icon: '🎳', cat: 'originals', tag: 'strike 10×' },
+    { key: 'bullseye',    name: 'Bullseye',       icon: '🎯', cat: 'originals', tag: '3 darts' },
+    { key: 'firecracker', name: 'Firecracker',    icon: '🧨', cat: 'originals', tag: 'up to 100×' },
+    { key: 'sugarblast',  name: 'Sugar Blast',    icon: '🍬', cat: 'slots',     tag: 'tumble' }
   ];
   const CATS = [
     { key: 'all',       label: 'All' },
