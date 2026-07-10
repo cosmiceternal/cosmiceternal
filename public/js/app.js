@@ -351,6 +351,7 @@
     if (global.Admin) Admin.wire(user);
     if (global.Jackpot) Jackpot.init();
     if (global.Limits) Limits.wire(user);
+    if (global.Help) Help.wire();
 
     // Sound: mute toggle + a soft click on primary buttons.
     const muteBtn = document.getElementById('btnMute');
