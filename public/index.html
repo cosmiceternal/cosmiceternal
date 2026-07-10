@@ -149,6 +149,55 @@
         </div>
       </aside>
     </main>
+    <footer class="app-footer">
+      <span class="footer-brand">✦ Crypt Casino</span>
+      <span class="footer-sep">·</span>
+      <button class="footer-link" id="btnHelp">🛡️ Responsible Gaming &amp; Help</button>
+      <span class="footer-sep">·</span>
+      <button class="footer-link" id="btnFairFooter">Provably Fair</button>
+      <span class="footer-sep">·</span>
+      <span class="footer-note">Play money only — 18+</span>
+    </footer>
+  </div>
+
+  <!-- Responsible Gaming & Help Modal -->
+  <div class="modal-backdrop hidden" id="helpModal">
+    <div class="modal help-modal">
+      <div class="modal-header">
+        <h2>🛡️ Responsible Gaming &amp; Help</h2>
+        <button class="btn btn-ghost" id="helpClose">✕</button>
+      </div>
+      <div class="modal-body help-body">
+        <p class="help-intro">
+          Crypt Casino is <b>play-money entertainment</b> — balances are fun credits with
+          no cash value. Games should stay fun. If they stop being fun, take a break: you
+          can set a <b>daily loss limit</b> or <b>self-exclude</b> any time.
+        </p>
+        <button class="btn btn-primary btn-block" id="helpOpenLimits">Open my Play Limits</button>
+
+        <h3 class="help-h">If gambling is affecting you or someone you know</h3>
+        <p class="muted" style="font-size:12px;margin:-4px 0 10px;">Free, confidential help is available. Choose your region:</p>
+        <div class="help-region-tabs" id="helpRegionTabs">
+          <button class="help-region-tab active" data-region="us">🇺🇸 US</button>
+          <button class="help-region-tab" data-region="uk">🇬🇧 UK</button>
+          <button class="help-region-tab" data-region="ca">🇨🇦 Canada</button>
+          <button class="help-region-tab" data-region="au">🇦🇺 Australia</button>
+          <button class="help-region-tab" data-region="intl">🌍 Other</button>
+        </div>
+        <div class="help-resources" id="helpResources"></div>
+
+        <h3 class="help-h">Signs to watch for</h3>
+        <ul class="help-signs muted">
+          <li>Chasing losses, or betting more than you meant to.</li>
+          <li>Playing to escape stress or low mood.</li>
+          <li>Losing track of time or hiding your play from others.</li>
+        </ul>
+        <p class="muted" style="font-size:10.5px;line-height:1.5;margin-top:14px;">
+          This is a hobby/learning project. It is not a licensed gambling operator and offers
+          no real-money wagering. Must be 18+ (or the legal age in your area) to play.
+        </p>
+      </div>
+    </div>
   </div>
 
   <!-- Provably Fair Modal -->
@@ -571,6 +620,7 @@
   <script src="js/vault.js"></script>
   <script src="js/jackpot.js"></script>
   <script src="js/limits.js"></script>
+  <script src="js/help.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/tour.js"></script>
   <script src="js/app.js"></script>
