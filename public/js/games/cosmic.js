@@ -41,6 +41,7 @@
       busy = true; action.disabled = true;
       reels.forEach(r => r.classList.remove('win'));
       statusEl.textContent = 'Spinning the cosmos…';
+      if (global.Sound) Sound.play('spin');
       try {
         const res = await API.cosmicReels({ bet: b });
         const icons = res.symbols.map(s => ICON[s]);

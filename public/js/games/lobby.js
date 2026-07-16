@@ -6,61 +6,10 @@
 (function (global) {
   'use strict';
 
-  // Single source of truth for lobby metadata. `cat` keys:
-  //   originals | cards | slots | tables
-  const GAMES = [
-    { key: 'crash',       name: 'Crash',          icon: '📈', cat: 'originals', tag: 'to 100×+' },
-    { key: 'aidealer',    name: 'AI Dealer',      icon: '🎰', cat: 'cards',     tag: 'live banter' },
-    { key: 'chicken',     name: 'Chicken Road',   icon: '🐔', cat: 'originals', tag: 'cash out' },
-    { key: 'mines',       name: 'Mines',          icon: '💣', cat: 'originals', tag: 'pick safe' },
-    { key: 'towers',      name: 'Towers',         icon: '🏗️', cat: 'originals', tag: 'climb' },
-    { key: 'pump',        name: 'Pump',           icon: '⛽', cat: 'originals', tag: 'push it' },
-    { key: 'penalty',     name: 'Penalty',        icon: '⚽', cat: 'originals', tag: 'streak' },
-    { key: 'cascade',     name: 'Cascade',        icon: '🔥', cat: 'originals', tag: 'chain' },
-    { key: 'limbo',       name: 'Limbo',          icon: '🚀', cat: 'originals', tag: 'aim high' },
-    { key: 'plinko',      name: 'Plinko',         icon: '🎯', cat: 'originals', tag: 'drop' },
-    { key: 'pachinko',    name: 'Pachinko',       icon: '📍', cat: 'originals', tag: '4× edges' },
-    { key: 'dice',        name: 'Dice',           icon: '🎲', cat: 'originals', tag: '99% RTP' },
-    { key: 'hilo',        name: 'Hi-Lo',          icon: '↕️', cat: 'cards',     tag: 'streak' },
-    { key: 'blackjack',   name: 'Blackjack',      icon: '🃏', cat: 'cards',     tag: '3:2' },
-    { key: 'war',         name: 'War',            icon: '⚔️', cat: 'cards',     tag: 'instant' },
-    { key: 'threecard',   name: 'Three Card',     icon: '🂡', cat: 'cards',     tag: 'vs dealer' },
-    { key: 'videopoker',  name: 'Video Poker',    icon: '♠️', cat: 'cards',     tag: 'JoB' },
-    { key: 'baccarat',    name: 'Baccarat',       icon: '🎴', cat: 'cards',     tag: 'classic' },
-    { key: 'dragontiger', name: 'Dragon Tiger',   icon: '🐲', cat: 'cards',     tag: 'fast' },
-    { key: 'andarbahar',  name: 'Andar Bahar',    icon: '🪷', cat: 'cards',     tag: 'classic' },
-    { key: 'wheel',       name: 'Wheel',          icon: '🎡', cat: 'tables',    tag: '3 risks' },
-    { key: 'roulette',    name: 'Roulette',       icon: '⚪', cat: 'tables',    tag: 'european' },
-    { key: 'keno',        name: 'Keno',           icon: '🔢', cat: 'tables',    tag: 'pick 10' },
-    { key: 'bingo',       name: 'Bingo Rush',     icon: '🎱', cat: 'tables',    tag: 'to 2500×' },
-    { key: 'sicbo',       name: 'Sic Bo',         icon: '🎲', cat: 'tables',    tag: '3 dice' },
-    { key: 'craps',       name: 'Craps',          icon: '🎯', cat: 'tables',    tag: 'pass line' },
-    { key: 'diamonds',    name: 'Diamonds',       icon: '💎', cat: 'originals', tag: 'match' },
-    { key: 'slots',       name: 'Slots',          icon: '🍒', cat: 'slots',     tag: 'jackpot' },
-    { key: 'luckysevens', name: 'Lucky Sevens',   icon: '7️⃣', cat: 'slots',     tag: 'jackpot' },
-    { key: 'cosmic',      name: 'Cosmic Reels',   icon: '🌌', cat: 'slots',     tag: 'to 190×' },
-    { key: 'coin',        name: 'Coin Flip',      icon: '🪙', cat: 'originals', tag: 'double up' },
-    { key: 'scratch',     name: 'Scratch',        icon: '🎫', cat: 'originals', tag: 'instant' },
-    { key: 'color',       name: 'Color',          icon: '🎨', cat: 'originals', tag: 'predict' },
-    { key: 'derby',       name: 'Derby',          icon: '🏇', cat: 'tables',    tag: 'live race' },
-    { key: 'cashhunt',    name: 'Cash Hunt',      icon: '🎁', cat: 'originals', tag: '25 tiles' },
-    { key: 'bigcatch',    name: 'Big Catch',      icon: '🎣', cat: 'originals', tag: '40× whale' },
-    { key: 'rps',         name: 'RPS Duel',       icon: '✊', cat: 'originals', tag: 'vs house' },
-    { key: 'neonfruits',  name: 'Neon Fruits',    icon: '🍒', cat: 'slots',     tag: '10 lines' },
-    { key: 'megawheel',   name: 'Mega Wheel',     icon: '🎡', cat: 'tables',    tag: 'money wheel' },
-    { key: 'tenpin',      name: 'Ten Pin',        icon: '🎳', cat: 'originals', tag: 'strike 10×' },
-    { key: 'bullseye',    name: 'Bullseye',       icon: '🎯', cat: 'originals', tag: '3 darts' },
-    { key: 'firecracker', name: 'Firecracker',    icon: '🧨', cat: 'originals', tag: 'up to 100×' },
-    { key: 'sugarblast',  name: 'Sugar Blast',    icon: '🍬', cat: 'slots',     tag: 'tumble' }
-  ];
-  const CATS = [
-    { key: 'all',       label: 'All' },
-    { key: 'favs',      label: '⭐ Favorites' },
-    { key: 'originals', label: 'Originals' },
-    { key: 'cards',     label: 'Cards' },
-    { key: 'slots',     label: 'Slots' },
-    { key: 'tables',    label: 'Tables & Dice' }
-  ];
+  // Game list + categories come from the shared catalog (js/catalog.js),
+  // so renames/additions happen in exactly one place.
+  const GAMES = global.GameCatalog.GAMES;
+  const CATS = global.GameCatalog.CATS;
 
   const FAVS_KEY = 'crypt.favs';
   function loadFavs() {
@@ -131,9 +80,9 @@
       }
       const card = e.target.closest('.lobby-card');
       if (!card) return;
-      // Route through the real tab so active state + last-game memory update.
-      const tab = document.querySelector(`.tab[data-game="${card.dataset.game}"]`);
-      if (tab) { tab.scrollIntoView({ inline: 'center', block: 'nearest' }); tab.click(); }
+      // Route through the central navigation so active state + last-game memory
+      // stay in sync with the topbar dropdown.
+      if (global.CryptNav) global.CryptNav.select(card.dataset.game);
     });
 
     container.querySelector('#lobbyCats').addEventListener('click', (e) => {

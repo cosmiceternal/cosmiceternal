@@ -55,6 +55,7 @@
       busy = true; spinBtn.disabled = true;
       container.querySelectorAll('.nf-cell').forEach(el => el.classList.remove('win'));
       statusEl.textContent = 'Spinning…';
+        if (global.Sound) Sound.play('spin');
       try {
         const res = await API.neonfruits({ bet: b });
         // res.grid[col][row]

@@ -295,6 +295,8 @@
       }
       // Bail if any other modal is open (vault, leaders, fair, tour) — the
       // user isn't trying to wager.
+      const ddOpen = (() => { const p = document.getElementById('gamesDdPanel'); return p && !p.classList.contains('hidden'); })();
+      if (ddOpen) return;
       const blocking = ['vaultModal', 'leadersModal', 'fairModal', 'statsModal']
         .some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
       const tour = document.getElementById('tourOverlay');
@@ -315,26 +317,86 @@
 
   // ----- Game router -----
   const pane = document.getElementById('gamePane');
-  const tabs = document.querySelectorAll('.tab');
-  let unmount = null;
+  const lobbyPill = document.querySelector('.nav-pill[data-game="lobby"]');
+  const ddBtn = document.getElementById('gamesDdBtn');
+  const ddPanel = document.getElementById('gamesDdPanel');
+  const ddLabel = document.getElementById('gamesDdLabel');
+  let unmount = null, current = 'lobby';
+
   function mount(game) {
     if (typeof unmount === 'function') { try { unmount(); } catch (e) {} unmount = null; }
     const fn = (global.Games || {})[game];
     if (!fn) { pane.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted)">Game not found.</div>`; return; }
     unmount = fn(pane);
-    // Restart the entrance animation on every switch (class swap alone
-    // wouldn't retrigger it when it's already applied).
     pane.classList.remove('pane-enter');
     void pane.offsetWidth;
     pane.classList.add('pane-enter');
   }
-  tabs.forEach(t => t.addEventListener('click', () => {
-    tabs.forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    const g = t.dataset.game;
-    try { localStorage.setItem('neonstake.lastGame', g); } catch (e) {}
-    mount(g);
-  }));
+
+  // Central navigation entry point — used by the Lobby pill, the All-Games
+  // dropdown, and the lobby grid cards. Keeps active state + last-game memory
+  // in one place regardless of how many games exist.
+  function switchGame(game) {
+    current = game;
+    try { localStorage.setItem('neonstake.lastGame', game); } catch (e) {}
+    lobbyPill.classList.toggle('active', game === 'lobby');
+    ddBtn.classList.toggle('active', game !== 'lobby');
+    const cat = global.GameCatalog;
+    ddLabel.textContent = (game !== 'lobby' && cat && cat.byKey[game]) ? cat.byKey[game].name : 'All Games';
+    // Reflect selection inside the open panel.
+    ddPanel.querySelectorAll('.dd-game').forEach(el => el.classList.toggle('on', el.dataset.game === game));
+    closeDropdown();
+    if (global.Sound) Sound.play('nav');
+    mount(game);
+  }
+  global.CryptNav = { select: switchGame, current: () => current };
+
+  // Build the dropdown panel from the shared catalog, grouped by category.
+  function buildDropdown() {
+    const cat = global.GameCatalog;
+    if (!cat) return;
+    const groups = cat.GROUPS.map(grp => {
+      const items = cat.GAMES.filter(g => g.cat === grp.key).map(g =>
+        `<button class="dd-game" data-game="${g.key}"><span class="dd-ic">${g.icon}</span><span class="dd-nm">${g.name}</span></button>`
+      ).join('');
+      return `<div class="dd-group"><div class="dd-group-h">${grp.label}</div><div class="dd-group-items">${items}</div></div>`;
+    }).join('');
+    ddPanel.innerHTML =
+      `<input id="ddSearch" class="dd-search" type="search" placeholder="Search ${cat.GAMES.length} games…" autocomplete="off" />` +
+      `<div class="dd-scroll">${groups}</div>`;
+    ddPanel.querySelectorAll('.dd-game').forEach(el =>
+      el.addEventListener('click', () => switchGame(el.dataset.game)));
+    const search = ddPanel.querySelector('#ddSearch');
+    search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      ddPanel.querySelectorAll('.dd-game').forEach(el => {
+        const hit = !q || el.querySelector('.dd-nm').textContent.toLowerCase().includes(q) || el.dataset.game.includes(q);
+        el.style.display = hit ? '' : 'none';
+      });
+      ddPanel.querySelectorAll('.dd-group').forEach(grp =>
+        grp.style.display = grp.querySelector('.dd-game:not([style*="none"])') ? '' : 'none');
+    });
+  }
+  function openDropdown() {
+    ddPanel.classList.remove('hidden');
+    ddBtn.setAttribute('aria-expanded', 'true');
+    const s = ddPanel.querySelector('#ddSearch');
+    if (s) { s.value = ''; s.dispatchEvent(new Event('input')); setTimeout(() => s.focus(), 30); }
+  }
+  function closeDropdown() {
+    ddPanel.classList.add('hidden');
+    ddBtn.setAttribute('aria-expanded', 'false');
+  }
+  buildDropdown();
+  lobbyPill.addEventListener('click', () => switchGame('lobby'));
+  ddBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (ddPanel.classList.contains('hidden')) openDropdown(); else closeDropdown();
+  });
+  document.addEventListener('click', (e) => {
+    if (!ddPanel.contains(e.target) && e.target !== ddBtn && !ddBtn.contains(e.target)) closeDropdown();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDropdown(); });
 
   // ----- Boot -----
   function bootApp(user) {
@@ -390,10 +452,9 @@
     // The lobby is the front door; returning players land on their last game.
     let initial = 'lobby';
     try { initial = localStorage.getItem('neonstake.lastGame') || 'lobby'; } catch (e) {}
-    const initTab = Array.from(tabs).find(t => t.dataset.game === initial) || tabs[0];
-    tabs.forEach(x => x.classList.remove('active'));
-    initTab.classList.add('active');
-    mount(initTab.dataset.game);
+    // Guard against a stale key pointing at a game that no longer exists.
+    if (initial !== 'lobby' && !(global.Games || {})[initial]) initial = 'lobby';
+    switchGame(initial);
   }
 
   // Check for an existing session. On free-tier hosting the server sleeps

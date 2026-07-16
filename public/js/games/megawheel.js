@@ -63,6 +63,7 @@
       if (b == null) return;
       busy = true; spinBtn.disabled = true;
       statusEl.textContent = 'Spinning…';
+        if (global.Sound) Sound.play('spin');
       try {
         const res = await API.megawheel({ bet: b });
         // Find a ring index that shows res.mult; land the pointer (top, -PI/2) on it.

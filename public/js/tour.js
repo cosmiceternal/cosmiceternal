@@ -12,8 +12,8 @@
       body: 'Top up with BTC / ETH / USDT / SOL. (Play-money mode for the demo.)' },
     { sel: '#btnFair',   title: 'Provably fair',
       body: 'Every roll is cryptographically verifiable. Rotate the seed to reveal it and replay any past bet.' },
-    { sel: '.tab[data-game="aidealer"]', title: 'Try the AI Dealer',
-      body: 'Real Blackjack hosted by AI croupiers with switchable personalities.' }
+    { sel: '#gamesDdBtn', title: 'All 43 games',
+      body: 'Open this to jump to any game — AI Dealer blackjack, slots, live races and more.' }
   ];
 
   let overlay, hole, card, idx = 0;
