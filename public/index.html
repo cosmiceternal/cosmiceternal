@@ -6,7 +6,7 @@
   <title>Crypt Casino — Provably Fair</title>
   <meta name="description" content="Crypt Casino — a play-money, provably-fair casino with 43 games, an AI dealer, a progressive jackpot, hourly races and server-verified fairness." />
   <meta property="og:title" content="Crypt Casino — Provably Fair" />
-  <meta property="og:description" content="Play-money, provably-fair casino with 43 games — AI Dealer blackjack, Crash, Chicken Road, Craps, slots with a progressive jackpot, and more." />
+  <meta property="og:description" content="Play-money, provably-fair casino with 43 games — AI Dealer blackjack, Crash, Golden Crossing, Craps, slots with a progressive jackpot, and more." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="/og.png" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -53,51 +53,14 @@
         <span class="brand-mark">✦</span>
         <span class="brand-name">CRYPT<span class="accent"> CASINO</span></span>
       </div>
-      <nav class="game-tabs" id="gameTabs">
-        <button class="tab active" data-game="lobby"><span class="tab-icon">🏠</span>Lobby</button>
-        <button class="tab" data-game="crash"><span class="tab-icon">📈</span>Crash</button>
-        <button class="tab" data-game="aidealer"><span class="tab-icon">🎰</span>AI Dealer</button>
-        <button class="tab" data-game="mines"><span class="tab-icon">💣</span>Mines</button>
-        <button class="tab" data-game="towers"><span class="tab-icon">🏗️</span>Towers</button>
-        <button class="tab" data-game="pump"><span class="tab-icon">⛽</span>Pump</button>
-        <button class="tab" data-game="penalty"><span class="tab-icon">⚽</span>Penalty</button>
-        <button class="tab" data-game="cascade"><span class="tab-icon">🔥</span>Cascade</button>
-        <button class="tab" data-game="limbo"><span class="tab-icon">🚀</span>Limbo</button>
-        <button class="tab" data-game="plinko"><span class="tab-icon">🎯</span>Plinko</button>
-        <button class="tab" data-game="pachinko"><span class="tab-icon">📍</span>Pachinko</button>
-        <button class="tab" data-game="chicken"><span class="tab-icon">🐔</span>Chicken Road</button>
-        <button class="tab" data-game="dice"><span class="tab-icon">🎲</span>Dice</button>
-        <button class="tab" data-game="hilo"><span class="tab-icon">↕️</span>Hi-Lo</button>
-        <button class="tab" data-game="blackjack"><span class="tab-icon">🃏</span>Blackjack</button>
-        <button class="tab" data-game="war"><span class="tab-icon">⚔️</span>War</button>
-        <button class="tab" data-game="threecard"><span class="tab-icon">🂡</span>Three Card</button>
-        <button class="tab" data-game="videopoker"><span class="tab-icon">♠️</span>Video Poker</button>
-        <button class="tab" data-game="baccarat"><span class="tab-icon">🎴</span>Baccarat</button>
-        <button class="tab" data-game="dragontiger"><span class="tab-icon">🐲</span>Dragon Tiger</button>
-        <button class="tab" data-game="andarbahar"><span class="tab-icon">🪷</span>Andar Bahar</button>
-        <button class="tab" data-game="wheel"><span class="tab-icon">🎡</span>Wheel</button>
-        <button class="tab" data-game="roulette"><span class="tab-icon">⚪</span>Roulette</button>
-        <button class="tab" data-game="keno"><span class="tab-icon">🔢</span>Keno</button>
-        <button class="tab" data-game="bingo"><span class="tab-icon">🎱</span>Bingo Rush</button>
-        <button class="tab" data-game="sicbo"><span class="tab-icon">🎲</span>Sic Bo</button>
-        <button class="tab" data-game="craps"><span class="tab-icon">🎯</span>Craps</button>
-        <button class="tab" data-game="diamonds"><span class="tab-icon">💎</span>Diamonds</button>
-        <button class="tab" data-game="slots"><span class="tab-icon">🍒</span>Slots</button>
-        <button class="tab" data-game="luckysevens"><span class="tab-icon">7️⃣</span>Lucky Sevens</button>
-        <button class="tab" data-game="cosmic"><span class="tab-icon">🌌</span>Cosmic Reels</button>
-        <button class="tab" data-game="coin"><span class="tab-icon">🪙</span>Coin Flip</button>
-        <button class="tab" data-game="scratch"><span class="tab-icon">🎫</span>Scratch</button>
-        <button class="tab" data-game="color"><span class="tab-icon">🎨</span>Color</button>
-        <button class="tab" data-game="derby"><span class="tab-icon">🏇</span>Derby</button>
-        <button class="tab" data-game="cashhunt"><span class="tab-icon">🎁</span>Cash Hunt</button>
-        <button class="tab" data-game="bigcatch"><span class="tab-icon">🎣</span>Big Catch</button>
-        <button class="tab" data-game="rps"><span class="tab-icon">✊</span>RPS Duel</button>
-        <button class="tab" data-game="neonfruits"><span class="tab-icon">🍒</span>Neon Fruits</button>
-        <button class="tab" data-game="megawheel"><span class="tab-icon">🎡</span>Mega Wheel</button>
-        <button class="tab" data-game="tenpin"><span class="tab-icon">🎳</span>Ten Pin</button>
-        <button class="tab" data-game="bullseye"><span class="tab-icon">🎯</span>Bullseye</button>
-        <button class="tab" data-game="firecracker"><span class="tab-icon">🧨</span>Firecracker</button>
-        <button class="tab" data-game="sugarblast"><span class="tab-icon">🍬</span>Sugar Blast</button>
+      <nav class="game-nav" id="gameNav">
+        <button class="nav-pill active" data-game="lobby"><span class="nav-ic">🏠</span>Lobby</button>
+        <div class="games-dd">
+          <button class="nav-pill games-dd-trigger" id="gamesDdBtn" aria-haspopup="true" aria-expanded="false">
+            <span class="nav-ic">🎮</span><span id="gamesDdLabel">All Games</span><span class="dd-caret">▾</span>
+          </button>
+          <div class="games-dd-panel hidden" id="gamesDdPanel"></div>
+        </div>
       </nav>
       <div class="wallet">
         <div class="jackpot-ticker" id="jackpotTicker" title="Progressive jackpot — hits on any slot spin">
@@ -213,7 +176,7 @@
           <div class="rtp-grid muted">
             <span>Craps (pass line)</span><span>98.6%</span>
             <span>Blackjack / AI Dealer</span><span>~99.5%</span>
-            <span>Dice · Limbo · Crash · Wheel · Chicken Road</span><span>99%</span>
+            <span>Dice · Limbo · Crash · Wheel · Golden Crossing</span><span>99%</span>
             <span>Baccarat (player)</span><span>98.8%</span>
             <span>Roulette (European)</span><span>97.3%</span>
             <span>Three Card Poker</span><span>~96.6%</span>
@@ -223,9 +186,9 @@
             <span>Mines · Towers · Pump · Penalty</span><span>97–99%</span>
             <span>Keno · Sic Bo · Color · Scratch</span><span>95–97%</span>
             <span>Bingo Rush · Pachinko</span><span>95%</span>
-            <span>Derby · Ten Pin · Bullseye</span><span>96%</span>
+            <span>Derby · Strike Zone · Sharpshooter</span><span>96%</span>
             <span>Mega Wheel</span><span>95%</span>
-            <span>Cash Hunt · Big Catch · Firecracker · RPS</span><span>96–98%</span>
+            <span>Treasure Hunt · Golden Catch · Fortune Fuse · Showdown</span><span>96–98%</span>
             <span>Neon Fruits · Sugar Blast</span><span>~95–96%</span>
           </div>
           <p class="muted" style="font-size:10px;">*with optimal play. All outcomes are drawn from the verifiable HMAC stream below — the math is auditable in the open-source server code.</p>
@@ -565,6 +528,7 @@
 
   <div class="toast-stack" id="toasts"></div>
 
+  <script src="js/catalog.js"></script>
   <script src="js/api.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/fair.js"></script>

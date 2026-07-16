@@ -41,11 +41,13 @@
     });
   }
 
-  // Validate a bet amount; returns the number or null (with a toast).
+  // Validate a bet amount; returns the number or null (with a toast). A valid
+  // wager plays the chip cue so every game gets a "bet placed" sound for free.
   function bet(input) {
     const b = +input.value;
     if (!b || b <= 0) { Toast.warn('Enter a bet amount'); return null; }
     if (!Bankroll.canAfford(b)) { Toast.error('Insufficient balance'); return null; }
+    if (global.Sound) Sound.play('chip');
     return b;
   }
 
