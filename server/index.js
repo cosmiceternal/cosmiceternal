@@ -382,19 +382,34 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 
 // ---------------- Static frontend ----------------
 const PUBLIC = path.join(__dirname, '..', 'public');
-// Browsers cache versioned-ish assets aggressively (1 day); index.html stays
-// fresh-revalidated so the rest of the SPA picks up new builds quickly.
+// JS/CSS use no-cache (always revalidated via ETag → cheap 304s) rather than a
+// max-age window. This makes it impossible for a browser or CDN to keep serving
+// a stale — or, worse, a briefly-mislabelled — asset after a deploy. Images and
+// fonts (content that never changes shape) keep a day-long cache.
 app.use(express.static(PUBLIC, {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
       res.set('Cache-Control', 'no-cache');
     } else if (/\.(svg|png|jpg|jpeg|webp|ico|woff2?|ttf)$/.test(filePath)) {
       res.set('Cache-Control', 'public, max-age=86400');
-    } else if (/\.(css|js)$/.test(filePath)) {
-      res.set('Cache-Control', 'public, max-age=600, must-revalidate');
+    } else if (/\.(css|js|json)$/.test(filePath)) {
+      res.set('Cache-Control', 'no-cache');
     }
   }
 }));
+
+// Requests that LOOK like a static asset (have a file extension) but weren't
+// served above are genuinely missing — return a real 404. Never fall through to
+// the SPA HTML for them: a browser that receives HTML-with-200 for `bankroll.js`
+// tries to execute the page markup as JavaScript, which silently fails and
+// leaves globals like `Bankroll` undefined. This is the single most important
+// guard for surviving the brief window during a deploy when a file may not be
+// live yet — the client just retries and gets it, instead of caching poison.
+app.get(/\.[a-zA-Z0-9]{1,8}$/, (req, res) => {
+  res.status(404).type('text/plain').send('Not found');
+});
+
+// Everything else is an app/navigation route → serve the SPA shell.
 app.get('*', (req, res) => res.set('Cache-Control', 'no-cache').sendFile(path.join(PUBLIC, 'index.html')));
 
 db.init()
