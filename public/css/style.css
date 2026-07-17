@@ -2377,3 +2377,42 @@ input { font-family: inherit; }
   .games-dd-panel { position: fixed; left: 8px; right: 8px; width: auto; top: 64px; }
   .dd-group-items { grid-template-columns: 1fr 1fr; }
 }
+
+/* ==================== Zeus's Gates ==================== */
+.zeusgates-stage { gap: 14px; padding: 18px; justify-content: center; }
+.zg-machine { position: relative; width: 100%; max-width: 520px; margin: 0 auto; padding: 14px; border-radius: 16px; background: linear-gradient(180deg, #1a2a4a, #0e1730); border: 2px solid rgba(255,192,97,0.4); box-shadow: 0 0 44px rgba(255,192,97,0.14), inset 0 0 30px rgba(0,0,0,0.5); }
+.zg-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.zg-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: clamp(20px, 3vw, 32px); border-radius: 8px; background: rgba(255,255,255,0.04); }
+.zg-cell.orb { background: radial-gradient(circle, rgba(255,192,97,0.35), rgba(160,123,255,0.2)); box-shadow: 0 0 16px rgba(255,192,97,0.6); animation: zgOrb 1.2s ease infinite alternate; }
+@keyframes zgOrb { to { box-shadow: 0 0 26px rgba(160,123,255,0.8); } }
+.zg-cell.dropping { animation: sugarDrop 0.35s cubic-bezier(0.22,1,0.36,1); }
+.zg-cell.exploding { animation: sugarPop 0.35s ease forwards; }
+.zg-mult-banner { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: clamp(28px, 6vw, 54px); font-weight: 900; color: var(--gold, #ffc061); text-shadow: 0 0 30px rgba(255,192,97,0.9); z-index: 3; animation: fcBurst 0.6s cubic-bezier(0.22,1,0.36,1); pointer-events: none; }
+
+/* ==================== Slingo ==================== */
+.slingo-stage { gap: 12px; padding: 16px; justify-content: flex-start; overflow-y: auto; }
+.slingo-wrap { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.slingo-head { display: grid; grid-template-columns: repeat(5, 52px); gap: 6px; }
+.slingo-col-h { text-align: center; font-weight: 800; font-size: 16px; color: var(--accent); letter-spacing: 1px; }
+.slingo-grid { display: grid; grid-template-columns: repeat(5, 52px); gap: 6px; }
+.slingo-cell { width: 52px; height: 52px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; background: var(--bg-3); border: 1px solid var(--line); color: var(--text); transition: 180ms; }
+.slingo-cell.marked { background: rgba(95,227,192,0.18); border-color: rgba(95,227,192,0.55); color: var(--teal, #5fe3c0); animation: bingoPop 220ms ease; }
+.slingo-cell.line { background: var(--accent); color: #0e0d1a; border-color: #fff; box-shadow: 0 0 14px rgba(255,94,156,0.6); }
+.slingo-reel { display: grid; grid-template-columns: repeat(5, 52px); gap: 6px; margin-top: 4px; }
+.slingo-slot { width: 52px; height: 46px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; background: rgba(0,0,0,0.35); border: 1px solid var(--line); color: var(--muted); }
+.slingo-slot.hit { background: rgba(255,192,97,0.2); border-color: var(--gold, #ffc061); color: var(--gold, #ffc061); }
+@media (max-width: 420px) { .slingo-head, .slingo-grid, .slingo-reel { grid-template-columns: repeat(5, 44px); } .slingo-cell { width: 44px; height: 44px; font-size: 13px; } .slingo-slot { width: 44px; } }
+
+/* ==================== Mini Roulette ==================== */
+.miniroulette-stage { gap: 16px; padding: 18px; justify-content: center; }
+.mr-wrap { position: relative; width: min(320px, 78vw); margin: 0 auto; }
+.mr-canvas { width: 100%; height: auto; display: block; filter: drop-shadow(0 8px 22px rgba(0,0,0,0.5)); }
+.mr-pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 24px; color: var(--gold, #ffc061); z-index: 3; }
+.mr-bets { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 6px; }
+.mr-bet { background: var(--bg-3); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 7px 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 150ms; }
+.mr-bet:hover { border-color: var(--accent); }
+.mr-bet.active { background: rgba(255,94,156,0.16); border-color: var(--accent); }
+.mr-numbers { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.mr-num { aspect-ratio: 1; border-radius: 7px; border: 2px solid transparent; background: var(--nc); color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; transition: 150ms; }
+.mr-num:hover { transform: translateY(-2px); }
+.mr-num.active { border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,0.5); }

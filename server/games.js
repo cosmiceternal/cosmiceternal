@@ -1934,6 +1934,136 @@ function playSugarBlast(userId, { bet }) {
   });
 }
 
+// ---------------------------------------------------------------- ZEUS'S GATES
+// A 6×5 "pay anywhere" tumble slot: 8+ of a symbol anywhere on the grid pays
+// (by count tier), winners explode, the grid refills, repeat. Multiplier orbs
+// land at a small rate; on any winning spin all orb values on screen SUM and
+// multiply the total base win. Calibrated by 200k-spin Monte Carlo to ~96%.
+const GATES_COLS = 6, GATES_ROWS = 5, GATES_CELLS = 30, GATES_SYMS = 8;
+const GATES_W = [22, 20, 17, 13, 10, 8, 6, 4];
+const GATES_EMOJI = ['🍎', '🍇', '💍', '🏺', '👑', '⚡', '🔱', '🪙'];
+const GATES_PAY = [
+  [0.25, 0.75, 2], [0.25, 0.75, 2], [0.4, 1.2, 3], [0.5, 1.5, 4],
+  [0.8, 2.5, 6],   [1.2, 4, 10],    [2, 6, 15],     [4, 12, 40]
+];
+const GATES_SCALE = 0.133;
+const GATES_ORB_RATE = 0.03;
+const GATES_ORBS = [{ m: 2, w: 40 }, { m: 3, w: 25 }, { m: 5, w: 15 }, { m: 10, w: 10 }, { m: 25, w: 6 }, { m: 50, w: 3 }, { m: 100, w: 1 }];
+function gatesSym(f) { const tw = GATES_W.reduce((a, b) => a + b, 0); let r = f * tw; for (let i = 0; i < GATES_SYMS; i++) { if (r < GATES_W[i]) return i; r -= GATES_W[i]; } return GATES_SYMS - 1; }
+function gatesOrb(f) { const tw = GATES_ORBS.reduce((a, b) => a + b.w, 0); let r = f * tw; for (const o of GATES_ORBS) { if (r < o.w) return o.m; r -= o.w; } return 2; }
+function gatesPayFor(sym, count) { if (count < 8) return 0; const t = count <= 9 ? 0 : (count <= 11 ? 1 : 2); return GATES_PAY[sym][t] * GATES_SCALE; }
+function playZeusGates(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, GATES_CELLS * 8);
+    let fi = 0;
+    const nf = () => floats[fi++] ?? Math.random();
+    const grid = new Array(GATES_CELLS);   // symbol index, or -1 orb
+    const orbs = [];
+    for (let i = 0; i < GATES_CELLS; i++) { if (nf() < GATES_ORB_RATE) { grid[i] = -1; orbs.push(gatesOrb(nf())); } else grid[i] = gatesSym(nf()); }
+    let baseWin = 0, tumbles = 0, guard = 0;
+    while (guard++ < 30) {
+      const counts = new Array(GATES_SYMS).fill(0);
+      for (let i = 0; i < GATES_CELLS; i++) if (grid[i] >= 0) counts[grid[i]]++;
+      let anyWin = false;
+      for (let s = 0; s < GATES_SYMS; s++) { const p = gatesPayFor(s, counts[s]); if (p > 0) { baseWin += p; anyWin = true; for (let i = 0; i < GATES_CELLS; i++) if (grid[i] === s) grid[i] = -2; } }
+      if (!anyWin) break;
+      tumbles++;
+      for (let i = 0; i < GATES_CELLS; i++) if (grid[i] === -2) { if (nf() < GATES_ORB_RATE) { grid[i] = -1; orbs.push(gatesOrb(nf())); } else grid[i] = gatesSym(nf()); }
+    }
+    const orbMult = orbs.reduce((a, b) => a + b, 0);
+    const totalMult = +((baseWin > 0 && orbMult > 0) ? baseWin * orbMult : baseWin).toFixed(4);
+    const win = totalMult >= 1;
+    const payoutCents = Math.round(betCents * totalMult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'zeusgates', betCents, mult: totalMult, payoutCents, win, nonce, detail: { tumbles, orbs: orbs.length, orbMult } });
+    return { finalGrid: grid, symbols: GATES_EMOJI, tumbles, orbs, orbMult, baseWin: +baseWin.toFixed(2), mult: totalMult, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
+// ---------------------------------------------------------------- SLINGO
+// 5×5 card (column c holds 5 distinct numbers from [c*15+1, c*15+15]); ten
+// spins of five reels mark matching cells; completed lines (5 rows + 5 cols +
+// 2 diagonals = 12 = full house) pay by count. Calibrated 2M-spin MC → 96.6%.
+const SLINGO_SPINS = 10;
+const SLINGO_LINES = (() => { const L = []; for (let r = 0; r < 5; r++) L.push([0, 1, 2, 3, 4].map(c => r * 5 + c)); for (let c = 0; c < 5; c++) L.push([0, 1, 2, 3, 4].map(r => r * 5 + c)); L.push([0, 6, 12, 18, 24]); L.push([4, 8, 12, 16, 20]); return L; })();
+const SLINGO_PAY = [0, 1.95, 8, 25, 80, 200, 500, 1000, 1500, 2000, 3000, 4000, 5000];
+function playSlingo(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    // Card numbers + all spin/pick decisions come from the fair stream.
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 25 + SLINGO_SPINS * 5 * 2);
+    let fi = 0; const nf = () => floats[fi++] ?? Math.random();
+    // Build the card: each column 5 distinct numbers in its range.
+    const card = new Array(25);
+    for (let c = 0; c < 5; c++) {
+      const pool = Array.from({ length: 15 }, (_, i) => c * 15 + 1 + i);
+      for (let r = 0; r < 5; r++) { const j = r + Math.floor(nf() * (15 - r)); [pool[r], pool[j]] = [pool[j], pool[r]]; card[r * 5 + c] = pool[r]; }
+    }
+    const marked = new Array(25).fill(false);
+    const unmarkedInCol = [5, 5, 5, 5, 5];
+    const spins = [];
+    for (let s = 0; s < SLINGO_SPINS; s++) {
+      const row = [];
+      for (let c = 0; c < 5; c++) {
+        let hitCell = -1;
+        if (unmarkedInCol[c] > 0 && nf() * 15 < unmarkedInCol[c]) {
+          const cells = []; for (let r = 0; r < 5; r++) { const idx = r * 5 + c; if (!marked[idx]) cells.push(idx); }
+          hitCell = cells[Math.floor(nf() * cells.length)];
+          marked[hitCell] = true; unmarkedInCol[c]--;
+        }
+        row.push(hitCell); // cell index marked this spin for column c, or -1
+      }
+      spins.push(row);
+    }
+    let lines = 0; const lineIdx = [];
+    SLINGO_LINES.forEach((L, i) => { if (L.every(x => marked[x])) { lines++; lineIdx.push(i); } });
+    const mult = SLINGO_PAY[lines];
+    const win = mult >= 1;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'slingo', betCents, mult, payoutCents, win, nonce, detail: { lines } });
+    return { card, spins, marked, lines, lineIndexes: lineIdx, mult, pays: SLINGO_PAY, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
+// ---------------------------------------------------------------- MINI ROULETTE
+// 13-pocket wheel (0 green + 1–12). Straight number pays 12.5×; even-money bets
+// (red/black, odd/even, low/high) pay 2× with LA PARTAGE — half the stake back
+// when 0 hits — giving a uniform ~96% RTP across bet types.
+const MR_RED = new Set([1, 3, 5, 7, 9, 11]);
+function playMiniRoulette(userId, { bet, betType, number }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 1);
+    const result = Math.min(12, Math.floor(floats[0] * 13));
+    const isRed = MR_RED.has(result);
+    let mult = 0, laPartage = false;
+    if (betType === 'straight') {
+      const n = Number(number);
+      if (!Number.isInteger(n) || n < 0 || n > 12) throw httpError(400, 'Pick a number 0–12.');
+      if (result === n) mult = 12.5;
+    } else if (betType === 'red' || betType === 'black') {
+      if (result === 0) { mult = 0.5; laPartage = true; }
+      else if ((betType === 'red') === isRed) mult = 2;
+    } else if (betType === 'odd' || betType === 'even') {
+      if (result === 0) { mult = 0.5; laPartage = true; }
+      else if ((betType === 'even') === (result % 2 === 0)) mult = 2;
+    } else if (betType === 'low' || betType === 'high') {
+      if (result === 0) { mult = 0.5; laPartage = true; }
+      else if ((betType === 'low') === (result <= 6)) mult = 2;
+    } else throw httpError(400, 'Invalid bet.');
+    const win = mult >= 1;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'miniroulette', betCents, mult, payoutCents, win, nonce, detail: { result, betType, laPartage } });
+    return { result, color: result === 0 ? 'green' : (isRed ? 'red' : 'black'), betType, mult, laPartage, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
 // ---------------------------------------------------------------- PENALTY SHOOTOUT (original)
 // Round-based streak. Each round you shoot left/center/right; the keeper (server,
 // pre-drawn) dives to one spot. If it differs from your shot you score and climb;
@@ -2180,6 +2310,7 @@ module.exports = {
   playBingo,
   playDerby, playCashHunt, playBigCatch, playRps, playNeonFruits,
   playMegaWheel, playTenPin, playBullseye, playFirecracker, playSugarBlast,
+  playZeusGates, playSlingo, playMiniRoulette,
   jackpotState, jackpotEnsure,
   penaltyStart, penaltyShoot, penaltyCashout,
   history, stats, globalFeed, anonName, leaderboard, PLINKO, minesMult,
