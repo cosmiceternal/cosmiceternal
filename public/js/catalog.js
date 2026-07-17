@@ -50,7 +50,10 @@
     { key: 'rps',         name: 'Showdown',       icon: '✊', cat: 'originals', tag: 'vs house' },
     { key: 'tenpin',      name: 'Strike Zone',    icon: '🎳', cat: 'originals', tag: 'strike 10×' },
     { key: 'bullseye',    name: 'Sharpshooter',   icon: '🎯', cat: 'originals', tag: '3 darts' },
-    { key: 'firecracker', name: 'Fortune Fuse',   icon: '🧨', cat: 'originals', tag: 'up to 100×' }
+    { key: 'firecracker', name: 'Fortune Fuse',   icon: '🧨', cat: 'originals', tag: 'up to 100×' },
+    { key: 'zeusgates',   name: "Zeus's Gates",   icon: '🏛️', cat: 'slots',     tag: 'pay anywhere' },
+    { key: 'slingo',      name: 'Slingo',         icon: '🎰', cat: 'slots',     tag: 'slots + bingo' },
+    { key: 'miniroulette',name: 'Mini Roulette',  icon: '🎡', cat: 'tables',    tag: '13 pockets' }
   ];
 
   const CATS = [

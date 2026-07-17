@@ -317,6 +317,9 @@ app.post('/api/play/tenpin',     auth.requireAuth, h((req) => games.playTenPin(r
 app.post('/api/play/bullseye',   auth.requireAuth, h((req) => games.playBullseye(req.user.id, req.body || {})));
 app.post('/api/play/firecracker', auth.requireAuth, h((req) => games.playFirecracker(req.user.id, req.body || {})));
 app.post('/api/play/sugarblast', auth.requireAuth, h((req) => games.playSugarBlast(req.user.id, req.body || {})));
+app.post('/api/play/zeusgates',  auth.requireAuth, h((req) => games.playZeusGates(req.user.id, req.body || {})));
+app.post('/api/play/slingo',     auth.requireAuth, h((req) => games.playSlingo(req.user.id, req.body || {})));
+app.post('/api/play/miniroulette', auth.requireAuth, h((req) => games.playMiniRoulette(req.user.id, req.body || {})));
 
 app.post('/api/play/penalty/start',   auth.requireAuth, h((req) => games.penaltyStart(req.user.id, req.body || {})));
 app.post('/api/play/penalty/shoot',   auth.requireAuth, h((req) => games.penaltyShoot(req.user.id, req.body || {})));
