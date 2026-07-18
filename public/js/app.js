@@ -161,12 +161,12 @@
         cnt.textContent = `${unlocked} / ${ps.achievements.length}`;
         ul.innerHTML = ps.achievements.map(a => `
           <li class="ach-row ${a.unlocked ? 'unlocked' : 'locked'}">
-            <div class="ach-icon">${a.unlocked ? '🏆' : '·'}</div>
+            <div class="ach-icon">${a.unlocked ? '🏆' : '🔒'}</div>
             <div class="ach-body">
               <div class="ach-name">${a.name}</div>
               <div class="ach-desc muted">${a.desc}</div>
             </div>
-            <div class="ach-xp ${a.unlocked ? 'unlocked' : 'muted'}">${a.xp ? '+' + a.xp + ' XP' : ''}</div>
+            <div class="ach-xp ${a.unlocked ? 'unlocked' : ''}">${a.xp ? '+' + a.xp + ' XP' : ''}</div>
           </li>
         `).join('');
       } catch (_) {}
@@ -235,7 +235,7 @@
       list.innerHTML = r.top.length
         ? r.top.map(row => `
             <li class="lb-row ${row.isYou ? 'you' : ''}">
-              <span class="lb-rank">${row.rank}</span>
+              <span class="lb-rank ${row.rank <= 3 ? 'medal' : ''}">${row.rank <= 3 ? ['🥇','🥈','🥉'][row.rank - 1] : row.rank}</span>
               <span class="lb-player">${row.player}${row.isYou ? ' <span class="muted">(you)</span>' : ''}</span>
               <span class="lb-level">L${row.level}</span>
               <span class="lb-value">${fmtLbValue(row.value, metric)}</span>
