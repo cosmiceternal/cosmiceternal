@@ -1,6 +1,6 @@
 # Crypt Casino
 
-A **play-money**, provably-fair casino with **46 games** — including an **AI Dealer**
+A **play-money**, provably-fair casino with **49 games** — including an **AI Dealer**
 (personable AI croupiers hosting real provably-fair Blackjack, with switchable
 personalities and reactive banter) — real user accounts, and a server-authoritative
 backend. Built with vanilla JS on the front end and Node + Express
