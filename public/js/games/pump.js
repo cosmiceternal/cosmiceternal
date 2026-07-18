@@ -70,15 +70,19 @@
           Bankroll.set(res.balance);
           balloon.classList.add('pop'); balloonMult.textContent = '💥';
           Feed.recordPlayerBet({ game: 'pump', bet, mult: 0, win: false, payout: 0 });
+          if (global.Sound) Sound.play('loss');
           Toast.loss(`Popped! −${Bankroll.fmt(bet)}`);
           statusEl.textContent = 'Popped!';
           endRound(); return;
         }
         level = res.level; scale();
+        if (global.Sound) Sound.play('climb', { n: res.level });
         balloonMult.textContent = res.mult.toFixed(2) + '×'; multEl.textContent = res.mult.toFixed(2) + '×';
         if (res.maxed) {
           Bankroll.set(res.balance);
           Feed.recordPlayerBet({ game: 'pump', bet, mult: res.mult, win: true, payout: res.payout });
+          if (global.Sound) Sound.play(res.mult >= 10 ? 'bigwin' : 'win');
+          GameKit.flashWin();
           Toast.win(`Maxed! +${Bankroll.fmt(res.payout - bet)} @ ${res.mult.toFixed(2)}×`);
           statusEl.textContent = `Maxed out at ${res.mult.toFixed(2)}×`;
           endRound(); return;
@@ -96,6 +100,8 @@
         const res = await API.pumpCashout({ roundId });
         Bankroll.set(res.balance);
         Feed.recordPlayerBet({ game: 'pump', bet, mult: res.mult, win: true, payout: res.payout });
+        if (global.Sound) Sound.play('cashout');
+        GameKit.flashWin();
         Toast.win(`+${Bankroll.fmt(res.payout - bet)} @ ${res.mult.toFixed(2)}×`);
         statusEl.textContent = `Cashed out ${res.mult.toFixed(2)}×`;
         endRound();

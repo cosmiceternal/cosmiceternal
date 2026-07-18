@@ -106,13 +106,27 @@
       tone(N.C3, { type: 'sine', dur: 0.7, gain: 0.14 });                                                // low boom
       [N.C5, N.E5, N.G5, N.C6, N.E6, N.G6].forEach((f, i) => tone(f, { at: i * 0.1, type: 'sine', dur: 0.3, gain: 0.16, send: 0.4 }));
       [N.G6, N.C7].forEach((f, i) => tone(f, { at: 0.7 + i * 0.14, type: 'triangle', dur: 0.4, gain: 0.12, send: 0.5 }));
-    }
+    },
+    // --- Texture cues (accept opts) ---
+    // A bright, soft shimmer — used as the per-tick sound while a win total
+    // counts up, and as a cash-out accent.
+    coin:   () => { noise({ dur: 0.018, gain: 0.035, freq: 5200, q: 3 }); tone(N.E6, { type: 'sine', dur: 0.04, gain: 0.04 }); },
+    // Rising tick for climbing-multiplier games — pitch steps up with o.n so
+    // each successful step racks up more tension.
+    climb:  (o) => {
+      const n = Math.max(0, Math.min(24, (o && o.n) || 0));
+      const freq = N.C5 * Math.pow(2, n / 12);
+      tone(freq, { type: 'triangle', dur: 0.09, gain: 0.11, send: 0.08 });
+      noise({ dur: 0.016, gain: 0.035, freq: 3200, q: 2 });
+    },
+    // Soft descending rustle for cascading/tumbling symbols.
+    tumble: () => noise({ dur: 0.13, gain: 0.06, freq: 1300, q: 0.8, sweep: -700 })
   };
 
-  function play(name) {
+  function play(name, opts) {
     if (muted) return;
     const fn = FX[name] || FX.click;
-    try { fn(); } catch (_) { /* audio is never worth an error */ }
+    try { fn(opts); } catch (_) { /* audio is never worth an error */ }
   }
   function toggleMute() {
     muted = !muted;
