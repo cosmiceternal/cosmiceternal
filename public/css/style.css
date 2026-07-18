@@ -270,6 +270,7 @@ input { font-family: inherit; }
   position: relative;
   display: flex;
   flex-direction: column;
+  justify-content: center;   /* balance the board in the stage instead of top-heavy dead space */
   min-width: 0;
   min-height: 0;
 }
@@ -1419,25 +1420,30 @@ input { font-family: inherit; }
   .game-grid { grid-template-columns: 1fr; height: auto; }
   .controls { border-right: none; border-bottom: 1px solid var(--line); overflow: visible; }
 
-  /* Topbar reflows: brand + wallet share a row, game tabs scroll horizontally below. */
-  .topbar { height: auto; flex-wrap: wrap; gap: 8px 10px; padding: 8px 12px; }
-  .brand { order: 1; min-width: 0; }
-  .brand-name { display: none; }
-  .wallet { order: 2; margin-left: auto; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  /* Compact 2-row topbar: nav on row 1, a single scrollable wallet strip on
+   * row 2. Keeps every control reachable without eating half the screen. */
+  .topbar { height: auto; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+  .brand { display: none; }
+  .game-nav { order: 1; flex: 1 1 100%; gap: 8px; }
+  .game-nav .nav-pill { flex: 0 0 auto; }
+  .game-nav .games-dd { flex: 1 1 auto; }
+  .game-nav .games-dd-trigger { width: 100%; justify-content: center; }
+  .wallet {
+    order: 2; flex: 1 1 100%; gap: 8px; margin-left: 0;
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; justify-content: flex-start; padding-bottom: 2px;
+    /* Fade the right edge to hint that the strip scrolls. */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent 100%);
+  }
+  .wallet::-webkit-scrollbar { display: none; }
+  .wallet > * { flex: 0 0 auto; }
   .balance { padding: 6px 10px; }
   .balance-label { display: none; }
-  .game-tabs {
-    order: 3;
-    flex-basis: 100%;
-    justify-content: flex-start;
-    gap: 6px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 2px;
-  }
-  .game-tabs::-webkit-scrollbar { display: none; }
-  .tab { flex: 0 0 auto; padding: 8px 14px; font-size: 13px; }
+  .level-badge { display: none; }        /* level lives in Stats on mobile */
+  .jackpot-ticker { padding: 5px 9px; }
+  .jp-label { font-size: 0; }
+  .jp-label::before { content: '💰'; font-size: 13px; }
 
   /* 16px inputs stop iOS Safari from zooming in on focus. */
   .field input, .field select, .kv input, #authForm input { font-size: 16px; }
