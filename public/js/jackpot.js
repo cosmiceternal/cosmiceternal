@@ -12,7 +12,8 @@
     if (el) el.textContent = Bankroll.fmt(v);
   }
   function celebrate(amount) {
-    if (global.Confetti) Confetti.burst({ count: 160 });
+    if (global.WinFx) WinFx.show({ amount, jackpot: true });
+    else if (global.Confetti) Confetti.burst({ count: 160 });
     if (global.Sound) Sound.play('jackpot');
     Toast.win(`💰 JACKPOT! +${Bankroll.fmt(amount)} CRYPT`);
     const ticker = document.getElementById('jackpotTicker');

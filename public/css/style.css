@@ -2506,3 +2506,120 @@ input { font-family: inherit; }
     0 0 20px -4px var(--accent-glow);
 }
 .lobby-name { letter-spacing: 0.2px; }
+
+/* ============================================================
+   Win celebration (WinFx) — centered, non-interactive flourish on
+   big multipliers and the progressive jackpot. Tiered by intensity. */
+#winfxHost { position: fixed; inset: 0; pointer-events: none; z-index: 130; }
+.winfx {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.winfx-inner {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  text-align: center;
+  animation: winfxPop 560ms cubic-bezier(0.18, 1.2, 0.32, 1) both;
+}
+.winfx-rays {
+  position: absolute; width: 640px; height: 640px;
+  left: 50%; top: 50%; margin: -320px 0 0 -320px;
+  background: conic-gradient(from 0deg,
+    rgba(255, 192, 97, 0.16), transparent 22%,
+    rgba(255, 192, 97, 0.16) 25%, transparent 47%,
+    rgba(255, 192, 97, 0.16) 50%, transparent 72%,
+    rgba(255, 192, 97, 0.16) 75%, transparent 97%);
+  border-radius: 50%;
+  filter: blur(2px);
+  opacity: 0;
+  animation: winfxRays 3.2s linear both;
+  -webkit-mask-image: radial-gradient(circle, #000 30%, transparent 68%);
+  mask-image: radial-gradient(circle, #000 30%, transparent 68%);
+}
+.winfx-title {
+  font-weight: 900;
+  font-size: clamp(38px, 7vw, 82px);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #fff 0%, var(--accent-2) 55%, var(--accent) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  filter: drop-shadow(0 4px 22px var(--accent-glow)) drop-shadow(0 0 40px rgba(255, 94, 156, 0.35));
+}
+.winfx-amount {
+  font-weight: 800;
+  font-size: clamp(24px, 4.4vw, 48px);
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  text-shadow: 0 0 18px var(--gold-glow), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.winfx-plus { opacity: 0.85; margin-right: 2px; }
+.winfx-mult {
+  font-size: clamp(11px, 1.4vw, 14px);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* Mega: warm gold headline + faster rays. */
+.winfx[data-tier="mega"] .winfx-title {
+  background: linear-gradient(180deg, #fff 0%, #ffe066 50%, var(--gold) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 4px 24px var(--gold-glow)) drop-shadow(0 0 44px rgba(255, 192, 97, 0.4));
+}
+.winfx[data-tier="mega"] .winfx-rays { animation-duration: 2.4s; }
+/* Ultra: violet-to-gold, brighter rays. */
+.winfx[data-tier="ultra"] .winfx-title {
+  background: linear-gradient(180deg, #fff 0%, var(--violet) 45%, var(--gold) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 4px 26px var(--violet-glow)) drop-shadow(0 0 48px rgba(255, 192, 97, 0.45));
+}
+.winfx[data-tier="ultra"] .winfx-rays,
+.winfx[data-tier="jackpot"] .winfx-rays {
+  background: conic-gradient(from 0deg,
+    rgba(255, 192, 97, 0.24), transparent 20%,
+    rgba(160, 123, 255, 0.2) 25%, transparent 45%,
+    rgba(255, 192, 97, 0.24) 50%, transparent 70%,
+    rgba(160, 123, 255, 0.2) 75%, transparent 95%);
+  animation-duration: 2s;
+}
+/* Jackpot: the grandest — all gold, big glow. */
+.winfx[data-tier="jackpot"] .winfx-title {
+  background: linear-gradient(180deg, #fff 0%, #ffe066 40%, var(--gold) 75%, #ff9e4f 100%);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 4px 30px var(--gold-glow)) drop-shadow(0 0 60px rgba(255, 192, 97, 0.55));
+  animation: winfxThrob 900ms ease-in-out infinite alternate;
+}
+.winfx-out { animation: winfxOut 400ms ease forwards; }
+
+@keyframes winfxPop {
+  0%   { opacity: 0; transform: scale(0.55); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes winfxRays {
+  0%   { opacity: 0; transform: rotate(0deg) scale(0.9); }
+  14%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { opacity: 0; transform: rotate(150deg) scale(1.05); }
+}
+@keyframes winfxThrob { from { transform: scale(1); } to { transform: scale(1.05); } }
+@keyframes winfxOut { to { opacity: 0; transform: scale(1.08); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .winfx-inner { animation: winfxPop 200ms ease both; }
+  .winfx-rays { animation: none; opacity: 0.7; }
+  .winfx[data-tier="jackpot"] .winfx-title { animation: none; }
+}
+
+/* Side-rail feed: hover affordance + a left accent bar on your own rows so
+   they read at a glance in the mixed live feed. */
+.feed-list li:not(.feed-empty) { transition: background 0.12s ease; }
+.feed-list li:not(.feed-empty):hover { background: rgba(255, 255, 255, 0.03); }
+.feed-list .me-row {
+  background: rgba(255, 94, 156, 0.07);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.feed-list .me-row:hover { background: rgba(255, 94, 156, 0.11); }
