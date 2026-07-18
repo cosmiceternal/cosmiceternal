@@ -71,11 +71,14 @@
     const amtEl = el.querySelector('[data-role="amt"]');
     if (amtEl && amount > 0 && !reduce) {
       const dur = 780, start = performance.now();
+      let lastTick = 0;
       const step = (now) => {
         if (!current || !amtEl.isConnected) return;
         const p = Math.min(1, (now - start) / dur);
         const eased = 1 - Math.pow(1 - p, 3);
         amtEl.textContent = fmt(amount * eased);
+        // Soft coin shimmer every ~90ms as the total races up.
+        if (global.Sound && now - lastTick > 90 && p < 0.98) { lastTick = now; Sound.play('coin'); }
         if (p < 1) rafId = requestAnimationFrame(step);
       };
       amtEl.textContent = fmt(0);

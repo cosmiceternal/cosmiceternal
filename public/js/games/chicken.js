@@ -101,16 +101,20 @@
           statusEl.textContent = 'Splat. The road wins this one.';
           Bankroll.set(res.balance);
           Feed.recordPlayerBet({ game: 'chicken', bet: stake, mult: 0, win: false, payout: 0 });
+          if (global.Sound) Sound.play('loss');
           Toast.loss(`−${Bankroll.fmt(stake)}`);
           idle();
           return;
         }
         step = res.step;
         renderRoad();
+        if (global.Sound) Sound.play('climb', { n: res.step });
         if (res.cleared) {
           Bankroll.set(res.balance);
           statusEl.textContent = `Road cleared! ${res.mult.toFixed(2)}×`;
           Feed.recordPlayerBet({ game: 'chicken', bet: stake, mult: res.mult, win: true, payout: res.payout });
+          if (global.Sound) Sound.play(res.mult >= 10 ? 'bigwin' : 'win');
+          GameKit.flashWin();
           Toast.win(`+${Bankroll.fmt(res.payout - stake)} @ ${res.mult.toFixed(2)}×`);
           if (res.mult >= 10 && global.Confetti) Confetti.burst({ count: 120 });
           idle();
@@ -132,6 +136,8 @@
         Bankroll.set(res.balance);
         statusEl.textContent = `Cashed out at ${res.mult.toFixed(2)}×.`;
         Feed.recordPlayerBet({ game: 'chicken', bet: stake, mult: res.mult, win: true, payout: res.payout });
+        if (global.Sound) Sound.play('cashout');
+        GameKit.flashWin();
         Toast.win(`+${Bankroll.fmt(res.payout - stake)} @ ${res.mult.toFixed(2)}×`);
         if (res.mult >= 10 && global.Confetti) Confetti.burst({ count: 100 });
         idle();

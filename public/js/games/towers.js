@@ -88,16 +88,20 @@
           cell.classList.add('trap'); cell.textContent = '✸';
           revealTraps(res.trapRows);
           Feed.recordPlayerBet({ game: 'towers', bet, mult: 0, win: false, payout: 0 });
+          if (global.Sound) Sound.play('loss');
           Toast.loss(`−${Bankroll.fmt(bet)}`);
           statusEl.textContent = 'Hit a trap — round over';
           endRound(); return;
         }
         cell.classList.add('safe'); cell.textContent = '◆';
+        if (global.Sound) Sound.play('climb', { n: r });
         grid.querySelectorAll(`.tw-cell[data-row="${r}"]`).forEach(c => c.style.pointerEvents = 'none');
         multEl.textContent = res.mult.toFixed(2) + '×';
         if (res.cleared) {
           Bankroll.set(res.balance);
           Feed.recordPlayerBet({ game: 'towers', bet, mult: res.mult, win: true, payout: res.payout });
+          if (global.Sound) Sound.play(res.mult >= 10 ? 'bigwin' : 'win');
+          GameKit.flashWin();
           Toast.win(`Cleared! +${Bankroll.fmt(res.payout - bet)} @ ${res.mult.toFixed(2)}×`);
           statusEl.textContent = `Tower cleared! ${res.mult.toFixed(2)}×`;
           endRound(); return;
@@ -117,6 +121,8 @@
         Bankroll.set(res.balance);
         revealTraps(res.trapRows);
         Feed.recordPlayerBet({ game: 'towers', bet, mult: res.mult, win: true, payout: res.payout });
+        if (global.Sound) Sound.play('cashout');
+        GameKit.flashWin();
         Toast.win(`+${Bankroll.fmt(res.payout - bet)} @ ${res.mult.toFixed(2)}×`);
         statusEl.textContent = `Cashed out ${res.mult.toFixed(2)}×`;
         endRound();

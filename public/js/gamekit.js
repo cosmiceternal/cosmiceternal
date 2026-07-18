@@ -65,6 +65,7 @@
     if (win) Toast.win(`+${Bankroll.fmt(net)} @ ${mult.toFixed(2)}×`);
     else if (Math.abs(net) < 1e-9) Toast.info('Push — stake returned');
     else Toast.loss(`−${Bankroll.fmt(-net)}`);
+    if (win) flashWin();
     // Big multiplier → centered celebration banner (owns its own confetti).
     // Fall back to a plain burst if WinFx isn't present for some reason.
     if (win && mult >= 10) {
@@ -80,6 +81,14 @@
     }
   }
 
+  // Brief green glow on the game pane — tactile "you won" feedback. Round-based
+  // games (towers, pump, hi-lo…) that settle outside GameKit call this directly.
+  function flashWin() {
+    const pane = document.querySelector('.game-pane');
+    if (!pane) return;
+    pane.classList.remove('flash-win'); void pane.offsetWidth; pane.classList.add('flash-win');
+  }
+
   function cardLabel(rank) { return RANKS[rank] || String(rank); }
   function cardHTML(c, faceDown) {
     if (faceDown) return `<div class="pcard back"></div>`;
@@ -87,5 +96,5 @@
     return `<div class="pcard${red ? ' red' : ''}"><span class="pc-r">${cardLabel(c.rank)}</span><span class="pc-s">${SUITS[c.suit]}</span></div>`;
   }
 
-  global.GameKit = { betRow, frame, wireBet, bet, settle, cardHTML, cardLabel, SUITS };
+  global.GameKit = { betRow, frame, wireBet, bet, settle, flashWin, cardHTML, cardLabel, SUITS };
 })(window);

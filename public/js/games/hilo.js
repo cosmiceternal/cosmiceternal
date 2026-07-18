@@ -72,11 +72,13 @@
           statusEl.textContent = `It was ${GameKit.cardLabel(res.card)} — busted!`;
           Bankroll.set(res.balance);
           Feed.recordPlayerBet({ game: 'hilo', bet, mult: 0, win: false, payout: 0 });
+          if (global.Sound) Sound.play('loss');
           Toast.loss(`−${Bankroll.fmt(bet)}`);
           endRound(); return;
         }
         setCard(res.card); pushHist(res.card, true);
         streak++; streakEl.textContent = streak;
+        if (global.Sound) Sound.play('climb', { n: streak });
         multEl.textContent = res.mult.toFixed(2) + '×';
         setButtons(res.mults);
         cash.classList.remove('hidden');
@@ -93,6 +95,8 @@
         Bankroll.set(res.balance);
         statusEl.textContent = `Cashed out ${res.mult.toFixed(2)}× — +${Bankroll.fmt(res.payout - bet)}`;
         Feed.recordPlayerBet({ game: 'hilo', bet, mult: res.mult, win: true, payout: res.payout });
+        if (global.Sound) Sound.play('cashout');
+        GameKit.flashWin();
         Toast.win(`+${Bankroll.fmt(res.payout - bet)} @ ${res.mult.toFixed(2)}×`);
         endRound();
       } catch (e) { Toast.error(e.message); busy = false; }
