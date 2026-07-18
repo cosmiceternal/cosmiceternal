@@ -107,6 +107,13 @@
         `<span style="color:${e.win ? 'var(--accent)' : 'var(--danger)'}">${result}</span>` +
         `<span style="color:var(--text)">${Bankroll.fmt(e.bet)}</span>` +
         `<span style="color:var(--muted);text-align:right">${time}</span>`;
+      // Any bet recorded with its fairness coordinates can be loaded straight
+      // into the verifier and re-derived once its server seed is revealed.
+      if (e.nonce != null && e.serverHash) {
+        li.classList.add('verifiable');
+        li.title = 'Click to verify this bet';
+        li.addEventListener('click', () => loadBetIntoVerifier(e));
+      }
       fairHistory.appendChild(li);
     });
   }
@@ -123,6 +130,7 @@
   // verifier can prove the revealed seed matches the hash it was committed
   // under (NOT the freshly-minted current hash).
   let lastRevealed = { seed: '', hash: '' };
+  let fvExpectedHash = ''; // the commitment the loaded seed/bet should match
   document.getElementById('fairRotate').addEventListener('click', async () => {
     try {
       const r = await Fair.rotate();
@@ -163,8 +171,26 @@
     fvSeed.value = s.revealedSeed || '';
     fvClient.value = s.clientSeed || '';
     fvNonce.value = 0;
+    fvExpectedHash = lastRevealed.hash || '';
     if (!s.revealedSeed) Toast.warn('Rotate the server seed first to reveal one.');
   });
+  // Load a past bet (from the Recent Rolls list) into the verifier.
+  function loadBetIntoVerifier(roll) {
+    if (roll.nonce == null || !roll.serverHash) { Toast.warn('This bet predates per-bet verification.'); return; }
+    fvExpectedHash = roll.serverHash;
+    fvClient.value = roll.clientSeed || '';
+    fvNonce.value = roll.nonce;
+    if (lastRevealed.hash && lastRevealed.hash === roll.serverHash && lastRevealed.seed) {
+      // The seed this bet used has already been revealed → verify immediately.
+      fvSeed.value = lastRevealed.seed;
+      document.getElementById('fvRun').click();
+    } else {
+      fvSeed.value = '';
+      fvResult.innerHTML = `<div class="fv-commit">Loaded <b>${roll.game}</b> at nonce ${roll.nonce}. Rotate the server seed this bet used to reveal it, then press Verify — or paste the revealed seed.</div>`;
+    }
+    const box = document.querySelector('.fair-verify');
+    if (box) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
   document.getElementById('fvRun').addEventListener('click', async () => {
     const seed = fvSeed.value.trim(), client = fvClient.value.trim();
     const nonce = Math.max(0, parseInt(fvNonce.value, 10) || 0);
@@ -174,12 +200,13 @@
     fvResult.innerHTML = '<span class="muted">Computing…</span>';
     try {
       const [hash, floats] = await Promise.all([Fair.sha256Hex(seed), Fair.floatsFrom(seed, client, nonce, count)]);
-      // Only claim a match when we know the hash THIS seed was committed under
-      // (captured at rotation). Otherwise just show the computed hash.
+      // Compare sha256(seed) against the commitment we're verifying against — a
+      // loaded past bet's hash, or the seed disclosed at the last rotation.
+      const target = fvExpectedHash || (seed === lastRevealed.seed ? lastRevealed.hash : '');
       let commit;
-      if (lastRevealed.hash && seed === lastRevealed.seed) {
-        const ok = hash === lastRevealed.hash;
-        commit = `<div class="fv-commit ${ok ? 'ok' : 'bad'}">${ok ? '✓ sha256(seed) matches the hash committed before you played — this seed is genuine.' : '✕ sha256(seed) does NOT match the committed hash.'}</div>`;
+      if (target) {
+        const ok = hash === target;
+        commit = `<div class="fv-commit ${ok ? 'ok' : 'bad'}">${ok ? '✓ sha256(seed) matches the hash committed before this bet — genuine.' : '✕ sha256(seed) does NOT match the committed hash for this bet.'}</div>`;
       } else {
         commit = `<div class="fv-commit">sha256(seed) = <code>${hash.slice(0, 24)}…</code> <span class="muted">— compare this to the hash you saved before playing.</span></div>`;
       }

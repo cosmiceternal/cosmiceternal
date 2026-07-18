@@ -278,10 +278,21 @@ async function balanceOf(q, userId) {
   return Number(rows[0].balance_cents);
 }
 async function recordBet(q, userId, b) {
-  await q(`INSERT INTO bets(user_id, game, bet_cents, mult, payout_cents, win, nonce, detail, created_at)
-           VALUES(?,?,?,?,?,?,?,?,?)`,
+  // Capture the provably-fair commitment + client seed active for this bet so
+  // it can be re-derived later. recordBet runs in the same tx as the draw, so
+  // the fair row still holds exactly the seed/hash the outcome used. (A game
+  // may pass them explicitly; otherwise we read the live fair row.)
+  let serverHash = b.serverHash, clientSeed = b.clientSeed;
+  if (serverHash == null || clientSeed == null) {
+    try {
+      const { rows } = await q('SELECT server_hash, client_seed FROM fair WHERE user_id = ?', [userId]);
+      if (rows[0]) { serverHash = serverHash ?? rows[0].server_hash; clientSeed = clientSeed ?? rows[0].client_seed; }
+    } catch (_) { /* fairness metadata is best-effort; never block a settled bet */ }
+  }
+  await q(`INSERT INTO bets(user_id, game, bet_cents, mult, payout_cents, win, nonce, detail, server_hash, client_seed, created_at)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
     [userId, b.game, b.betCents, b.mult, b.payoutCents, b.win ? 1 : 0, b.nonce,
-     b.detail ? JSON.stringify(b.detail) : null, Date.now()]);
+     b.detail ? JSON.stringify(b.detail) : null, serverHash || null, clientSeed || null, Date.now()]);
   // Award XP + check achievements + bump level inside the same tx. The delta
   // is stashed in the request-scoped store so the `h()` wrapper in index.js
   // can merge it into the response without every game touching its return.
@@ -2255,7 +2266,7 @@ async function leaderboard(userId, metric = 'xp', limit = 10) {
 async function history(userId, limit = 30) {
   limit = Math.max(1, Math.min(100, Number(limit) || 30));
   const { rows } = await db.query(
-    'SELECT game, bet_cents, mult, payout_cents, win, created_at FROM bets WHERE user_id = ? ORDER BY id DESC LIMIT ?',
+    'SELECT game, bet_cents, mult, payout_cents, win, nonce, server_hash, client_seed, created_at FROM bets WHERE user_id = ? ORDER BY id DESC LIMIT ?',
     [userId, limit]
   );
   return rows.map(r => ({
@@ -2265,6 +2276,10 @@ async function history(userId, limit = 30) {
     win: !!Number(r.win),
     payout: Number(r.payout_cents) / 100,
     profit: (Number(r.payout_cents) - Number(r.bet_cents)) / 100,
+    // Provably-fair coordinates for independent verification (null on old rows).
+    nonce: r.nonce != null ? Number(r.nonce) : null,
+    serverHash: r.server_hash || null,
+    clientSeed: r.client_seed || null,
     ts: Number(r.created_at)
   }));
 }
