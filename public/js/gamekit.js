@@ -60,7 +60,12 @@
     Feed.recordPlayerBet({ game, bet: betAmt, mult, win, payout: res.payout || 0 });
     if (win) Toast.win(`+${Bankroll.fmt((res.payout || 0) - betAmt)} @ ${mult.toFixed(2)}×`);
     else Toast.loss(`−${Bankroll.fmt(betAmt)}`);
-    if (win && mult >= 10 && global.Confetti) Confetti.burst({ count: mult >= 50 ? 140 : 90 });
+    // Big multiplier → centered celebration banner (owns its own confetti).
+    // Fall back to a plain burst if WinFx isn't present for some reason.
+    if (win && mult >= 10) {
+      if (global.WinFx) WinFx.show({ amount: (res.payout || 0) - betAmt, mult });
+      else if (global.Confetti) Confetti.burst({ count: mult >= 50 ? 140 : 90 });
+    }
     if (global.Sound) Sound.play(win ? (mult >= 10 ? 'bigwin' : 'win') : 'loss');
     // Progressive jackpot piggybacks on slot responses: keep the ticker live,
     // and go loud when it actually drops.
