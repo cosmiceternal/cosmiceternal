@@ -379,6 +379,15 @@ app.get( '/api/admin/audit',    auth.requireAuth, auth.requireAdmin, h((req) => 
 app.get( '/api/admin/withdrawals', auth.requireAuth, auth.requireAdmin, h((req) => vault.adminListWithdrawals(req.query)));
 app.post('/api/admin/withdrawal/:id', auth.requireAuth, auth.requireAdmin, intId, h((req) =>
   vault.adminSettleWithdrawal(req, { withdrawalId: req.params.id, action: (req.body || {}).action, txid: (req.body || {}).txid })));
+// Global settings (deposit-limit config), per-user overrides, moderation,
+// analytics time-series, and a live bets feed for the standalone dashboard.
+app.get( '/api/admin/settings', auth.requireAuth, auth.requireAdmin, h(()    => admin.getSettings()));
+app.post('/api/admin/settings', auth.requireAuth, auth.requireAdmin, h((req) => admin.updateSettings(req, req.body || {})));
+app.post('/api/admin/user/:id/deposit-limit', auth.requireAuth, auth.requireAdmin, intId, h((req) => admin.setUserDepositLimit(req, req.params.id, req.body || {})));
+app.post('/api/admin/user/:id/reset-seeds',   auth.requireAuth, auth.requireAdmin, intId, h((req) => admin.resetSeeds(req, req.params.id)));
+app.post('/api/admin/user/:id/logout',        auth.requireAuth, auth.requireAdmin, intId, h((req) => admin.forceLogout(req, req.params.id)));
+app.get( '/api/admin/analytics', auth.requireAuth, auth.requireAdmin, h((req) => admin.analytics(req.query)));
+app.get( '/api/admin/live',      auth.requireAuth, auth.requireAdmin, h((req) => admin.liveFeed(req.query)));
 
 // Unmatched API routes return JSON, not the SPA shell.
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
@@ -411,6 +420,12 @@ app.use(express.static(PUBLIC, {
 app.get(/\.[a-zA-Z0-9]{1,8}$/, (req, res) => {
   res.status(404).type('text/plain').send('Not found');
 });
+
+// Standalone admin dashboard (a separate page, not the SPA). Access is enforced
+// at the API layer (every /api/admin/* route requires an admin session); the
+// page itself gates on /api/me and shows a sign-in prompt to non-admins.
+app.get(['/admin', '/admin/'], (req, res) =>
+  res.set('Cache-Control', 'no-cache').sendFile(path.join(PUBLIC, 'admin', 'index.html')));
 
 // Everything else is an app/navigation route → serve the SPA shell.
 app.get('*', (req, res) => res.set('Cache-Control', 'no-cache').sendFile(path.join(PUBLIC, 'index.html')));

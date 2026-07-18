@@ -49,6 +49,96 @@ async function enforceDepositEligibility(q, userId) {
   }
 }
 
+// ---------------- Deposit limits (graduated + admin override) ----------------
+// New accounts get a reduced daily deposit cap until they've wagered enough
+// (turnover gate), then the full cap unlocks. Admins can tune the three knobs
+// globally, or set a hard per-user override that wins over the ramp entirely.
+const DEP_KEYS = {
+  newCap:  'deposit_new_cap_cents',
+  unlock:  'deposit_unlock_turnover_cents',
+  fullCap: 'deposit_full_cap_cents'
+};
+// Full-cap default mirrors vault's DEFAULT_CAP_CENTS so behaviour is unchanged
+// until an admin configures the ramp.
+const DEP_DEFAULTS = {
+  newCap:  Math.round(Number(process.env.DEPOSIT_NEW_CAP_CRYPT || 500) * 100),
+  unlock:  Math.round(Number(process.env.DEPOSIT_UNLOCK_CRYPT || 2500) * 100),
+  fullCap: Math.round(Number(process.env.DAILY_DEPOSIT_CAP_CRYPT || process.env.DAILY_DEPOSIT_CAP_FUN || 5000) * 100)
+};
+
+async function depositConfig() {
+  const [n, u, f] = await Promise.all([
+    db.getSetting(DEP_KEYS.newCap),
+    db.getSetting(DEP_KEYS.unlock),
+    db.getSetting(DEP_KEYS.fullCap)
+  ]);
+  const num = (v, d) => { const x = Number(v); return v != null && isFinite(x) && x >= 0 ? x : d; };
+  return {
+    newCapCents:  num(n, DEP_DEFAULTS.newCap),
+    unlockCents:  num(u, DEP_DEFAULTS.unlock),
+    fullCapCents: num(f, DEP_DEFAULTS.fullCap)
+  };
+}
+
+async function setDepositConfig(req, { newCap, unlock, fullCap } = {}) {
+  const toCents = (v, label) => {
+    const x = Number(v);
+    if (!isFinite(x) || x < 0 || x > 10_000_000) throw httpError(400, `${label} must be between 0 and 10,000,000 CRYPT.`);
+    return Math.round(x * 100);
+  };
+  const cfg = await depositConfig();
+  const next = {
+    newCapCents:  newCap  === undefined ? cfg.newCapCents  : toCents(newCap,  'New-account cap'),
+    unlockCents:  unlock  === undefined ? cfg.unlockCents  : toCents(unlock,  'Unlock threshold'),
+    fullCapCents: fullCap === undefined ? cfg.fullCapCents : toCents(fullCap, 'Full cap')
+  };
+  if (next.newCapCents > next.fullCapCents) throw httpError(400, 'New-account cap cannot exceed the full cap.');
+  await Promise.all([
+    db.setSetting(DEP_KEYS.newCap,  String(next.newCapCents)),
+    db.setSetting(DEP_KEYS.unlock,  String(next.unlockCents)),
+    db.setSetting(DEP_KEYS.fullCap, String(next.fullCapCents))
+  ]);
+  logAudit(req, 'admin.deposit_config', req.user.id, {
+    newCap: next.newCapCents / 100, unlock: next.unlockCents / 100, fullCap: next.fullCapCents / 100
+  });
+  return depositConfig();
+}
+
+// Effective daily deposit cap for a user: a hard admin override wins; otherwise
+// the ramp — reduced cap until lifetime turnover clears the unlock threshold.
+async function effectiveDepositCap(userId) {
+  const { rows } = await db.query('SELECT deposit_limit_cents FROM users WHERE id = ?', [userId]);
+  const override = rows[0] && rows[0].deposit_limit_cents != null ? Number(rows[0].deposit_limit_cents) : null;
+  const cfg = await depositConfig();
+  const { rows: t } = await db.query('SELECT COALESCE(SUM(bet_cents), 0) AS w FROM bets WHERE user_id = ?', [userId]);
+  const turnoverCents = Number(t[0]?.w || 0);
+  if (override != null) {
+    return { capCents: override, tier: 'override', turnoverCents, unlockCents: cfg.unlockCents, override: true };
+  }
+  const unlocked = turnoverCents >= cfg.unlockCents;
+  return {
+    capCents: unlocked ? cfg.fullCapCents : cfg.newCapCents,
+    tier: unlocked ? 'full' : 'new',
+    turnoverCents, unlockCents: cfg.unlockCents, override: false
+  };
+}
+
+// Admin sets/clears a per-user hard deposit cap (in CRYPT; null clears it).
+async function setUserDepositLimit(req, userId, { limit } = {}) {
+  if (limit === null || limit === undefined || limit === '') {
+    const r = await db.query('UPDATE users SET deposit_limit_cents = NULL WHERE id = ?', [userId]);
+    if (!r.rowCount) throw httpError(404, 'User not found.');
+    logAudit(req, 'admin.deposit_limit_cleared', req.user.id, { target: Number(userId) });
+    return effectiveDepositCap(userId);
+  }
+  const v = Number(limit);
+  if (!isFinite(v) || v < 0 || v > 10_000_000) throw httpError(400, 'Deposit limit must be between 0 and 10,000,000 CRYPT.');
+  const r = await db.query('UPDATE users SET deposit_limit_cents = ? WHERE id = ?', [Math.round(v * 100), userId]);
+  if (!r.rowCount) throw httpError(404, 'User not found.');
+  logAudit(req, 'admin.deposit_limit_set', req.user.id, { target: Number(userId), limit: v });
+  return effectiveDepositCap(userId);
+}
+
 async function state(userId) {
   const { rows } = await db.query('SELECT loss_limit_cents, excluded_until FROM users WHERE id = ?', [userId]);
   const u = rows[0] || {};
@@ -92,4 +182,7 @@ async function selfExclude(req, userId, { days }) {
   return state(userId);
 }
 
-module.exports = { state, setLossLimit, selfExclude, enforceWagerEligibility, enforceDepositEligibility };
+module.exports = {
+  state, setLossLimit, selfExclude, enforceWagerEligibility, enforceDepositEligibility,
+  depositConfig, setDepositConfig, effectiveDepositCap, setUserDepositLimit
+};

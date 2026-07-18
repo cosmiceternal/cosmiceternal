@@ -162,6 +162,7 @@ async function dailyTotal(userId) {
 
 async function publicSnapshot(userId) {
   const p = processor();
+  const [cap, used] = await Promise.all([limits.effectiveDepositCap(userId), dailyTotal(userId)]);
   return {
     processor: p.name,
     processorLabel: p.label,
@@ -170,8 +171,12 @@ async function publicSnapshot(userId) {
       code, presets: cfg.presets, decimals: cfg.decimals,
       funPerUnit: cfg.rate, min: cfg.min
     })),
-    dailyCapFun: DEFAULT_CAP_CENTS / 100,
-    dailyUsedFun: (await dailyTotal(userId)) / 100
+    dailyCapFun: cap.capCents / 100,
+    dailyUsedFun: used / 100,
+    // Ramp context so the client can nudge new accounts toward the full cap.
+    capTier: cap.tier,                          // 'new' | 'full' | 'override'
+    unlockTurnoverFun: cap.unlockCents / 100,
+    turnoverFun: cap.turnoverCents / 100
   };
 }
 
@@ -186,10 +191,13 @@ async function createDeposit(req, userId, { currency, amount }) {
   if (funCents <= 0) throw httpError(400, 'Amount too small to credit any CRYPT.');
 
   // Daily cap (applied across all completed deposits today + this in-flight one).
-  // dailyTotal() returns cents — same units as DEFAULT_CAP_CENTS and funCents.
+  // The cap is the user's effective cap: a reduced ramp for new accounts, the
+  // full cap once turnover unlocks it, or an admin per-user override.
+  // dailyTotal() returns cents — same units as capCents and funCents.
+  const { capCents } = await limits.effectiveDepositCap(userId);
   const usedCents = await dailyTotal(userId);
-  if (usedCents + funCents > DEFAULT_CAP_CENTS) {
-    const remaining = Math.max(0, (DEFAULT_CAP_CENTS - usedCents) / 100);
+  if (usedCents + funCents > capCents) {
+    const remaining = Math.max(0, (capCents - usedCents) / 100);
     throw httpError(429, `Daily deposit cap reached. Remaining today: ${remaining.toFixed(2)} CRYPT.`);
   }
   // Limit the number of in-flight pending deposits so a user can't spam orphan rows.
@@ -237,7 +245,8 @@ async function confirmDeposit(req, userId, { depositId }) {
       [userId, startOfDay()]
     );
     const usedCents = Number(agg[0]?.t || 0);
-    if (usedCents + Number(dep.fun_credited) > DEFAULT_CAP_CENTS) {
+    const { capCents } = await limits.effectiveDepositCap(userId);
+    if (usedCents + Number(dep.fun_credited) > capCents) {
       await q("UPDATE deposits SET status = 'cancelled' WHERE id = ?", [depositId]);
       throw httpError(429, 'Daily cap would be exceeded by this deposit.');
     }
