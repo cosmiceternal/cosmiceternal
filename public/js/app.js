@@ -119,9 +119,14 @@
   document.getElementById('btnFair').addEventListener('click', openFair);
   document.getElementById('fairClose').addEventListener('click', () => fairModal.classList.add('hidden'));
   fairModal.addEventListener('click', (e) => { if (e.target === fairModal) fairModal.classList.add('hidden'); });
+  // Remember the seed→hash commitment disclosed at the last rotation, so the
+  // verifier can prove the revealed seed matches the hash it was committed
+  // under (NOT the freshly-minted current hash).
+  let lastRevealed = { seed: '', hash: '' };
   document.getElementById('fairRotate').addEventListener('click', async () => {
     try {
       const r = await Fair.rotate();
+      lastRevealed = { seed: r.revealedSeed || '', hash: r.revealedHash || '' };
       renderFairState(Fair.getState());
       renderFairHistory();
       Toast.info(`Seed rotated — previous seed revealed (${r.finalNonce} bets).`);
@@ -137,6 +142,54 @@
     } catch (e) { Toast.error(e.message); }
   });
   Fair.subscribe(renderFairState);
+
+  // Copy buttons on the seed / hash fields (long hex → easy to paste elsewhere).
+  document.querySelectorAll('#fairModal .copy-btn').forEach(btn => btn.addEventListener('click', async () => {
+    const el = document.getElementById(btn.dataset.copy);
+    const val = (el && el.value) || '';
+    if (!val) return;
+    try { await navigator.clipboard.writeText(val); }
+    catch (_) { try { el.select(); document.execCommand('copy'); } catch (e2) {} }
+    const old = btn.textContent; btn.textContent = '✓'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1000);
+  }));
+
+  // Independent verifier: recompute the raw HMAC float stream in-browser.
+  const fvSeed = document.getElementById('fvSeed'), fvClient = document.getElementById('fvClient'),
+        fvNonce = document.getElementById('fvNonce'), fvCount = document.getElementById('fvCount'),
+        fvResult = document.getElementById('fvResult');
+  document.getElementById('fvPrefill').addEventListener('click', () => {
+    const s = Fair.getState();
+    fvSeed.value = s.revealedSeed || '';
+    fvClient.value = s.clientSeed || '';
+    fvNonce.value = 0;
+    if (!s.revealedSeed) Toast.warn('Rotate the server seed first to reveal one.');
+  });
+  document.getElementById('fvRun').addEventListener('click', async () => {
+    const seed = fvSeed.value.trim(), client = fvClient.value.trim();
+    const nonce = Math.max(0, parseInt(fvNonce.value, 10) || 0);
+    const count = Math.min(20, Math.max(1, parseInt(fvCount.value, 10) || 8));
+    if (!Fair.hasSubtle()) { fvResult.innerHTML = '<span class="fv-bad">Verification needs a secure (https) page.</span>'; return; }
+    if (!seed) { fvResult.innerHTML = '<span class="fv-bad">Enter a server seed to verify.</span>'; return; }
+    fvResult.innerHTML = '<span class="muted">Computing…</span>';
+    try {
+      const [hash, floats] = await Promise.all([Fair.sha256Hex(seed), Fair.floatsFrom(seed, client, nonce, count)]);
+      // Only claim a match when we know the hash THIS seed was committed under
+      // (captured at rotation). Otherwise just show the computed hash.
+      let commit;
+      if (lastRevealed.hash && seed === lastRevealed.seed) {
+        const ok = hash === lastRevealed.hash;
+        commit = `<div class="fv-commit ${ok ? 'ok' : 'bad'}">${ok ? '✓ sha256(seed) matches the hash committed before you played — this seed is genuine.' : '✕ sha256(seed) does NOT match the committed hash.'}</div>`;
+      } else {
+        commit = `<div class="fv-commit">sha256(seed) = <code>${hash.slice(0, 24)}…</code> <span class="muted">— compare this to the hash you saved before playing.</span></div>`;
+      }
+      const list = floats.map((f, i) => `<li><span class="fvf-i">#${i}</span><code>${f.toFixed(8)}</code></li>`).join('');
+      fvResult.innerHTML = commit + `<ol class="fv-floats">${list}</ol>` +
+        `<p class="muted fv-foot">Raw floats HMAC-SHA256 draws for nonce ${nonce}. Each game turns them into its result (a card, a multiplier, a grid…). Same inputs → same floats, every time.</p>`;
+    } catch (e) {
+      fvResult.innerHTML = `<span class="fv-bad">Could not compute: ${e.message}</span>`;
+    }
+  });
 
   // ----- Stats modal -----
   const statsModal = document.getElementById('statsModal');

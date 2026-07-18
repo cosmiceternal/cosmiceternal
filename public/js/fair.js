@@ -38,5 +38,32 @@
   function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
   function notify() { subs.forEach(fn => { try { fn(getState()); } catch (e) {} }); }
 
-  global.Fair = { refresh, getState, bumpNonce, setClientSeed, rotate, getHistory, subscribe };
+  // ---- Independent client-side verification (mirrors server/fair.js exactly) ----
+  // The server commits to server_hash = SHA-256(serverSeed) where serverSeed is
+  // the 64-char hex STRING, and draws floats from HMAC-SHA256(serverSeed,
+  // `${clientSeed}:${nonce}:${round}`), 4 bytes at a time as a base-256 fraction.
+  // Both are reproduced here with WebCrypto so a skeptic can confirm the numbers
+  // without trusting us. Requires a secure context (https or localhost).
+  function hasSubtle() { return !!(global.crypto && global.crypto.subtle); }
+  async function sha256Hex(str) {
+    if (!hasSubtle()) throw new Error('secure context required');
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  async function floatsFrom(serverSeed, clientSeed, nonce, count) {
+    if (!hasSubtle()) throw new Error('secure context required');
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', enc.encode(serverSeed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const out = []; let round = 0;
+    while (out.length < count && round < 64) {
+      const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(`${clientSeed}:${nonce}:${round}`)));
+      for (let i = 0; i + 4 <= sig.length && out.length < count; i += 4) {
+        out.push(sig[i] / 256 + sig[i + 1] / 65536 + sig[i + 2] / 16777216 + sig[i + 3] / 4294967296);
+      }
+      round++;
+    }
+    return out;
+  }
+
+  global.Fair = { refresh, getState, bumpNonce, setClientSeed, rotate, getHistory, subscribe, sha256Hex, floatsFrom, hasSubtle };
 })(window);

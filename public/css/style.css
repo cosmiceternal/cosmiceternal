@@ -2695,3 +2695,46 @@ input { font-family: inherit; }
   pointer-events: none;
   z-index: 0;
 }
+
+/* ============================================================
+   Provably-Fair modal refinement — stepper, copy buttons, and an
+   in-browser verifier that recomputes the HMAC float stream. */
+.fair-steps { list-style: none; margin: 4px 0 16px; padding: 0; display: grid; gap: 8px; }
+.fair-steps li { display: flex; gap: 11px; align-items: flex-start; }
+.fs-n {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 800; font-size: 12px;
+  color: #0e0d1a; background: linear-gradient(135deg, var(--accent-2), var(--gold));
+  box-shadow: 0 0 12px -2px var(--accent-glow);
+}
+.fair-steps b { font-size: 13px; }
+.fair-steps small { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.5; margin-top: 1px; }
+
+.kv-copy { display: flex; gap: 6px; align-items: stretch; }
+.kv-copy input { flex: 1; min-width: 0; }
+.copy-btn { flex-shrink: 0; padding: 0 12px; font-size: 15px; line-height: 1; }
+.copy-btn.copied { color: var(--teal); border-color: var(--teal); }
+
+.fair-verify { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.fv-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fv-head h4 { margin: 0; font-size: 14px; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.fv-note { font-size: 11.5px; line-height: 1.55; margin: 6px 0 12px; }
+.fv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.fv-grid label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); font-weight: 700; }
+.fv-grid input { background: var(--bg-3); border: 1px solid var(--line); color: var(--text); padding: 9px 11px; border-radius: 9px; font: inherit; font-variant-numeric: tabular-nums; }
+.fv-grid input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,94,156,0.16); }
+.fv-grid label:nth-child(1), .fv-grid label:nth-child(2) { grid-column: 1 / -1; }
+.fv-result:empty { display: none; }
+.fv-result { margin-top: 14px; }
+.fv-commit { font-size: 12.5px; font-weight: 700; padding: 9px 12px; border-radius: 9px; background: var(--bg-3); border: 1px solid var(--line); }
+.fv-commit.ok { color: var(--teal); background: rgba(95,227,192,0.1); border-color: rgba(95,227,192,0.35); }
+.fv-commit.bad { color: var(--danger); background: rgba(255,107,138,0.1); border-color: rgba(255,107,138,0.4); }
+.fv-commit code { color: var(--violet); }
+.fv-floats { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 5px 14px; }
+.fv-floats li { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+.fvf-i { color: var(--muted); font-size: 11px; font-weight: 700; width: 26px; flex-shrink: 0; }
+.fv-floats code { color: var(--teal); font-size: 12.5px; }
+.fv-foot { font-size: 11px; line-height: 1.5; margin: 12px 0 0; }
+.fv-bad { color: var(--danger); font-size: 12.5px; font-weight: 600; }
+@media (max-width: 480px) { .fv-floats { grid-template-columns: 1fr; } }
