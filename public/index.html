@@ -193,22 +193,23 @@
           </div>
           <p class="muted" style="font-size:10px;">*with optimal play. All outcomes are drawn from the verifiable HMAC stream below — the math is auditable in the open-source server code.</p>
         </details>
-        <p class="muted">
-          Outcomes are generated server-side by HMAC-SHA256(<em>server seed</em>, <em>client seed</em>:<em>nonce</em>).
-          The server seed is committed (its hash is shown) before you play. Rotate the seed to reveal the original — then
-          you can recompute every past roll and confirm nothing was tampered with.
-        </p>
+        <ol class="fair-steps">
+          <li><span class="fs-n">1</span><div><b>Commit</b><small>Before any bet, the server hashes a secret seed — you see the hash below, so the seed is locked in and can't change.</small></div></li>
+          <li><span class="fs-n">2</span><div><b>Play</b><small>Each bet mixes that seed with your client seed and a nonce through HMAC-SHA256 to draw the outcome.</small></div></li>
+          <li><span class="fs-n">3</span><div><b>Reveal &amp; verify</b><small>Rotate to reveal the seed, then recompute the draws right here and confirm the hash matches.</small></div></li>
+        </ol>
+
         <div class="kv">
           <label>Server Seed Hash <small>(committed)</small></label>
-          <input id="fairServerHash" readonly />
+          <div class="kv-copy"><input id="fairServerHash" readonly /><button class="btn btn-ghost copy-btn" data-copy="fairServerHash" title="Copy">⧉</button></div>
         </div>
         <div class="kv">
           <label>Server Seed <small>(revealed after rotation)</small></label>
-          <input id="fairServerSeed" readonly placeholder="hidden until rotated" />
+          <div class="kv-copy"><input id="fairServerSeed" readonly placeholder="hidden until rotated" /><button class="btn btn-ghost copy-btn" data-copy="fairServerSeed" title="Copy">⧉</button></div>
         </div>
         <div class="kv">
           <label>Client Seed</label>
-          <input id="fairClientSeed" />
+          <div class="kv-copy"><input id="fairClientSeed" /><button class="btn btn-ghost copy-btn" data-copy="fairClientSeed" title="Copy">⧉</button></div>
         </div>
         <div class="kv">
           <label>Nonce <small>(bets on this seed)</small></label>
@@ -217,6 +218,22 @@
         <div class="row">
           <button class="btn btn-primary" id="fairRotate">Rotate Server Seed</button>
           <button class="btn btn-ghost" id="fairUpdateClient">Update Client Seed</button>
+        </div>
+
+        <div class="fair-verify">
+          <div class="fv-head">
+            <h4>Verify a draw</h4>
+            <button class="btn btn-ghost btn-sm" id="fvPrefill">Use revealed seed</button>
+          </div>
+          <p class="muted fv-note">Recompute the raw HMAC float stream yourself — entirely in your browser, no server involved. Enter a revealed server seed, the client seed, and a nonce; each game turns these floats into its result.</p>
+          <div class="fv-grid">
+            <label>Server seed<input id="fvSeed" placeholder="revealed 64-char seed" spellcheck="false" /></label>
+            <label>Client seed<input id="fvClient" spellcheck="false" /></label>
+            <label>Nonce<input id="fvNonce" type="number" min="0" value="0" /></label>
+            <label>Floats<input id="fvCount" type="number" min="1" max="20" value="8" /></label>
+          </div>
+          <button class="btn btn-primary btn-block" id="fvRun">Verify</button>
+          <div class="fv-result" id="fvResult"></div>
         </div>
         <div class="fair-history">
           <h4>Recent Rolls</h4>
