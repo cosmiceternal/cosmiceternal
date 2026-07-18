@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Crypt Casino — Admin Console</title>
+  <link rel="stylesheet" href="/admin/admin.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2222%22>%E2%9A%A1</text></svg>" />
+</head>
+<body>
+  <!-- Sign-in gate (shown to non-admins / signed-out visitors) -->
+  <div class="gate" id="gate" hidden>
+    <div class="gate-card">
+      <div class="gate-brand"><span class="gate-mark">✦</span> CRYPT <span class="accent">ADMIN</span></div>
+      <p class="gate-tag" id="gateTag">Sign in with an administrator account.</p>
+      <form id="gateForm" autocomplete="off">
+        <label>Username</label>
+        <input id="gateUser" type="text" autocomplete="username" />
+        <label>Password</label>
+        <input id="gatePass" type="password" autocomplete="current-password" />
+        <div class="gate-error" id="gateError"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="gateSubmit">Sign In</button>
+      </form>
+      <a class="gate-back" href="/">← Back to the casino</a>
+    </div>
+  </div>
+
+  <!-- Dashboard shell -->
+  <div class="shell" id="shell" hidden>
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">✦</span> CRYPT <span class="accent">ADMIN</span></div>
+      <nav class="nav" id="nav">
+        <button class="nav-item active" data-view="overview"><span class="ni-ic">📊</span> Overview</button>
+        <button class="nav-item" data-view="users"><span class="ni-ic">👥</span> Users</button>
+        <button class="nav-item" data-view="financial"><span class="ni-ic">💰</span> Financial</button>
+        <button class="nav-item" data-view="live"><span class="ni-ic">📡</span> Live</button>
+        <button class="nav-item" data-view="audit"><span class="ni-ic">📜</span> Audit</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="who" id="who">—</div>
+        <a class="side-link" href="/">↗ Open casino</a>
+        <button class="side-link danger" id="btnSignout">Sign out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topline">
+        <h1 id="viewTitle">Overview</h1>
+        <div class="topline-actions" id="toplineActions"></div>
+      </header>
+
+      <!-- OVERVIEW -->
+      <section class="view" id="view-overview">
+        <div class="stat-row" id="ovStats"></div>
+        <div class="chart-grid">
+          <div class="panel">
+            <div class="panel-head"><h3>Wagered vs Paid out</h3><span class="panel-sub" id="ovRangeLabel"></span></div>
+            <div class="chart" id="chartVolume"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>House edge</h3><span class="panel-sub">daily</span></div>
+            <div class="chart" id="chartEdge"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>New players</h3><span class="panel-sub">per day</span></div>
+            <div class="chart" id="chartUsers"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Deposits vs Withdrawals</h3><span class="panel-sub">CRYPT/day</span></div>
+            <div class="chart" id="chartFlows"></div>
+          </div>
+          <div class="panel wide">
+            <div class="panel-head"><h3>Top games by turnover</h3><span class="panel-sub">house edge shown per bar</span></div>
+            <div class="chart" id="chartGames"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- USERS -->
+      <section class="view" id="view-users" hidden>
+        <div class="toolbar">
+          <input class="search" id="userSearch" type="text" placeholder="Search username…" />
+          <button class="btn" id="usersRefresh">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl" id="usersTable">
+            <thead><tr><th>ID</th><th>User</th><th class="num">Balance</th><th>Lvl</th><th class="num">Bets</th><th class="num">Wagered</th><th>Flags</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- FINANCIAL -->
+      <section class="view" id="view-financial" hidden>
+        <div class="panel">
+          <div class="panel-head"><h3>Deposit limits</h3><span class="panel-sub">graduated by turnover</span></div>
+          <p class="hint">New accounts are capped at the <b>new-account</b> daily limit until their lifetime turnover (total wagered) clears the unlock threshold, then the <b>full</b> daily limit applies. A per-user override (set on a user's page) beats this ramp.</p>
+          <form class="dep-form" id="depForm">
+            <label>New-account daily cap <span class="unit">CRYPT</span>
+              <input id="depNew" type="number" min="0" step="1" />
+            </label>
+            <label>Unlock threshold <span class="unit">CRYPT wagered</span>
+              <input id="depUnlock" type="number" min="0" step="1" />
+            </label>
+            <label>Full daily cap <span class="unit">CRYPT</span>
+              <input id="depFull" type="number" min="0" step="1" />
+            </label>
+            <button type="submit" class="btn btn-primary" id="depSave">Save limits</button>
+            <span class="save-note" id="depNote"></span>
+          </form>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Withdrawal queue</h3><span class="panel-sub">pending payouts</span></div>
+          <div class="table-wrap">
+            <table class="tbl" id="wdTable">
+              <thead><tr><th>ID</th><th>User</th><th>Currency</th><th class="num">Amount</th><th class="num">CRYPT</th><th>Address</th><th>Status</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIVE -->
+      <section class="view" id="view-live" hidden>
+        <div class="toolbar">
+          <span class="live-dot"></span> <span class="muted" id="liveStatus">Live feed paused</span>
+          <button class="btn" id="liveToggle">Pause</button>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl" id="liveTable">
+            <thead><tr><th>#</th><th>User</th><th>Game</th><th class="num">Bet</th><th class="num">Mult</th><th class="num">Profit</th><th>When</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- AUDIT -->
+      <section class="view" id="view-audit" hidden>
+        <div class="toolbar"><button class="btn" id="auditRefresh">Refresh</button></div>
+        <div class="table-wrap">
+          <table class="tbl" id="auditTable">
+            <thead><tr><th>Event</th><th>User</th><th>IP</th><th>Meta</th><th>When</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- User detail drawer -->
+  <div class="drawer-backdrop" id="userDrawer" hidden>
+    <div class="drawer" id="drawerInner"></div>
+  </div>
+
+  <div class="toast-stack" id="toasts"></div>
+
+  <script src="/admin/dashboard.js"></script>
+</body>
+</html>
