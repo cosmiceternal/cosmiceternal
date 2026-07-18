@@ -300,7 +300,11 @@ const MIGRATIONS = [
   "ALTER TABLE users ADD COLUMN session_epoch INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE users ADD COLUMN loss_limit_cents BIGINT",
   "ALTER TABLE users ADD COLUMN excluded_until BIGINT",
-  "ALTER TABLE users ADD COLUMN deposit_limit_cents BIGINT"
+  "ALTER TABLE users ADD COLUMN deposit_limit_cents BIGINT",
+  // Per-bet provably-fair commitment + client seed, so any past bet can be
+  // independently re-derived once its server seed is revealed.
+  "ALTER TABLE bets ADD COLUMN server_hash TEXT",
+  "ALTER TABLE bets ADD COLUMN client_seed TEXT"
 ];
 
 async function init() {
