@@ -38,6 +38,8 @@
     const c1El = container.querySelector('#rdC1'), c2El = container.querySelector('#rdC2'), c3El = container.querySelector('#rdC3');
     const gapEl = container.querySelector('#rdGap');
     GameKit.wireBet(container, betInput);
+    // Show face-down backs so the felt reads as a real table before the deal.
+    [c1El, c2El, c3El].forEach(el => { el.innerHTML = cardHTML(null, true); });
 
     async function deal() {
       if (busy) return;
