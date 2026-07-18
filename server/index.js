@@ -320,6 +320,9 @@ app.post('/api/play/sugarblast', auth.requireAuth, h((req) => games.playSugarBla
 app.post('/api/play/zeusgates',  auth.requireAuth, h((req) => games.playZeusGates(req.user.id, req.body || {})));
 app.post('/api/play/slingo',     auth.requireAuth, h((req) => games.playSlingo(req.user.id, req.body || {})));
 app.post('/api/play/miniroulette', auth.requireAuth, h((req) => games.playMiniRoulette(req.user.id, req.body || {})));
+app.post('/api/play/pinata',     auth.requireAuth, h((req) => games.playPinata(req.user.id, req.body || {})));
+app.post('/api/play/fantan',     auth.requireAuth, h((req) => games.playFanTan(req.user.id, req.body || {})));
+app.post('/api/play/reddog',     auth.requireAuth, h((req) => games.playRedDog(req.user.id, req.body || {})));
 
 app.post('/api/play/penalty/start',   auth.requireAuth, h((req) => games.penaltyStart(req.user.id, req.body || {})));
 app.post('/api/play/penalty/shoot',   auth.requireAuth, h((req) => games.penaltyShoot(req.user.id, req.body || {})));

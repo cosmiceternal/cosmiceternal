@@ -57,9 +57,14 @@
     Fair.bumpNonce();
     const win = (typeof res.win === 'boolean') ? res.win : ((res.payout || 0) > betAmt - 1e-9);
     const mult = win ? (res.mult != null ? res.mult : (betAmt > 0 ? (res.payout || 0) / betAmt : 0)) : 0;
-    Feed.recordPlayerBet({ game, bet: betAmt, mult, win, payout: res.payout || 0 });
-    if (win) Toast.win(`+${Bankroll.fmt((res.payout || 0) - betAmt)} @ ${mult.toFixed(2)}×`);
-    else Toast.loss(`−${Bankroll.fmt(betAmt)}`);
+    const payout = res.payout || 0;
+    const net = payout - betAmt;
+    // Feed profit is the TRUE net (payout − bet) so pushes read as 0 and partial
+    // returns (la partage, piñata 0.5×, baccarat ties) don't look like full losses.
+    Feed.recordPlayerBet({ game, bet: betAmt, mult, win, payout, profit: net });
+    if (win) Toast.win(`+${Bankroll.fmt(net)} @ ${mult.toFixed(2)}×`);
+    else if (Math.abs(net) < 1e-9) Toast.info('Push — stake returned');
+    else Toast.loss(`−${Bankroll.fmt(-net)}`);
     // Big multiplier → centered celebration banner (owns its own confetti).
     // Fall back to a plain burst if WinFx isn't present for some reason.
     if (win && mult >= 10) {

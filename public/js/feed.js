@@ -161,8 +161,11 @@
     if (yoursRows.length > MAX_ROWS * 2) yoursRows = yoursRows.slice(0, MAX_ROWS);
     if (betModes()) render();
   }
-  function recordPlayerBet({ game, bet, mult, win, payout }) {
-    prepend({ game, bet, mult: win ? mult : 0, win, payout, profit: win ? payout - bet : -bet, ts: Date.now() });
+  function recordPlayerBet({ game, bet, mult, win, payout, profit }) {
+    // Prefer the caller's true net (payout − bet) so pushes and partial returns
+    // don't display as full losses; fall back to the win/loss estimate.
+    const net = (typeof profit === 'number') ? profit : (win ? payout - bet : -bet);
+    prepend({ game, bet, mult: win ? mult : 0, win, payout, profit: net, ts: Date.now() });
   }
 
   function setMode(m) {

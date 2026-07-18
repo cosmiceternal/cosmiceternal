@@ -2075,6 +2075,102 @@ function playMiniRoulette(userId, { bet, betType, number }) {
   });
 }
 
+// ---------------------------------------------------------------- PIÑATA POP
+// Smash a piñata; it bursts with a multiplier drawn from a weighted table.
+// EV tuned to ~96% RTP. One float in → one multiplier out.
+const PINATA_MULTS = [0, 0.5, 1.5, 3, 10, 50];
+const PINATA_W     = [0.516, 0.22, 0.18, 0.06, 0.02, 0.004]; // sums to 1.0, EV 0.96
+function pinataPick(f) {
+  let acc = 0;
+  for (let i = 0; i < PINATA_MULTS.length; i++) { acc += PINATA_W[i]; if (f < acc) return i; }
+  return PINATA_MULTS.length - 1;
+}
+function playPinata(userId, { bet, pick }) {
+  const betCents = toCents(bet);
+  const chosen = Math.max(0, Math.min(4, Number(pick) || 0)); // which of 5 piñatas (cosmetic)
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 1);
+    const idx = pinataPick(floats[0]);
+    const mult = PINATA_MULTS[idx];
+    const win = mult > 1;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'pinata', betCents, mult: win ? mult : 0, payoutCents, win, nonce, detail: { pick: chosen, mult } });
+    return { pick: chosen, mult, win, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
+// ---------------------------------------------------------------- FAN TAN
+// Classic bead game: a pile is counted out four at a time; you bet the
+// remainder (1–4). Uniform 1–4, pays 3.85× → RTP 96.25%.
+const FANTAN_MULT = 3.85;
+function playFanTan(userId, { bet, pick }) {
+  const betCents = toCents(bet);
+  const p = Number(pick);
+  if (![1, 2, 3, 4].includes(p)) throw httpError(400, 'Pick a remainder of 1, 2, 3 or 4.');
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 2);
+    const remainder = Math.floor(floats[0] * 4) + 1;        // 1..4 uniform
+    const groups = 12 + Math.floor(floats[1] * 8);          // 12..19 groups of 4 (cosmetic pile size)
+    const beads = groups * 4 + remainder;
+    const win = remainder === p;
+    const mult = FANTAN_MULT;
+    const payoutCents = win ? Math.round(betCents * mult) : 0;
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'fantan', betCents, mult: win ? mult : 0, payoutCents, win, nonce, detail: { pick: p, remainder, beads } });
+    return { pick: p, remainder, beads, win, mult, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
+// ---------------------------------------------------------------- RED DOG (Acey-Deucey)
+// Two cards set a spread; a third card wins if it falls strictly between.
+// Payout by spread; pair pays 11× if the third matches, else push. Auto-resolve
+// (no raise). Payouts are the standard Red Dog table → ~96–97% RTP (MC-verified).
+const REDDOG_PAY = { 1: 6, 2: 5, 3: 3, 4: 1 }; // profit odds by spread (4 = "4 or more"); tuned to ~96% RTP
+function reddogSpreadPay(spread) { return REDDOG_PAY[Math.min(4, spread)]; }
+function reddogResolve(floats) {
+  // Draw 3 distinct cards from a 52-card deck (rank 2..14, 4 suits) using floats.
+  const deck = [];
+  for (let r = 2; r <= 14; r++) for (let s = 0; s < 4; s++) deck.push({ r, s });
+  const drawn = [];
+  for (let i = 0; i < 3; i++) {
+    const idx = Math.floor(floats[i] * deck.length);
+    drawn.push(deck.splice(Math.min(idx, deck.length - 1), 1)[0]);
+  }
+  const [c1, c2, c3] = drawn;
+  const lo = Math.min(c1.r, c2.r), hi = Math.max(c1.r, c2.r);
+  if (c1.r === c2.r) {
+    // Pair: third matches → 11× profit; else push.
+    const three = c3.r === c1.r;
+    return { c1, c2, c3, spread: 0, pair: true, outcome: three ? 'trips' : 'push', profit: three ? 11 : 0, push: !three };
+  }
+  const spread = hi - lo - 1;
+  if (spread === 0) return { c1, c2, c3, spread: 0, pair: false, outcome: 'consecutive', profit: 0, push: true };
+  const between = c3.r > lo && c3.r < hi;
+  const pay = reddogSpreadPay(spread);
+  return { c1, c2, c3, spread, pair: false, outcome: between ? 'win' : 'lose', profit: between ? pay : -1, push: false };
+}
+function playRedDog(userId, { bet }) {
+  const betCents = toCents(bet);
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 3);
+    const r = reddogResolve(floats);
+    // mult = total return / stake. push → 1×, win → profit+1, lose → 0.
+    const mult = r.push ? 1 : (r.profit > 0 ? r.profit + 1 : 0);
+    const win = r.profit > 0;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'reddog', betCents, mult: win ? mult : 0, payoutCents, win, nonce, detail: { outcome: r.outcome, spread: r.spread } });
+    return {
+      cards: [r.c1, r.c2, r.c3], spread: r.spread, pair: r.pair, outcome: r.outcome,
+      mult, win, push: r.push, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash
+    };
+  });
+}
+
 // ---------------------------------------------------------------- PENALTY SHOOTOUT (original)
 // Round-based streak. Each round you shoot left/center/right; the keeper (server,
 // pre-drawn) dives to one spot. If it differs from your shot you score and climb;
@@ -2326,6 +2422,7 @@ module.exports = {
   playDerby, playCashHunt, playBigCatch, playRps, playNeonFruits,
   playMegaWheel, playTenPin, playBullseye, playFirecracker, playSugarBlast,
   playZeusGates, playSlingo, playMiniRoulette,
+  playPinata, playFanTan, playRedDog,
   jackpotState, jackpotEnsure,
   penaltyStart, penaltyShoot, penaltyCashout,
   history, stats, globalFeed, anonName, leaderboard, PLINKO, minesMult,
