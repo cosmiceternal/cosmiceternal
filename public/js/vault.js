@@ -148,7 +148,9 @@
       const b = document.createElement('button');
       b.className = 'vault-currency-chip' + (c.code === selectedCurrency ? ' active' : '');
       b.dataset.code = c.code;
-      b.innerHTML = `<span class="vcc-code">${c.code}</span><span class="vcc-rate muted">${c.funPerUnit.toLocaleString()} / unit</span>`;
+      const GLYPH = { BTC: '₿', ETH: 'Ξ', USDT: '₮', SOL: '◎', LTC: 'Ł', DOGE: 'Ð', XRP: '✕', BNB: 'ⓑ' };
+      const g = GLYPH[c.code] || c.code.slice(0, 1);
+      b.innerHTML = `<span class="vcc-glyph" data-code="${c.code}">${g}</span><span class="vcc-text"><span class="vcc-code">${c.code}</span><span class="vcc-rate muted">${c.funPerUnit.toLocaleString()} / unit</span></span>`;
       b.addEventListener('click', () => {
         selectedCurrency = c.code;
         $('vaultCurrencyLabel').textContent = c.code;

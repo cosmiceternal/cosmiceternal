@@ -2623,3 +2623,75 @@ input { font-family: inherit; }
   box-shadow: inset 2px 0 0 var(--accent);
 }
 .feed-list .me-row:hover { background: rgba(255, 94, 156, 0.11); }
+
+/* ============================================================
+   Panel refinement pass — stats, leaderboard, vault, dealer felt.
+   Makes the support surfaces feel as finished as the game floor. */
+
+/* Stat tiles: subtle gradient + top light + accent value. */
+.stat {
+  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  box-shadow: var(--edge-hi);
+}
+.stat-value { font-size: 15px; }
+
+/* Achievements: icon in a medallion, XP as a chip, cleaner locked state. */
+.ach-icon {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: 17px;
+  background: radial-gradient(circle at 50% 34%, rgba(255,255,255,0.06), rgba(0,0,0,0.18) 80%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -6px 12px rgba(0,0,0,0.28);
+}
+.ach-row.unlocked .ach-icon {
+  background: radial-gradient(circle at 50% 34%, rgba(255,192,97,0.28), rgba(255,192,97,0.06) 80%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 14px -2px var(--gold-glow);
+}
+.ach-row.locked .ach-icon { filter: grayscale(1); opacity: 0.7; }
+.ach-xp {
+  padding: 3px 8px; border-radius: 999px;
+  background: var(--bg-3); border: 1px solid var(--line);
+  color: var(--muted); white-space: nowrap;
+}
+.ach-xp.unlocked {
+  color: var(--gold);
+  background: rgba(255,192,97,0.12);
+  border-color: rgba(255,192,97,0.35);
+}
+
+/* Leaderboard: give the top-3 medals a little more presence. */
+.lb-rank.medal { font-size: 17px; line-height: 1; }
+
+/* Vault: a coin medallion glyph, tinted per currency. */
+.vault-currency-chip { flex-direction: column; }
+.vcc-glyph {
+  width: 30px; height: 30px; margin-bottom: 3px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: 16px; font-weight: 800; line-height: 1;
+  color: #fff;
+  background: radial-gradient(circle at 50% 32%, rgba(255,255,255,0.16), rgba(0,0,0,0.2) 82%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 12px rgba(0,0,0,0.3);
+}
+.vcc-glyph[data-code="BTC"]  { background: radial-gradient(circle at 50% 32%, #ffb54d, #d97a05); }
+.vcc-glyph[data-code="ETH"]  { background: radial-gradient(circle at 50% 32%, #8f9be0, #4b5bb0); }
+.vcc-glyph[data-code="USDT"] { background: radial-gradient(circle at 50% 32%, #3fc79a, #1a8a63); }
+.vcc-glyph[data-code="SOL"]  { background: radial-gradient(circle at 50% 32%, #48e6bd, #14a889); color: #08221b; }
+.vcc-text { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+
+/* AI-dealer felt: a centered table emblem + payout rule, like a real table. */
+.ad-felt::before {
+  content: 'BLACKJACK PAYS 3 : 2';
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: clamp(13px, 1.5vw, 20px);
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  color: rgba(109, 217, 184, 0.16);
+  text-shadow: 0 0 20px rgba(109, 217, 184, 0.12);
+  pointer-events: none;
+  z-index: 0;
+}
