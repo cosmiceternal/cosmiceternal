@@ -79,6 +79,10 @@
     try { await API.logout(); } catch (e) {}
     location.reload();
   });
+  document.getElementById('btnMenuHelp')?.addEventListener('click', () => {
+    userDropdown.classList.add('hidden');
+    if (window.Help) Help.open();
+  });
 
   // ----- Fair modal -----
   const fairModal = document.getElementById('fairModal');
