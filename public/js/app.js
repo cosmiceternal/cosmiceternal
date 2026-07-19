@@ -254,9 +254,26 @@
           </li>
         `).join('');
       } catch (_) {}
+      // Overview charts: profit trend + per-game breakdown (non-blocking).
+      API.statsDetail().then(d => {
+        if (window.PlayerStats) {
+          PlayerStats.renderTrend(document.getElementById('stChart'), d.series);
+          PlayerStats.renderGames(document.getElementById('stGames'), d.perGame);
+        }
+        const lbl = document.getElementById('stTrendLabel');
+        if (lbl) lbl.textContent = 'last ' + d.days + ' days';
+      }).catch(() => {});
+      if (window.PlayerStats) PlayerStats.reset();
       statsModal.classList.remove('hidden');
     } catch (e) { Toast.error(e.message); }
   });
+  // Tab switching + lazy-load the bet History the first time it's opened.
+  if (window.PlayerStats) {
+    PlayerStats.init(async () => {
+      try { const r = await API.history(60); PlayerStats.renderHistory(document.getElementById('stHistory'), r.bets); }
+      catch (_) {}
+    });
+  }
   document.getElementById('statsClose').addEventListener('click', () => statsModal.classList.add('hidden'));
   statsModal.addEventListener('click', (e) => { if (e.target === statsModal) statsModal.classList.add('hidden'); });
 

@@ -2809,3 +2809,43 @@ input { font-family: inherit; }
   color: var(--teal); text-decoration: none;
 }
 .help-fullpage:hover { text-decoration: underline; }
+
+/* ============================================================
+   Player Stats dashboard — tabs, profit trend, by-game bars, history. */
+.stats-tabs { display: flex; gap: 4px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
+.stats-tab { flex: 1; background: transparent; border: none; color: var(--muted); font: inherit; font-weight: 700; font-size: 13px; padding: 8px; border-radius: 7px; cursor: pointer; transition: 130ms; }
+.stats-tab:hover { color: var(--text); }
+.stats-tab.active { background: var(--accent); color: #fff; }
+.stats-pane { animation: fade 0.18s ease; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+.stats-card { background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 12px; box-shadow: var(--edge-hi); }
+.stats-card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.stats-card-head h4 { margin: 0; font-size: 14px; }
+.stats-chart svg { width: 100%; height: auto; display: block; }
+.stats-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 26px 0; font-style: italic; }
+
+/* By-game bars */
+.stats-games { display: grid; gap: 12px; }
+.stats-game .sg-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.sg-name { font-weight: 700; font-size: 13px; }
+.sg-profit { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 13px; }
+.sg-profit.win { color: var(--teal); }
+.sg-profit.loss { color: var(--danger); }
+.sg-bar { height: 6px; border-radius: 3px; background: var(--bg-1); overflow: hidden; margin: 5px 0 4px; }
+.sg-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--violet), var(--accent)); }
+.sg-sub { font-size: 11px; }
+
+/* History list */
+.stats-hist-head, .stats-hist-row {
+  display: grid; grid-template-columns: 1fr 68px 62px 82px 46px; gap: 8px; align-items: center;
+  padding: 8px 10px; font-variant-numeric: tabular-nums; font-size: 13px;
+}
+.stats-hist-head { color: var(--muted); font-size: 10.5px; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 700; border-bottom: 1px solid var(--line); }
+.stats-hist { list-style: none; margin: 0; padding: 0; max-height: 46vh; overflow-y: auto; }
+.stats-hist-row { border-bottom: 1px solid rgba(255,255,255,0.04); }
+.stats-hist-row:hover { background: rgba(255,255,255,0.03); }
+.stats-hist-row .win { color: var(--teal); font-weight: 700; }
+.stats-hist-row .loss { color: var(--danger); }
+.shr-game { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats-hist-row .num.muted { color: var(--muted); font-weight: 500; }
