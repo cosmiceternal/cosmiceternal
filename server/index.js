@@ -430,6 +430,11 @@ app.get(/\.[a-zA-Z0-9]{1,8}$/, (req, res) => {
 app.get(['/admin', '/admin/'], (req, res) =>
   res.set('Cache-Control', 'no-cache').sendFile(path.join(PUBLIC, 'admin', 'index.html')));
 
+// Public responsible-gaming resource page (no auth — help must be reachable
+// by anyone, signed in or not).
+app.get(['/help', '/help/'], (req, res) =>
+  res.set('Cache-Control', 'no-cache').sendFile(path.join(PUBLIC, 'help', 'index.html')));
+
 // Everything else is an app/navigation route → serve the SPA shell.
 app.get('*', (req, res) => res.set('Cache-Control', 'no-cache').sendFile(path.join(PUBLIC, 'index.html')));
 
