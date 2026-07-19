@@ -253,15 +253,37 @@
         <button class="btn btn-ghost" id="statsClose">✕</button>
       </div>
       <div class="modal-body">
-        <div class="stat-grid stat-grid-wide">
-          <div class="stat"><span class="stat-label">Total Bets</span><span class="stat-value" id="stBets">0</span></div>
-          <div class="stat"><span class="stat-label">Total Wagered</span><span class="stat-value" id="stWagered">0.00</span></div>
-          <div class="stat"><span class="stat-label">Net Profit</span><span class="stat-value" id="stProfit">0.00</span></div>
-          <div class="stat"><span class="stat-label">Win Rate</span><span class="stat-value" id="stWinRate">0%</span></div>
-          <div class="stat"><span class="stat-label">Biggest Win</span><span class="stat-value" id="stBiggest">0.00</span></div>
-          <div class="stat"><span class="stat-label">Wins</span><span class="stat-value" id="stWins">0</span></div>
+        <div class="stats-tabs" id="statsTabs">
+          <button class="stats-tab active" data-tab="overview">Overview</button>
+          <button class="stats-tab" data-tab="history">History</button>
+          <button class="stats-tab" data-tab="ach">Achievements</button>
         </div>
-        <div class="achievement-section">
+
+        <div class="stats-pane" id="statsPaneOverview">
+          <div class="stat-grid stat-grid-wide">
+            <div class="stat"><span class="stat-label">Total Bets</span><span class="stat-value" id="stBets">0</span></div>
+            <div class="stat"><span class="stat-label">Total Wagered</span><span class="stat-value" id="stWagered">0.00</span></div>
+            <div class="stat"><span class="stat-label">Net Profit</span><span class="stat-value" id="stProfit">0.00</span></div>
+            <div class="stat"><span class="stat-label">Win Rate</span><span class="stat-value" id="stWinRate">0%</span></div>
+            <div class="stat"><span class="stat-label">Biggest Win</span><span class="stat-value" id="stBiggest">0.00</span></div>
+            <div class="stat"><span class="stat-label">Wins</span><span class="stat-value" id="stWins">0</span></div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-head"><h4>Profit trend</h4><span class="muted" id="stTrendLabel"></span></div>
+            <div class="stats-chart" id="stChart"></div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-head"><h4>By game</h4><span class="muted">most played</span></div>
+            <div class="stats-games" id="stGames"></div>
+          </div>
+        </div>
+
+        <div class="stats-pane hidden" id="statsPaneHistory">
+          <div class="stats-hist-head"><span>Game</span><span class="num">Bet</span><span class="num">Mult</span><span class="num">Profit</span><span class="num">When</span></div>
+          <ul class="stats-hist" id="stHistory"></ul>
+        </div>
+
+        <div class="stats-pane hidden" id="statsPaneAch">
           <div class="ach-head">
             <h4>Achievements</h4>
             <span class="ach-count muted" id="achCount">0 / 0</span>
@@ -612,6 +634,7 @@
   <script src="js/limits.js"></script>
   <script src="js/help.js"></script>
   <script src="js/admin.js"></script>
+  <script src="js/playerstats.js"></script>
   <script src="js/tour.js"></script>
   <script src="js/app.js"></script>
 </body>

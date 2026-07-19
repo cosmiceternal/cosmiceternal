@@ -2400,7 +2400,40 @@ async function stats(userId) {
   };
 }
 
+// Richer per-player breakdown for the stats dashboard: performance by game and
+// a daily cumulative-profit trend.
+async function statsDetail(userId, days = 14) {
+  const DAY = 86_400_000;
+  const n = Math.min(60, Math.max(1, Number(days) || 14));
+  const todayDay = Math.floor(Date.now() / DAY);
+  const since = (todayDay - n + 1) * DAY;
+  const [perGame, daily] = await Promise.all([
+    db.query(`SELECT game, COUNT(*) c, COALESCE(SUM(bet_cents),0) wagered, COALESCE(SUM(payout_cents),0) returned, COALESCE(SUM(win),0) wins
+              FROM bets WHERE user_id = ? GROUP BY game ORDER BY c DESC LIMIT 12`, [userId]),
+    db.query(`SELECT (created_at/86400000) day, COUNT(*) c, COALESCE(SUM(bet_cents),0) wagered, COALESCE(SUM(payout_cents),0) returned
+              FROM bets WHERE user_id = ? AND created_at >= ? GROUP BY (created_at/86400000)`, [userId, since])
+  ]);
+  const dayMap = new Map(); daily.rows.forEach(r => dayMap.set(Number(r.day), r));
+  const series = [];
+  let cum = 0;
+  for (let d = todayDay - n + 1; d <= todayDay; d++) {
+    const r = dayMap.get(d);
+    const profit = r ? (Number(r.returned) - Number(r.wagered)) / 100 : 0;
+    cum += profit;
+    series.push({ ts: d * DAY, profit: +profit.toFixed(2), cumulative: +cum.toFixed(2), bets: r ? Number(r.c) : 0 });
+  }
+  return {
+    days: n,
+    perGame: perGame.rows.map(r => {
+      const w = Number(r.wagered), ret = Number(r.returned), c = Number(r.c);
+      return { game: r.game, bets: c, wagered: w / 100, profit: (ret - w) / 100, wins: Number(r.wins), winRate: c ? Number(r.wins) / c : 0 };
+    }),
+    series
+  };
+}
+
 module.exports = {
+  statsDetail,
   playDice, playPlinko, playCrash,
   minesStart, minesReveal, minesCashout,
   playLimbo, playWheel, playKeno, kenoTable,

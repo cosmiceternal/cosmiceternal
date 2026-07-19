@@ -360,6 +360,7 @@ app.post('/api/dealer/line', dealerLimiter, auth.requireAuth, h((req) => dealer.
 // ---------------- History / stats ----------------
 app.get('/api/history', auth.requireAuth, h(async (req) => ({ bets: await games.history(req.user.id, req.query.limit) })));
 app.get('/api/stats',   auth.requireAuth, h((req) => games.stats(req.user.id)));
+app.get('/api/stats/detail', auth.requireAuth, h((req) => games.statsDetail(req.user.id, req.query.days)));
 // Global recent-wins feed — anonymised usernames; for social proof.
 app.get('/api/feed/global', auth.requireAuth, h(async (req) => ({
   wins: await games.globalFeed(req.query.limit, req.query.min_payout_cents)
