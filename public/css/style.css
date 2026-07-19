@@ -2802,3 +2802,45 @@ input { font-family: inherit; }
   100% { box-shadow: var(--shadow-md), var(--edge-hi); }
 }
 @media (prefers-reduced-motion: reduce) { .game-pane.flash-win { animation: none; } }
+
+/* ============================================================
+   Persistent responsible-gaming helpline strip (always visible) +
+   auth-screen line + a link from the modal to the full /help page. */
+.app-footer { flex-direction: column; gap: 0; align-items: stretch; padding: 0; }
+.help-strip {
+  display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 16px;
+  background: linear-gradient(180deg, rgba(95,227,192,0.08), rgba(160,123,255,0.05));
+  border-top: 1px solid rgba(95,227,192,0.22);
+  font-size: 12.5px; color: var(--muted);
+}
+.help-strip-txt b { color: var(--teal); letter-spacing: 0.02em; }
+.help-strip-link {
+  color: #08221b; background: linear-gradient(180deg, #6ff0ce, #2bb898);
+  font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 999px;
+  text-decoration: none; white-space: nowrap; box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+}
+.help-strip-link:hover { filter: brightness(1.06); }
+.footer-links {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px;
+  padding: 10px 16px;
+}
+
+/* Auth-screen helpline line */
+.auth-help {
+  display: block; text-align: center; margin-top: 10px;
+  font-size: 11.5px; color: var(--muted); text-decoration: none;
+}
+.auth-help b { color: var(--teal); }
+.auth-help:hover { color: var(--text); }
+
+/* Modal → full help page link */
+.help-fullpage {
+  display: inline-block; margin: 10px 0 2px; font-size: 12.5px; font-weight: 600;
+  color: var(--teal); text-decoration: none;
+}
+.help-fullpage:hover { text-decoration: underline; }
+
+@media (max-width: 560px) {
+  .help-strip { flex-direction: column; gap: 6px; text-align: center; padding: 9px 12px; }
+}

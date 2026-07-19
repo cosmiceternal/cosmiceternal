@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get Help · Crypt Casino</title>
+  <meta name="description" content="Responsible gaming and confidential support. Free help is available 24/7 — you're not alone." />
+  <link rel="stylesheet" href="/help/help.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2220%22 font-size=%2222%22>🛟</text></svg>" />
+</head>
+<body>
+  <header class="hd">
+    <a class="hd-brand" href="/"><span class="hd-mark">✦</span> Crypt <span class="accent">Casino</span></a>
+    <a class="hd-back" href="/">← Back to the casino</a>
+  </header>
+
+  <main class="wrap">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-icon">🛟</div>
+      <h1>It's okay to ask for help.</h1>
+      <p class="hero-sub">Playing should feel like fun, not pressure. If it's stopped feeling that way — for you or someone you care about — support is free, confidential, and available any time.</p>
+      <div class="lifeline" id="lifeline">
+        <div class="lifeline-main">
+          <span class="lifeline-label">National Problem Gambling Helpline</span>
+          <a class="lifeline-number" id="lifelineNumber" href="tel:1-800-426-2537">1-800-GAMBLER</a>
+          <span class="lifeline-note" id="lifelineNote">Call or text · free &amp; confidential · 24/7</span>
+        </div>
+        <div class="lifeline-region">
+          <label for="regionSel">Your region</label>
+          <select id="regionSel">
+            <option value="us">🇺🇸 United States</option>
+            <option value="uk">🇬🇧 United Kingdom</option>
+            <option value="ca">🇨🇦 Canada</option>
+            <option value="au">🇦🇺 Australia</option>
+            <option value="intl">🌍 Elsewhere</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Reassurance -->
+    <section class="card soft">
+      <h2>A quick reminder</h2>
+      <p>Crypt Casino is <b>play-money entertainment</b> — the balances are fun credits with no cash value, and nothing here can be won or lost for real. Even so, the <em>feelings</em> around chasing a win are real, and worth taking seriously. Whatever brought you here, that's a good instinct.</p>
+    </section>
+
+    <!-- Self check -->
+    <section class="card">
+      <h2>A gentle gut-check</h2>
+      <p class="muted small">This isn't a diagnosis — just a moment to reflect. Tick anything that feels true lately.</p>
+      <ul class="check" id="checklist">
+        <li><label><input type="checkbox" /> I've bet more, or longer, than I meant to.</label></li>
+        <li><label><input type="checkbox" /> I've kept playing to win back what I lost.</label></li>
+        <li><label><input type="checkbox" /> I play to escape stress, boredom, or a low mood.</label></li>
+        <li><label><input type="checkbox" /> I've hidden how much I play from people close to me.</label></li>
+        <li><label><input type="checkbox" /> I've felt restless or irritable when I try to cut back.</label></li>
+      </ul>
+      <div class="check-result" id="checkResult" hidden></div>
+    </section>
+
+    <!-- Tools -->
+    <section class="card">
+      <h2>Tools that can help</h2>
+      <p>You don't have to rely on willpower alone. Crypt Casino has two built-in tools, enforced by the server so they can't be clicked away in the moment:</p>
+      <div class="tools">
+        <div class="tool">
+          <div class="tool-ic">🛑</div>
+          <h3>Daily loss limit</h3>
+          <p class="muted small">Set a cap on how much you can lose in a day. Once you hit it, wagering pauses until tomorrow.</p>
+        </div>
+        <div class="tool">
+          <div class="tool-ic">🚪</div>
+          <h3>Self-exclusion</h3>
+          <p class="muted small">Lock yourself out of wagering for 1, 7, or 30 days. It can't be undone early — withdrawals stay open the whole time.</p>
+        </div>
+      </div>
+      <a class="btn btn-primary" href="/">Open Play Limits in the app →</a>
+      <p class="muted small" style="margin-top:10px;">In the app, open the menu under your username and choose <b>🛡️ Play Limits</b>.</p>
+    </section>
+
+    <!-- Helplines -->
+    <section class="card">
+      <h2>Talk to someone who can help</h2>
+      <p class="muted small">Free, confidential support in your area. Reaching out is a strength, not a last resort.</p>
+      <div class="resources" id="resources"></div>
+    </section>
+
+    <!-- Signs -->
+    <section class="card">
+      <h2>Signs worth noticing — in yourself or a friend</h2>
+      <ul class="signs">
+        <li>Chasing losses, or betting more than intended.</li>
+        <li>Playing to escape stress or low mood rather than for fun.</li>
+        <li>Losing track of time, or hiding play from others.</li>
+        <li>Borrowing, or feeling anxious, to keep playing.</li>
+      </ul>
+      <p>If a few of these ring true, that's worth a conversation — with someone you trust, or one of the free lines above.</p>
+    </section>
+
+    <p class="disclaimer">
+      Crypt Casino is a hobby/learning project. It is not a licensed gambling operator and offers
+      no real-money wagering. You must be 18+ (or the legal age where you live) to play. The helplines
+      listed are independent organizations; we're grateful for the work they do.
+    </p>
+  </main>
+
+  <script src="/help/help.js"></script>
+</body>
+</html>
