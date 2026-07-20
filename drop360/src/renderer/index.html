@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+  <title>Drop360</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◉</span>
+      <span class="brand-name">DROP<em>360</em></span>
+      <span class="brand-tag">drag a game in, press play</span>
+    </div>
+    <div class="topbar-actions">
+      <div id="core-pill" class="core-pill">
+        <span id="core-pill-text">Checking emulator core…</span>
+        <div id="core-progress" class="core-progress" hidden><div id="core-progress-bar"></div></div>
+      </div>
+      <button id="core-install-btn" class="btn btn-accent" hidden>Install emulator core</button>
+      <button id="add-games-btn" class="btn">Add games</button>
+      <button id="settings-btn" class="btn btn-icon" title="Settings" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+
+  <main id="library" class="library"></main>
+
+  <div id="drop-hero" class="drop-hero" hidden>
+    <div class="drop-hero-inner">
+      <div class="drop-hero-icon">⤓</div>
+      <h1>Drop an Xbox 360 game anywhere in this window</h1>
+      <p>.iso disc images, .xex executables, GoD/STFS containers, or an extracted game folder</p>
+      <button id="browse-btn" class="btn btn-accent btn-big">…or browse for files</button>
+    </div>
+  </div>
+
+  <div id="drop-overlay" class="drop-overlay" hidden>
+    <div class="drop-overlay-box">Release to add to your library</div>
+  </div>
+
+  <dialog id="settings-dialog" class="settings-dialog">
+    <h2>Settings</h2>
+    <section>
+      <h3>Emulator core</h3>
+      <label class="radio-row">
+        <input type="radio" name="variant" value="canary" />
+        <span>Xenia Canary <small>— recommended, best game compatibility</small></span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="variant" value="stable" />
+        <span>Xenia master <small>— the upstream stable build</small></span>
+      </label>
+      <div class="settings-actions">
+        <button id="redownload-btn" class="btn">Re-download core</button>
+        <button id="locate-btn" class="btn">Locate core manually…</button>
+      </div>
+      <p id="core-path" class="core-path"></p>
+    </section>
+    <section>
+      <h3>Launch options</h3>
+      <label class="check-row">
+        <input type="checkbox" id="fullscreen-check" />
+        <span>Start games in fullscreen</span>
+      </label>
+    </section>
+    <div class="settings-footer">
+      <button id="settings-close-btn" class="btn btn-accent">Done</button>
+    </div>
+  </dialog>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
