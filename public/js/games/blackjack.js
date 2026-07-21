@@ -50,7 +50,7 @@
       actions.classList.add('hidden'); deal.classList.remove('hidden'); deal.disabled = false; betInput.disabled = false;
       const win = res.payout > stake + 1e-9, push = Math.abs(res.payout - stake) < 1e-9;
       Bankroll.set(res.balance);
-      Feed.recordPlayerBet({ game: 'blackjack', bet: stake, mult: win ? res.payout / stake : 0, win, payout: res.payout });
+      Feed.recordPlayerBet({ game: 'blackjack', bet: stake, mult: win ? res.payout / stake : 0, win, payout: res.payout, profit: res.payout - stake });
       if (win) Toast.win(`${OUTCOME[outcome]} — +${Bankroll.fmt(res.payout - stake)}`);
       else if (push) Toast.info('Push — bet returned');
       else Toast.loss(`${OUTCOME[outcome]} — −${Bankroll.fmt(stake)}`);

@@ -41,7 +41,6 @@ a:hover { text-decoration: underline; }
 .btn-primary:hover { filter: brightness(1.06); }
 .btn-ghost { background: transparent; }
 .btn-ghost:hover { background: var(--bg-3); }
-.btn-danger { background: linear-gradient(180deg,#ff5e7e,#d83a5b); border-color: transparent; color:#fff; }
 .btn-teal { background: linear-gradient(180deg,#6ff0ce,#2bb898); border-color: transparent; color:#08221b; }
 .btn-block { width: 100%; padding: 13px; font-size: 15px; }
 .btn-sm { padding: 5px 9px; font-size: 12px; }
@@ -138,7 +137,6 @@ a:hover { text-decoration: underline; }
 .c-axis { fill: var(--muted); font-size: 10px; font-family: var(--sans); }
 .c-line { fill: none; stroke-width: 2; }
 .c-area { opacity: 0.14; }
-.c-dot { }
 .c-legend { display: flex; gap: 16px; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
 .c-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .c-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }

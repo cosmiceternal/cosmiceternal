@@ -248,7 +248,7 @@ server/
 | `POST /api/auth/logout`      | Clear session                             |
 | `GET  /api/me`               | Current user / balance                    |
 | `GET  /api/fair`             | Server-seed hash, client seed, nonce      |
-| `POST /api/fair/client`      | Change client seed (resets nonce)         |
+| `POST /api/fair/client`      | Change client seed (nonce stays monotonic)|
 | `POST /api/fair/rotate`      | Reveal old server seed, mint a new one    |
 | `POST /api/play/dice`        | Settle a dice bet                         |
 | `POST /api/play/plinko`      | Settle a plinko drop                      |

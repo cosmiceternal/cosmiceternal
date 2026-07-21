@@ -150,7 +150,7 @@
     try {
       await Fair.setClientSeed(v);
       renderFairState(Fair.getState());
-      Toast.info('Client seed updated. Nonce reset.');
+      Toast.info('Client seed updated.');
     } catch (e) { Toast.error(e.message); }
   });
   Fair.subscribe(renderFairState);
@@ -379,7 +379,7 @@
       const daily = document.getElementById('dailyModal');
       if (daily) daily.classList.add('hidden');
       const leaders = document.getElementById('leadersModal');
-      if (leaders) leaders.classList.add('hidden');
+      if (leaders) { stopRaceCountdown(); leaders.classList.add('hidden'); }
       return;
     }
     // Space / Enter trigger the primary action of the currently mounted game,

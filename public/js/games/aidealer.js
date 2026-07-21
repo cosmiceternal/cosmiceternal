@@ -265,7 +265,7 @@
       say(outcomeKey(outcome), { t: outcome === 'dealer_bust' ? value(res.dealer) : t });
       const win = res.payout > stake + 1e-9, push = Math.abs(res.payout - stake) < 1e-9;
       Bankroll.set(res.balance);
-      Feed.recordPlayerBet({ game: 'blackjack', bet: stake, mult: win ? res.payout / stake : 0, win, payout: res.payout });
+      Feed.recordPlayerBet({ game: 'blackjack', bet: stake, mult: win ? res.payout / stake : 0, win, payout: res.payout, profit: res.payout - stake });
       const NAMES = { blackjack: 'Blackjack!', win: 'You win', dealer_bust: 'Dealer busts — you win', push: 'Push', bust: 'Bust', lose: 'Dealer wins', dealer_bj: 'Dealer blackjack' };
       if (win) Toast.win(`${NAMES[outcome]} — +${Bankroll.fmt(res.payout - stake)}`);
       else if (push) Toast.info('Push — bet returned');

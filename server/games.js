@@ -14,7 +14,6 @@ const { httpError, logAudit } = require('./auth');
 const limits = require('./limits');
 
 const HOUSE = 0.01;
-const CRASH_BASE = 1.13;
 
 const PLINKO = {
   8:  { low:  [5.6, 2.1, 1.1, 1.0, 0.5, 1.0, 1.1, 2.1, 5.6],
@@ -257,7 +256,13 @@ function handTotal(cards) {
 function toCents(dollars) {
   const n = Number(dollars);
   if (!isFinite(n) || n <= 0) throw httpError(400, 'Invalid bet amount.');
-  return Math.round(n * 100);
+  // Reject sub-cent stakes that round to 0: debit(0) succeeds for everyone
+  // (subtract nothing), so a zero-stake wager would still settle and farm
+  // XP / achievements / stats for free. Enforce a real 1-cent minimum here —
+  // the shared chokepoint every game's stake passes through.
+  const cents = Math.round(n * 100);
+  if (cents <= 0) throw httpError(400, 'Bet is too small.');
+  return cents;
 }
 
 // Atomic, dialect-portable debit. Throws if the balance is insufficient.
@@ -1681,7 +1686,6 @@ function playBigCatch(userId, { bet }) {
 // ---------------------------------------------------------------- RPS DUEL
 // Rock–paper–scissors vs the house. Win pays 1.92x (4% edge on the ~1/3 win
 // rate after ties push). Tie returns the stake; loss takes it.
-const RPS_NAMES = ['rock', 'paper', 'scissors'];
 const RPS_EMOJI = ['✊', '✋', '✌️'];
 function playRps(userId, { bet, pick }) {
   const betCents = toCents(bet);

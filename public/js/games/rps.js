@@ -5,7 +5,7 @@
   const NAMES = ['Rock', 'Paper', 'Scissors'];
   const EMOJI = ['✊', '✋', '✌️'];
   function mount(container) {
-    let pick = 0, busy = false, alive = true, timers = [];
+    let pick = 0, busy = false, alive = true, timers = [], countdown = null;
     container.innerHTML = GameKit.frame(`
       ${GameKit.betRow('rpsBet')}
       <div class="field">
@@ -54,7 +54,7 @@
       const words = ['Rock…', 'Paper…', 'Scissors…', 'Shoot!'];
       try {
         const res = await API.rps({ bet: b, pick });
-        const iv = setInterval(() => {
+        countdown = setInterval(() => {
           if (!alive) return;
           count--;
           vs.textContent = count > 0 ? count : 'VS';
@@ -62,7 +62,7 @@
           // flicker the house hand during the shake
           houseHand.textContent = EMOJI[Math.floor(Math.random() * 3)];
           if (count <= 0) {
-            clearInterval(iv);
+            clearInterval(countdown);
             arena.classList.remove('shaking');
             youHand.textContent = res.pickEmoji;
             houseHand.textContent = res.houseEmoji;
@@ -80,7 +80,7 @@
       } catch (e) { Toast.error(e.message); busy = false; go.disabled = false; arena.classList.remove('shaking'); }
     });
 
-    return function () { alive = false; timers.forEach(clearTimeout); };
+    return function () { alive = false; timers.forEach(clearTimeout); if (countdown) clearInterval(countdown); };
   }
   global.Games = global.Games || {};
   global.Games.rps = mount;

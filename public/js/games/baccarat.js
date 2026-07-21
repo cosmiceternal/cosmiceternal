@@ -1,7 +1,6 @@
 /* Baccarat (Punto Banco) — bet Player, Banker, or Tie; server deals & settles. */
 (function (global) {
   'use strict';
-  function val(cards) { return cards.reduce((s, c) => s + (c.rank >= 10 ? 0 : c.rank), 0) % 10; }
   function mount(container) {
     container.innerHTML = GameKit.frame(`
       ${GameKit.betRow('bcBet')}

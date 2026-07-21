@@ -48,8 +48,6 @@
     GameKit.wireBet(container, betInput);
 
     function animateDrop(path, slot, onDone) {
-      const board = container.querySelector('.pachinko-board');
-      const rect = board.getBoundingClientRect();
       // Start the ball above the first peg, drift left/right per path bit.
       ball.classList.remove('hidden');
       const startX = 50; // center, in %
