@@ -2171,6 +2171,56 @@ function playRedDog(userId, { bet }) {
   });
 }
 
+// ---------------------------------------------------------------- AMERICAN ROULETTE
+// Double-zero wheel: 38 pockets (0, 00, 1–36). The extra green pocket is what
+// gives American roulette its ~5.26% house edge on every bet. Internally pocket
+// 37 represents "00". Same pay table as European; the edge comes from the pocket
+// count, not the odds. Column bets added on top.
+const AMROU_PAYS = {
+  red: 2, black: 2, even: 2, odd: 2, low: 2, high: 2,
+  dozen1: 3, dozen2: 3, dozen3: 3, col1: 3, col2: 3, col3: 3, straight: 36
+};
+function amRouLabel(p) { return p === 37 ? '00' : String(p); }
+function amRouColor(p) { return (p === 0 || p === 37) ? 'green' : (ROULETTE_RED.has(p) ? 'red' : 'black'); }
+function playAmRoulette(userId, { bet, betType, number }) {
+  const betCents = toCents(bet);
+  if (!AMROU_PAYS[betType]) throw httpError(400, 'Invalid bet.');
+  let num = null;
+  if (betType === 'straight') {
+    num = Number(number);
+    // 0–36 are numbers; 37 is the "00" pocket.
+    if (!Number.isInteger(num) || num < 0 || num > 37) throw httpError(400, 'Pick a number, 0 or 00.');
+  }
+  return db.tx(async (q) => {
+    await debit(q, userId, betCents);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 1);
+    const pocket = Math.min(37, Math.floor(floats[0] * 38)); // 0..37 (37 = "00")
+    const isNum = pocket >= 1 && pocket <= 36;
+    const color = amRouColor(pocket);
+    let win = false;
+    switch (betType) {
+      case 'red': win = color === 'red'; break;
+      case 'black': win = color === 'black'; break;
+      case 'even': win = isNum && pocket % 2 === 0; break;
+      case 'odd': win = isNum && pocket % 2 === 1; break;
+      case 'low': win = pocket >= 1 && pocket <= 18; break;
+      case 'high': win = pocket >= 19 && pocket <= 36; break;
+      case 'dozen1': win = pocket >= 1 && pocket <= 12; break;
+      case 'dozen2': win = pocket >= 13 && pocket <= 24; break;
+      case 'dozen3': win = pocket >= 25 && pocket <= 36; break;
+      case 'col1': win = isNum && pocket % 3 === 1; break;
+      case 'col2': win = isNum && pocket % 3 === 2; break;
+      case 'col3': win = isNum && pocket % 3 === 0; break;
+      case 'straight': win = pocket === num; break;
+    }
+    const mult = win ? AMROU_PAYS[betType] : 0;
+    const payoutCents = Math.round(betCents * mult);
+    await credit(q, userId, payoutCents);
+    await recordBet(q, userId, { game: 'amroulette', betCents, mult, payoutCents, win, nonce, detail: { pocket, color, betType, number: num } });
+    return { pocket, label: amRouLabel(pocket), color, win, mult, betType, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100, nonce, serverHash };
+  });
+}
+
 // ---------------------------------------------------------------- PENALTY SHOOTOUT (original)
 // Round-based streak. Each round you shoot left/center/right; the keeper (server,
 // pre-drawn) dives to one spot. If it differs from your shot you score and climb;
@@ -2456,6 +2506,7 @@ module.exports = {
   playMegaWheel, playTenPin, playBullseye, playFirecracker, playSugarBlast,
   playZeusGates, playSlingo, playMiniRoulette,
   playPinata, playFanTan, playRedDog,
+  playAmRoulette,
   jackpotState, jackpotEnsure,
   penaltyStart, penaltyShoot, penaltyCashout,
   history, stats, globalFeed, anonName, leaderboard, PLINKO, minesMult,

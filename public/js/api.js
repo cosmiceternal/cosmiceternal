@@ -127,6 +127,7 @@
     pinata:         (b)    => request('POST', '/api/play/pinata', b),
     fantan:         (b)    => request('POST', '/api/play/fantan', b),
     reddog:         (b)    => request('POST', '/api/play/reddog', b),
+    amroulette:     (b)    => request('POST', '/api/play/amroulette', b),
     penaltyStart:   (b)    => request('POST', '/api/play/penalty/start', b),
     penaltyShoot:   (b)    => request('POST', '/api/play/penalty/shoot', b),
     penaltyCashout: (b)    => request('POST', '/api/play/penalty/cashout', b),

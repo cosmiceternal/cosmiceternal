@@ -2849,3 +2849,29 @@ input { font-family: inherit; }
 .stats-hist-row .loss { color: var(--danger); }
 .shr-game { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stats-hist-row .num.muted { color: var(--muted); font-weight: 500; }
+
+/* ==================== American Roulette ==================== */
+.amroulette-stage { gap: 16px; padding: 22px 16px; justify-content: center; align-items: center; }
+.ar-wheel {
+  width: 172px; height: 172px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 30%, rgba(160,123,255,0.12), rgba(0,0,0,0.25));
+  box-shadow: inset 0 0 0 6px var(--bg-3), inset 0 0 0 8px rgba(255,255,255,0.05), 0 12px 34px -12px rgba(0,0,0,0.6);
+}
+.ar-pocket {
+  width: 128px; height: 128px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 52px; font-weight: 800; background: var(--bg-2); border: 3px solid var(--line);
+  font-variant-numeric: tabular-nums; transition: all 0.2s;
+}
+.ar-pocket[data-c="red"] { background: rgba(255,77,109,0.2); border-color: var(--danger); color: var(--danger); }
+.ar-pocket[data-c="black"] { background: rgba(120,140,160,0.15); border-color: #8aa; color: var(--text); }
+.ar-pocket[data-c="green"] { background: rgba(95,227,192,0.2); border-color: var(--teal); color: var(--teal); }
+.ar-pocket.win { box-shadow: 0 0 34px var(--accent-glow); transform: scale(1.05); }
+.ar-recent { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; min-height: 26px; }
+.ar-chip {
+  min-width: 26px; height: 26px; padding: 0 6px; border-radius: 7px; display: grid; place-items: center;
+  font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; color: #fff;
+}
+.ar-chip[data-c="red"] { background: #e0484f; }
+.ar-chip[data-c="black"] { background: #20202e; border: 1px solid var(--line); }
+.ar-chip[data-c="green"] { background: #2bb898; color: #08221b; }
+.ar-pills { max-height: none; }
