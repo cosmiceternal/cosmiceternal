@@ -31,11 +31,6 @@ const CURRENCIES = {
   USDT: { rate:      1, decimals: 2, presets: [10, 50, 100, 500],         min: 5 },
   SOL:  { rate:    150, decimals: 4, presets: [0.1, 0.5, 1, 5],           min: 0.05 }
 };
-// Read CRYPT first, fall back to the pre-rename FUN name so operators who set
-// the old var don't silently revert to the 5000 default on the next deploy.
-const DEFAULT_CAP_CENTS = Math.round(
-  Number(process.env.DAILY_DEPOSIT_CAP_CRYPT || process.env.DAILY_DEPOSIT_CAP_FUN || 5000) * 100
-);
 const MAX_PENDING = Number(process.env.MAX_PENDING_DEPOSITS || 5);
 const WITHDRAW_CAP_CENTS = Math.round(Number(process.env.DAILY_WITHDRAW_CAP_CRYPT || 5000) * 100);
 const WITHDRAW_MIN_CENTS = Math.round(Number(process.env.MIN_WITHDRAW_CRYPT || 10) * 100);
@@ -471,5 +466,5 @@ module.exports = {
   createWithdrawal, cancelWithdrawal, listWithdrawals,
   adminSettleWithdrawal, adminListWithdrawals,
   handleWebhook, validate,
-  CURRENCIES, DEFAULT_CAP_CENTS, MAX_PENDING, WITHDRAW_CAP_CENTS, WITHDRAW_MIN_CENTS, isPlaymoney
+  CURRENCIES, MAX_PENDING, WITHDRAW_CAP_CENTS, WITHDRAW_MIN_CENTS, isPlaymoney
 };
