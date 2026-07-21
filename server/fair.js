@@ -45,7 +45,15 @@ async function publicState(userId) {
 async function setClientSeed(userId, seed) {
   await ensureFair(userId);
   const clean = String(seed || '').slice(0, 64) || randomHex(8);
-  await db.query('UPDATE fair SET client_seed = ?, nonce = 0 WHERE user_id = ?', [clean, userId]);
+  // Deliberately DO NOT reset the nonce here. Outcomes are a pure function of
+  // (server_seed, client_seed, nonce); the server seed stays secret until a
+  // rotate. If we reset the nonce to 0 on a client-seed change, a player could
+  // set their client seed back to a value they've already seen win at nonce 0
+  // and deterministically replay that winning outcome. Keeping the nonce
+  // monotonic means a (server_seed, nonce) pair can never recur while the seed
+  // is secret, which closes the replay. Fairness verification is unaffected —
+  // you still verify each bet with its own nonce once the seed is revealed.
+  await db.query('UPDATE fair SET client_seed = ? WHERE user_id = ?', [clean, userId]);
   return publicState(userId);
 }
 

@@ -64,6 +64,8 @@
 
     let dir = 'over';
     let busy = false;
+    let alive = true;
+    const timers = [];
 
     function updateStats() {
       const t = +target.value;
@@ -117,24 +119,25 @@
         Bankroll.set(preBalance - bet); // deduct now; settle when the marker lands
         Fair.bumpNonce();
         marker.style.left = Math.max(0, Math.min(100, res.roll)) + '%';
-        setTimeout(() => {
+        timers.push(setTimeout(() => {
+          if (!alive) return;
           Bankroll.set(res.balance);
           result.textContent = res.roll.toFixed(2);
           result.classList.add(res.win ? 'win' : 'loss');
           if (res.win) Toast.win(`+${Bankroll.fmt(res.payout - bet)} @ ${res.mult.toFixed(2)}×`);
           else Toast.loss(`Lost ${Bankroll.fmt(bet)}`);
           Feed.recordPlayerBet({ game: 'dice', bet, mult: res.win ? res.mult : 0, win: res.win, payout: res.payout });
-        }, 480);
+        }, 480));
       } catch (e) {
         Toast.error(e.message);
         result.textContent = '0.00';
       } finally {
-        setTimeout(() => { busy = false; actionBtn.disabled = false; }, 520);
+        timers.push(setTimeout(() => { if (!alive) return; busy = false; actionBtn.disabled = false; }, 520));
       }
     }
 
     actionBtn.addEventListener('click', roll);
-    return function unmount() {};
+    return function unmount() { alive = false; timers.forEach(clearTimeout); };
   }
 
   global.Games = global.Games || {};

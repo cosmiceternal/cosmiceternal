@@ -39,7 +39,6 @@
       if (b == null) return;
       busy = true; action.disabled = true;
       digitEl.className = 'color-digit';
-      let n = 0;
       spin = setInterval(() => { digitEl.textContent = Math.floor(Math.random() * 10); }, 60);
       try {
         const res = await API.color({ bet: b, choice });

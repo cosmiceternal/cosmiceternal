@@ -229,8 +229,15 @@ async function claimDaily(userId) {
     const cashback = await computeCashback(q, user);
     const now = Date.now();
     const total = state.amountCents + cashback.amountCents;
-    await q('UPDATE users SET balance_cents = balance_cents + ?, streak_day = ?, last_bonus_at = ? WHERE id = ?',
-      [total, state.streakIfClaimed, now, userId]);
+    // Guard the credit on the cooldown so two concurrent claims can't both
+    // pass the read-side check and double-credit (Postgres READ COMMITTED lets
+    // both see the stale last_bonus_at). The row-locking conditional UPDATE
+    // re-checks availability; the loser updates 0 rows and is rejected — the
+    // same pattern every other additive credit in the app uses.
+    const upd = await q(
+      'UPDATE users SET balance_cents = balance_cents + ?, streak_day = ?, last_bonus_at = ? WHERE id = ? AND (last_bonus_at IS NULL OR ? - last_bonus_at >= ?)',
+      [total, state.streakIfClaimed, now, userId, now, STREAK_COOLDOWN_MS]);
+    if (!upd.rowCount) throw httpError(409, 'Daily bonus already claimed.');
     // Streak achievements check.
     const userAfter = await fetchUser(q, userId);
     const totals = await fetchTotals(q, userId);

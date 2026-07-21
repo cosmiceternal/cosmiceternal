@@ -107,7 +107,7 @@
           };
           statusEl.textContent = NAMES[res.outcome] || res.outcome;
           const win = res.payout > staked + 1e-9;
-          Feed.recordPlayerBet({ game: 'tcp', bet: staked, mult: win ? res.mult : 0, win, payout: res.payout });
+          Feed.recordPlayerBet({ game: 'tcp', bet: staked, mult: win ? res.mult : 0, win, payout: res.payout, profit: res.payout - staked });
           if (win) Toast.win(`+${Bankroll.fmt(res.payout - staked)} @ ${res.mult.toFixed(2)}×`);
           else if (Math.abs(res.payout - staked) < 1e-9) Toast.info('Push — bets returned.');
           else Toast.loss(`−${Bankroll.fmt(staked - res.payout)}`);

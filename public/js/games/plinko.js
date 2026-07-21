@@ -184,6 +184,7 @@
     resize();
 
     async function drop() {
+      if (!alive) return; // a pending auto-drop must not fire a real bet after unmount
       const bet = +betInput.value;
       if (!bet || bet <= 0) { Toast.warn('Enter a bet amount'); return; }
       if (!Bankroll.canAfford(bet)) { Toast.error('Insufficient balance'); autoRemaining = 0; return; }
@@ -224,7 +225,7 @@
         if (mult >= 5) Toast.win(`${mult}× — +${Bankroll.fmt(res.payout - bet)}`);
         else if (win) Toast.info(`${mult}× — +${Bankroll.fmt(res.payout - bet)}`);
         else Toast.loss(`${mult}× — −${Bankroll.fmt(bet - res.payout)}`);
-        Feed.recordPlayerBet({ game: 'plinko', bet, mult, win, payout: res.payout });
+        Feed.recordPlayerBet({ game: 'plinko', bet, mult, win, payout: res.payout, profit: res.payout - bet });
 
         if (autoRemaining > 0) {
           autoRemaining -= 1;
