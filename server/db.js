@@ -107,6 +107,7 @@ const SCHEMA_SQLITE = `
     created_at   INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_bets_user ON bets(user_id, id DESC);
+  CREATE INDEX IF NOT EXISTS idx_bets_user_created ON bets(user_id, created_at);
   CREATE TABLE IF NOT EXISTS rounds (
     id         TEXT PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -214,6 +215,7 @@ const SCHEMA_PG = `
     created_at   BIGINT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_bets_user ON bets(user_id, id DESC);
+  CREATE INDEX IF NOT EXISTS idx_bets_user_created ON bets(user_id, created_at);
   CREATE TABLE IF NOT EXISTS rounds (
     id         TEXT PRIMARY KEY,
     user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

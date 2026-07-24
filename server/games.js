@@ -2335,6 +2335,23 @@ const LEADERBOARD_METRICS = {
   biggest: { col: 'biggest_payout_cents',   table: 'bets_biggest',                               asc: false, valueLabel: 'Biggest Payout (CRYPT)' }
 };
 
+// The wins/biggest leaderboards need a full-table GROUP BY over every bet to
+// build the top list and the value distribution used for ranking. That result
+// is identical for every viewer, so recomputing it on each open doesn't scale.
+// Cache the shared aggregate for a few seconds; each viewer's own value/rank
+// stays a cheap index lookup against bets(user_id, …). A few seconds of
+// staleness on a leaderboard is imperceptible.
+const LB_CACHE_MS = 15_000;
+const lbCache = new Map(); // `${metric}:${limit}` -> { at, top, dist }
+async function lbAggregate(metric, limit, build) {
+  const key = `${metric}:${limit}`;
+  const hit = lbCache.get(key);
+  if (hit && Date.now() - hit.at < LB_CACHE_MS) return hit;
+  const fresh = { at: Date.now(), ...(await build()) };
+  lbCache.set(key, fresh);
+  return fresh;
+}
+
 async function leaderboard(userId, metric = 'xp', limit = 10) {
   metric = String(metric).toLowerCase();
   if (!LEADERBOARD_METRICS[metric]) metric = 'xp';
@@ -2365,51 +2382,47 @@ async function leaderboard(userId, metric = 'xp', limit = 10) {
     };
   }
   if (metric === 'wins') {
-    const top = (await db.query(
-      `SELECT u.id, u.username, u.level, COUNT(*) AS wins
-         FROM users u JOIN bets b ON b.user_id = u.id
-        WHERE b.win = 1
-        GROUP BY u.id, u.username, u.level
-        ORDER BY wins DESC LIMIT ?`,
-      [limit]
-    )).rows;
+    const agg = await lbAggregate('wins', limit, async () => ({
+      top: (await db.query(
+        `SELECT u.id, u.username, u.level, COUNT(*) AS wins
+           FROM users u JOIN bets b ON b.user_id = u.id
+          WHERE b.win = 1
+          GROUP BY u.id, u.username, u.level
+          ORDER BY wins DESC LIMIT ?`, [limit])).rows,
+      dist: (await db.query(
+        `SELECT COUNT(*) AS wins FROM bets WHERE win = 1 GROUP BY user_id`)).rows.map(r => Number(r.wins))
+    }));
     const my = (await db.query(
       `SELECT COUNT(*) AS wins FROM bets WHERE user_id = ? AND win = 1`, [userId]
     )).rows[0];
     const myWins = Number(my?.wins || 0);
-    const above = (await db.query(
-      `SELECT COUNT(*) AS n FROM (
-         SELECT user_id, COUNT(*) AS wins FROM bets WHERE win = 1 GROUP BY user_id
-       ) t WHERE wins > ?`, [myWins]
-    )).rows[0];
+    const rank = agg.dist.filter(v => v > myWins).length + 1;
     return {
       metric, label: 'Wins',
-      top: top.map((r, i) => ({ rank: i + 1, player: anonName(r.username), isYou: Number(r.id) === Number(userId), value: Number(r.wins), level: Number(r.level) })),
-      you: { rank: Number(above?.n || 0) + 1, value: myWins }
+      top: agg.top.map((r, i) => ({ rank: i + 1, player: anonName(r.username), isYou: Number(r.id) === Number(userId), value: Number(r.wins), level: Number(r.level) })),
+      you: { rank, value: myWins }
     };
   }
   // biggest single payout (profit on one bet)
-  const top = (await db.query(
-    `SELECT u.id, u.username, u.level, MAX(b.payout_cents - b.bet_cents) AS biggest
-       FROM users u JOIN bets b ON b.user_id = u.id
-      GROUP BY u.id, u.username, u.level
-      HAVING MAX(b.payout_cents - b.bet_cents) > 0
-      ORDER BY biggest DESC LIMIT ?`,
-    [limit]
-  )).rows;
+  const agg = await lbAggregate('biggest', limit, async () => ({
+    top: (await db.query(
+      `SELECT u.id, u.username, u.level, MAX(b.payout_cents - b.bet_cents) AS biggest
+         FROM users u JOIN bets b ON b.user_id = u.id
+        GROUP BY u.id, u.username, u.level
+        HAVING MAX(b.payout_cents - b.bet_cents) > 0
+        ORDER BY biggest DESC LIMIT ?`, [limit])).rows,
+    dist: (await db.query(
+      `SELECT MAX(payout_cents - bet_cents) AS biggest FROM bets GROUP BY user_id`)).rows.map(r => Number(r.biggest))
+  }));
   const my = (await db.query(
     `SELECT COALESCE(MAX(payout_cents - bet_cents), 0) AS biggest FROM bets WHERE user_id = ?`, [userId]
   )).rows[0];
   const myBiggest = Number(my?.biggest || 0);
-  const above = (await db.query(
-    `SELECT COUNT(*) AS n FROM (
-       SELECT user_id, MAX(payout_cents - bet_cents) AS biggest FROM bets GROUP BY user_id
-     ) t WHERE biggest > ?`, [myBiggest]
-  )).rows[0];
+  const rank = agg.dist.filter(v => v > myBiggest).length + 1;
   return {
     metric, label: 'Biggest Single Payout (CRYPT)',
-    top: top.map((r, i) => ({ rank: i + 1, player: anonName(r.username), isYou: Number(r.id) === Number(userId), value: Number(r.biggest) / 100, level: Number(r.level) })),
-    you: { rank: Number(above?.n || 0) + 1, value: myBiggest / 100 }
+    top: agg.top.map((r, i) => ({ rank: i + 1, player: anonName(r.username), isYou: Number(r.id) === Number(userId), value: Number(r.biggest) / 100, level: Number(r.level) })),
+    you: { rank, value: myBiggest / 100 }
   };
 }
 
