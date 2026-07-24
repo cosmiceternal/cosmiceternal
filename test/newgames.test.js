@@ -15,7 +15,7 @@ const assert = require('node:assert/strict');
 // import the module source and eval the two pure functions in isolation.
 const fs = require('node:fs');
 const path = require('node:path');
-const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'games.js'), 'utf8');
+const src = fs.readdirSync(path.join(__dirname, '..', 'server', 'games')).filter(f => f.endsWith('.js')).sort().map(f => fs.readFileSync(path.join(__dirname, '..', 'server', 'games', f), 'utf8')).join('\n');
 
 // Extract tcpOrder/tcpEvaluate/tcpCompare/tcpDealerQualifies + their constant.
 function extract(names) {
