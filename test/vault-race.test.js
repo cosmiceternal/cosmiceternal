@@ -15,20 +15,7 @@ const PORT = 6090 + (process.pid % 100);
 const DB = `/tmp/crypt-test-race-${process.pid}.db`;
 try { fs.unlinkSync(DB); } catch (_) {}
 
-function waitForReady(url, timeoutMs = 10_000) {
-  const start = Date.now();
-  return new Promise((resolve, reject) => {
-    const tick = async () => {
-      try {
-        const r = await fetch(url);
-        if (r.ok) return resolve();
-      } catch (_) {}
-      if (Date.now() - start > timeoutMs) return reject(new Error('server did not start within ' + timeoutMs + 'ms'));
-      setTimeout(tick, 150);
-    };
-    tick();
-  });
-}
+const { waitForReady } = require('./helpers/server-ready');
 
 test('parallel /api/vault/confirm credits exactly once', async () => {
   const child = spawn(process.execPath, [path.join(REPO, 'server/index.js')], {
@@ -45,7 +32,7 @@ test('parallel /api/vault/confirm credits exactly once', async () => {
   });
 
   try {
-    await waitForReady(`http://localhost:${PORT}/healthz`);
+    await waitForReady(`http://localhost:${PORT}/healthz`, { child });
 
     const BASE = `http://localhost:${PORT}`;
     let csrf = '', cookieJar = '';
