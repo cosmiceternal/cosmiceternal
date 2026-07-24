@@ -15,8 +15,10 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Lint (dead code / undeclared names)
+      - name: Lint (dead code / undeclared names / likely-bug patterns)
         run: npm run lint
+      - name: Audit production dependencies (fail on high+)
+        run: npm audit --omit=dev --audit-level=high
       - run: npm test
       - name: Syntax-check client bundles
         run: for f in public/js/*.js public/js/games/*.js; do node --check "$f"; done

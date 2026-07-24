@@ -48,6 +48,7 @@ test('client fair.js keeps the exact HMAC message shape the server uses', () => 
   // The message is `${clientSeed}:${nonce}:${round}` (three fields) and the key
   // is the hex STRING — a drift here is the classic verifier-mismatch bug.
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'fair.js'), 'utf8');
+  // eslint-disable-next-line no-template-curly-in-string -- asserting the literal template text in client source
   assert.ok(src.includes('${clientSeed}:${nonce}:${round}'), 'client must hash the 3-field message');
   assert.ok(/importKey\('raw', enc\.encode\(serverSeed\)/.test(src), 'client must key HMAC with the seed hex string');
 });
