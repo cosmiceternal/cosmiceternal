@@ -105,7 +105,10 @@
     }
 
     async function startGame() {
-      if (busy) return;
+      // `active` guard, not just `busy`: the Space/Enter hotkey in app.js clicks
+      // the primary button, and this game only HIDES it mid-round (never
+      // disables it), so without this a keypress starts a second bet.
+      if (busy || active) return;
       const amount = +betInput.value;
       if (!amount || amount <= 0) return Toast.warn('Enter a bet amount');
       if (!Bankroll.canAfford(amount)) return Toast.error('Insufficient balance');

@@ -192,7 +192,13 @@ const h = (fn) => async (req, res) => {
   } catch (e) {
     const status = e.status || 500;
     if (status === 500) console.error(e);
-    if (!res.headersSent) res.status(status).json({ error: e.message || 'Server error.' });
+    // Only intentional httpError messages are safe to echo. An unexpected
+    // failure's message can carry driver/SQL constraint text or third-party
+    // internals, so it stays in the server log and the client gets a fixed
+    // string.
+    if (!res.headersSent) {
+      res.status(status).json({ error: status === 500 ? 'Server error.' : (e.message || 'Server error.') });
+    }
   }
 };
 

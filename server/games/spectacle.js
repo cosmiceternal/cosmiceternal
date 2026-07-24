@@ -21,8 +21,10 @@ const CHICKEN = {
 function chickenMult(p, n) { return +((1 - HOUSE) / Math.pow(p, n)).toFixed(4); }
 function chickenStart(userId, { bet, difficulty }) {
   const betCents = toCents(bet);
+  // hasOwnProperty, not truthiness: CHICKEN['__proto__'] is Object.prototype
+  // (truthy), which would sail past a !cfg check and feed NaN into the payout.
+  if (!Object.prototype.hasOwnProperty.call(CHICKEN, difficulty)) throw httpError(400, 'Invalid difficulty.');
   const cfg = CHICKEN[difficulty];
-  if (!cfg) throw httpError(400, 'Invalid difficulty.');
   return db.tx(async (q) => {
     await debit(q, userId, betCents);
     const id = crypto.randomUUID();

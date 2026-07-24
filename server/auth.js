@@ -105,7 +105,14 @@ function parseCookies(req) {
   header.split(';').forEach(part => {
     const i = part.indexOf('=');
     if (i < 0) return;
-    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    const raw = part.slice(i + 1).trim();
+    // decodeURIComponent throws URIError on malformed percent-encoding (e.g.
+    // "csrf=%"). parseCookies runs in the global CSRF middleware before any
+    // handler, so an unguarded throw there would 500 every request carrying a
+    // junk cookie. Fall back to the raw value instead.
+    let value;
+    try { value = decodeURIComponent(raw); } catch (_) { value = raw; }
+    out[part.slice(0, i).trim()] = value;
   });
   return out;
 }
@@ -190,7 +197,38 @@ async function register(req, username, password) {
   return getUserById(id);
 }
 
-async function login(req, username, password) {
+// Serialize login attempts per username.
+//
+// The lockout is a check-then-act: we read the failure count, then spend
+// ~50-100ms inside argon2 before recording this attempt's own failure. Node
+// dispatches every parallel request through that read long before the first
+// write lands, so N simultaneous guesses all observe fails=0 and all get a free
+// attempt — the 5-attempt cap never engages. Awaiting the write only orders it
+// ahead of THIS request's response; it does not serialize siblings. Chaining
+// per username makes each attempt observe its predecessor's recorded failure.
+//
+// This covers a single process. A multi-instance deployment would additionally
+// need the count-and-record to be atomic in the database — noted rather than
+// silently assumed.
+const loginChains = new Map(); // username -> tail promise
+function withUsernameLock(username, fn) {
+  const prev = loginChains.get(username) || Promise.resolve();
+  // Run after the predecessor settles either way — one failed login must not
+  // poison the chain for the next attempt.
+  const run = prev.then(fn, fn);
+  // Keep the map bounded: drop the entry once this attempt is the tail.
+  const tail = run.catch(() => {}).finally(() => {
+    if (loginChains.get(username) === tail) loginChains.delete(username);
+  });
+  loginChains.set(username, tail);
+  return run;
+}
+
+function login(req, username, password) {
+  return withUsernameLock((username || '').toString(), () => loginAttempt(req, username, password));
+}
+
+async function loginAttempt(req, username, password) {
   username = (username || '').toString();
   const ip = clientIp(req);
   // Lockout check BEFORE we even peek at password to avoid leaking timing.
@@ -217,9 +255,8 @@ async function login(req, username, password) {
     // Burn time so timing doesn't leak whether the username exists.
     try { await argon2.verify('$argon2id$v=19$m=19456,t=2,p=1$YWFhYWFhYWFhYWFhYWFhYQ$Yu0YyVN05F5cV6PvoKjklj0z4j1uTl1z3a9JxRZ3X7M', password); } catch (_) {}
   }
-  // Awaited on purpose: the lockout check reads this table, so the write must
-  // land before we respond — otherwise rapid-fire attempts race past the
-  // threshold while earlier failures are still in flight.
+  // Awaited so this attempt's failure is on record before the next one in the
+  // per-username chain reads the count (see withUsernameLock above).
   await logLoginAttempt(username, ip, ok);
   if (!ok) {
     logAudit(req, 'auth.login_fail', user?.id, { username });
