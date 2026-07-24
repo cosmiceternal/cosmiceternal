@@ -268,6 +268,21 @@ async function debit(q, userId, betCents) {
     [betCents, userId, betCents]);
   if (!r.rowCount) throw httpError(400, 'Insufficient balance.');
 }
+// Claim a round for settlement — the money-safety guard for every multi-step
+// game (mines, hilo, towers, pump, coin, chicken, craps, tcp, blackjack,
+// videopoker, penalty).
+//
+// Reading `rounds.settled` with a plain SELECT is NOT enough: on Postgres
+// (READ COMMITTED) that read takes no row lock, so two concurrent cashouts for
+// the same roundId both observe settled=0 and both credit the payout — one
+// stake paying out twice. This conditional UPDATE serializes them on the row:
+// the loser matches 0 rows and throws, which rolls back its whole transaction
+// (payout included) since the credit and this call share one tx. Same
+// row-locking idempotency the daily bonus and deposit confirms already use.
+async function settleRound(q, roundId) {
+  const r = await q('UPDATE rounds SET settled = 1 WHERE id = ? AND settled = 0', [roundId]);
+  if (!r.rowCount) throw httpError(409, 'Round already over.');
+}
 async function credit(q, userId, cents) {
   if (cents > 0) await q('UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?', [cents, userId]);
 }
@@ -324,5 +339,5 @@ module.exports = {
   minesMult, towersStepFactor, towersMult, hiloChances, hiloMults, comb, kenoHitProb,
   buildKenoTable, kenoTable, rouletteColor, diamondCategory, buildSlotTable, pumpMult,
   digitColor, binom, cardFromIndex, drawDistinctCards, isFlush, isStraight, evalVideoPoker,
-  handTotal, toCents, debit, credit, balanceOf, recordBet
+  handTotal, toCents, debit, credit, balanceOf, recordBet, settleRound
 };
