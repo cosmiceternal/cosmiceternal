@@ -7,7 +7,7 @@
   'use strict';
 
   let modal, snap, selectedCurrency = 'BTC';
-  let pollTimer = null, animTimer = null, pendingDepositId = null, pendingCurrency = null;
+  let pollTimer = null, animTimer = null, pendingDepositId = null;
   let confirmsRequired = 3, confirmsNow = 0;
 
   const $ = (id) => document.getElementById(id);
@@ -208,7 +208,6 @@
 
   function enterDepositState(res) {
     pendingDepositId = res.depositId;
-    pendingCurrency = res.currency;
     confirmsRequired = res.confirmsRequired || 3;
     confirmsNow = 0;
     $('vaultStateUnits').textContent = res.amount;

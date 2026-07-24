@@ -4,11 +4,10 @@
   'use strict';
 
   const POLL_MS = 15_000;
-  let el = null, timer = null, shown = 0;
+  let el = null, timer = null;
 
   function setPot(v) {
     if (typeof v !== 'number' || !isFinite(v)) return;
-    shown = v;
     if (el) el.textContent = Bankroll.fmt(v);
   }
   function celebrate(amount) {

@@ -15,7 +15,6 @@ function extract(startMarker, endMarker, names) {
   const end = src.indexOf(endMarker, start);
   assert.ok(start >= 0 && end > start, `block ${startMarker} found`);
   const sandbox = { ROULETTE_RED: new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]) };
-  // eslint-disable-next-line no-new-func
   new Function('X', 'ROULETTE_RED', src.slice(start, end) + '\n' + names.map(n => `X.${n} = ${n};`).join('\n'))(sandbox, sandbox.ROULETTE_RED);
   return sandbox;
 }

@@ -3,18 +3,9 @@
 const crypto = require('crypto');
 const db = require('../db');
 const fair = require('../fair');
-const progression = require('../progression');
-const { httpError, logAudit } = require('../auth');
-const limits = require('../limits');
+const { httpError } = require('../auth');
 const {
-  HOUSE, PLINKO, WHEEL, TOWERS, TOWERS_ROWS, KENO_N, KENO_DRAW, KENO_EDGE, KENO_TABLES,
-  ROULETTE_RED, DIAMOND_PAYS, SLOT_THEMES, SLOT_SYMBOLS, SLOT_PAIR_PAY, SLOT_TRIPLE,
-  PUMP, COLOR_MAP, COLOR_PAYS, SCRATCH_TILES, SCRATCH_P, SCRATCH_EDGE, SCRATCH_TABLE,
-  VIDEO_POKER_PAYS,
-  minesMult, towersStepFactor, towersMult, hiloChances, hiloMults, comb, kenoHitProb,
-  buildKenoTable, kenoTable, rouletteColor, diamondCategory, buildSlotTable, pumpMult,
-  digitColor, binom, cardFromIndex, drawDistinctCards, isFlush, isStraight, evalVideoPoker,
-  handTotal, toCents, debit, credit, balanceOf, recordBet
+  HOUSE, ROULETTE_RED, drawDistinctCards, toCents, debit, credit, balanceOf, recordBet
 } = require('./core');
 
 // ---------------------------------------------------------------- CHICKEN ROAD
@@ -443,6 +434,7 @@ function playRps(userId, { bet, pick }) {
 // ---------------------------------------------------------------- NEON FRUITS
 // A real 5-reel, 3-row, 10-payline video slot. Weighted reel strips + wild
 // substitution. Calibrated by Monte Carlo (2M spins) to ~96.2% RTP; max ~165x.
+// eslint-disable-next-line no-unused-vars -- documents the reel + a source anchor for test/spectacle.test.js
 const FRUIT_NAMES  = ['cherry', 'lemon', 'plum', 'bell', 'star', 'seven', 'diamond', 'wild'];
 const FRUIT_EMOJI  = ['🍒', '🍋', '🫐', '🔔', '⭐', '7️⃣', '💎', '🌟'];
 const FRUIT_WILD   = 7;
@@ -684,6 +676,7 @@ function playSugarBlast(userId, { bet }) {
 // (by count tier), winners explode, the grid refills, repeat. Multiplier orbs
 // land at a small rate; on any winning spin all orb values on screen SUM and
 // multiply the total base win. Calibrated by 200k-spin Monte Carlo to ~96%.
+// eslint-disable-next-line no-unused-vars -- COLS/ROWS document the grid + a source anchor for test/flashy3.test.js
 const GATES_COLS = 6, GATES_ROWS = 5, GATES_CELLS = 30, GATES_SYMS = 8;
 const GATES_W = [22, 20, 17, 13, 10, 8, 6, 4];
 const GATES_EMOJI = ['🍎', '🍇', '💍', '🏺', '👑', '⚡', '🔱', '🪙'];

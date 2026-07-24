@@ -16,14 +16,8 @@ process.env.COINPAYMENTS_MERCHANT_ID = 'mtest';
 // Re-isolate the require cache so other test files importing vault don't see
 // our overrides bleed through.
 delete require.cache[require.resolve('../server/vault.js')];
-const vault = require('../server/vault.js');
+require('../server/vault.js');
 
-// vault.PROCESSORS isn't exported — but we can hit verifyWebhook via a stub
-// req. Re-import a private handle by walking the registry; if that ever
-// stops working we just inline the body for the tests below.
-function makeReq(body, hmac) {
-  return { headers: hmac ? { hmac } : {}, rawBody: Buffer.from(body, 'utf8') };
-}
 function sign(body) {
   return crypto.createHmac('sha512', process.env.COINPAYMENTS_IPN_SECRET).update(body).digest('hex');
 }

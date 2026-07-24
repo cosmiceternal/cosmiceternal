@@ -86,7 +86,6 @@
     let risk = 'low';
     let rows = 12;
     let autoRemaining = 0;
-    let activeBalls = 0;
 
     riskBtns.forEach(b => b.addEventListener('click', () => {
       riskBtns.forEach(x => x.classList.remove('active'));
@@ -214,9 +213,7 @@
       const finalY = layout.padTop + rows * layout.gapY + 6;
       path.push({ x: slotCenter(slotIdx), y: finalY, kind: 'slot' });
 
-      activeBalls++;
       animatePath(path, () => {
-        activeBalls--;
         Bankroll.set(res.balance); // credit the payout as the ball lands
         const slotEls = multsEl.querySelectorAll('.plinko-mult');
         slotEls.forEach(el => el.classList.remove('flash'));

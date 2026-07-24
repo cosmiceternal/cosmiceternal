@@ -1,11 +1,6 @@
 'use strict';
 /* Player-facing reads: public feed, leaderboards, stats & history. */
-const crypto = require('crypto');
 const db = require('../db');
-const fair = require('../fair');
-const progression = require('../progression');
-const { httpError, logAudit } = require('../auth');
-const limits = require('../limits');
 
 // ---------------------------------------------------------------- HISTORY / STATS
 // Anonymise usernames for the public feed. Keeps the first letter + last digit

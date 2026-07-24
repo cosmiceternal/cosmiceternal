@@ -45,7 +45,7 @@
     const handEl = container.querySelector('#tcpHand');
     const bonusEl = container.querySelector('#tcpBonus');
     const statusEl = container.querySelector('#tcpStatus');
-    let roundId = null, busy = false, alive = true, ante = 0;
+    let roundId = null, busy = false, ante = 0;
     GameKit.wireBet(container, betInput);
 
     function idle() {
@@ -120,7 +120,7 @@
     foldBtn.addEventListener('click', () => act('fold'));
 
     hideDealer();
-    return function () { alive = false; };
+    return function () {};
   }
   global.Games = global.Games || {};
   global.Games.threecard = mount;
