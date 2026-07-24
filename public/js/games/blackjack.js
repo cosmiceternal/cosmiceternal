@@ -36,7 +36,7 @@
     const dvEl = container.querySelector('#bjDV');
     const pvEl = container.querySelector('#bjPV');
     const statusEl = container.querySelector('#bjStatus');
-    let roundId = null, bet = 0, stake = 0, busy = false, alive = true;
+    let roundId = null, bet = 0, stake = 0, busy = false;
     GameKit.wireBet(container, betInput);
 
     function renderPlayer(cards) { playerEl.innerHTML = cards.map(c => GameKit.cardHTML(c)).join(''); pvEl.textContent = value(cards); }
@@ -89,7 +89,7 @@
     hitBtn.addEventListener('click', () => act(() => API.bjHit({ roundId })));
     standBtn.addEventListener('click', () => act(() => API.bjStand({ roundId })));
     dblBtn.addEventListener('click', () => { stake = bet * 2; act(() => API.bjDouble({ roundId })); });
-    return function () { alive = false; };
+    return function () {};
   }
   global.Games = global.Games || {};
   global.Games.blackjack = mount;

@@ -35,7 +35,7 @@
     const multEl = container.querySelector('#puMult');
     const nextEl = container.querySelector('#puNext');
     const diffPills = container.querySelectorAll('[data-diff]');
-    let diff = 'easy', roundId = null, bet = 0, level = 0, busy = false, alive = true;
+    let diff = 'easy', roundId = null, bet = 0, level = 0, busy = false;
     GameKit.wireBet(container, betInput);
     diffPills.forEach(p => p.addEventListener('click', () => { if (roundId) return; diffPills.forEach(x => x.classList.remove('active')); p.classList.add('active'); diff = p.dataset.diff; }));
 
@@ -110,7 +110,7 @@
     action.addEventListener('click', start);
     pumpBtn.addEventListener('click', pump);
     cashBtn.addEventListener('click', cashout);
-    return function () { alive = false; };
+    return function () {};
   }
   global.Games = global.Games || {};
   global.Games.pump = mount;

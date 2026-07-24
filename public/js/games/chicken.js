@@ -44,7 +44,7 @@
     const multEl = container.querySelector('#chMult');
     const nextEl = container.querySelector('#chNext');
     const statusEl = container.querySelector('#chStatus');
-    let roundId = null, busy = false, alive = true, step = 0, lanes = 0, stake = 0;
+    let roundId = null, busy = false, step = 0, lanes = 0, stake = 0;
     GameKit.wireBet(container, betInput);
 
     function renderRoad() {
@@ -145,7 +145,7 @@
     });
 
     renderRoad();
-    return function () { alive = false; };
+    return function () {};
   }
   global.Games = global.Games || {};
   global.Games.chicken = mount;

@@ -30,7 +30,7 @@
     const statusEl = container.querySelector('#hlStatus');
     const multEl = container.querySelector('#hlMult');
     const streakEl = container.querySelector('#hlStreak');
-    let roundId = null, bet = 0, busy = false, alive = true, streak = 0;
+    let roundId = null, bet = 0, busy = false, streak = 0;
     GameKit.wireBet(container, betInput);
 
     function setCard(rank) { cardEl.textContent = GameKit.cardLabel(rank); cardEl.classList.remove('flip'); void cardEl.offsetWidth; cardEl.classList.add('flip'); }
@@ -105,7 +105,7 @@
     hiBtn.addEventListener('click', () => guess('hi'));
     loBtn.addEventListener('click', () => guess('lo'));
     cash.addEventListener('click', cashout);
-    return function () { alive = false; };
+    return function () {};
   }
   global.Games = global.Games || {};
   global.Games.hilo = mount;

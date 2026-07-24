@@ -16,7 +16,6 @@ function extract(startMarker, endMarker, exportNames) {
   assert.ok(start >= 0 && end > start, `block ${startMarker} found`);
   const sandbox = {};
   const body = src.slice(start, end);
-  // eslint-disable-next-line no-new-func
   new Function('X', body + '\n' + exportNames.map(n => `X.${n} = ${n};`).join('\n'))(sandbox);
   return sandbox;
 }

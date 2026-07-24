@@ -2,11 +2,8 @@
 /* Shared game-engine core: the wager chokepoint (toCents/debit/credit/recordBet),
  * plus the constant tables and math helpers used across games. Split out of the
  * former monolithic games.js — behaviour is byte-for-byte unchanged. */
-const crypto = require('crypto');
-const db = require('../db');
-const fair = require('../fair');
 const progression = require('../progression');
-const { httpError, logAudit } = require('../auth');
+const { httpError } = require('../auth');
 const limits = require('../limits');
 
 const HOUSE = 0.01;

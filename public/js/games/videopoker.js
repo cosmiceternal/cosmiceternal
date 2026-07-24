@@ -16,7 +16,7 @@
     const action = container.querySelector('#vpAction');
     const handEl = container.querySelector('#vpHand');
     const statusEl = container.querySelector('#vpStatus');
-    let roundId = null, bet = 0, busy = false, alive = true, phase = 'deal';
+    let roundId = null, bet = 0, busy = false, phase = 'deal';
     const holds = [false, false, false, false, false];
     GameKit.wireBet(container, betInput);
 
@@ -62,7 +62,7 @@
       finally { busy = false; action.disabled = false; }
     }
     action.addEventListener('click', () => (phase === 'deal' ? deal() : draw()));
-    return function () { alive = false; };
+    return function () {};
   }
   global.Games = global.Games || {};
   global.Games.videopoker = mount;

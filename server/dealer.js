@@ -11,7 +11,6 @@
  *  - Cache key is intentionally coarse (dealer + event + bucketed state) so a
  *    busy table hits warm cache after the first few hands. */
 
-const crypto = require('crypto');
 const { httpError } = require('./auth');
 
 const ENABLED = !!process.env.ANTHROPIC_API_KEY;

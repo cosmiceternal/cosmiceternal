@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test --test-concurrency=1 test/*.test.js"
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.0",
@@ -21,5 +22,9 @@
     "compression": "^1.8.1",
     "express": "^4.21.0",
     "pg": "^8.21.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "globals": "^17.7.0"
   }
 }

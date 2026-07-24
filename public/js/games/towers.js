@@ -29,7 +29,7 @@
     const multEl = container.querySelector('#twMult');
     const nextEl = container.querySelector('#twNext');
     const diffPills = container.querySelectorAll('[data-diff]');
-    let diff = 'easy', roundId = null, bet = 0, tiles = 4, rows = 9, cur = 0, busy = false, alive = true;
+    let diff = 'easy', roundId = null, bet = 0, tiles = 4, rows = 9, cur = 0, busy = false;
     GameKit.wireBet(container, betInput);
     diffPills.forEach(p => p.addEventListener('click', () => { if (roundId) return; diffPills.forEach(x => x.classList.remove('active')); p.classList.add('active'); diff = p.dataset.diff; }));
 
@@ -130,7 +130,7 @@
     }
     action.addEventListener('click', start);
     cash.addEventListener('click', cashout);
-    return function () { alive = false; };
+    return function () {};
   }
   global.Games = global.Games || {};
   global.Games.towers = mount;

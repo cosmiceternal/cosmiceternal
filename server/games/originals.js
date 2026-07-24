@@ -3,18 +3,13 @@
 const crypto = require('crypto');
 const db = require('../db');
 const fair = require('../fair');
-const progression = require('../progression');
 const { httpError, logAudit } = require('../auth');
-const limits = require('../limits');
 const {
-  HOUSE, PLINKO, WHEEL, TOWERS, TOWERS_ROWS, KENO_N, KENO_DRAW, KENO_EDGE, KENO_TABLES,
-  ROULETTE_RED, DIAMOND_PAYS, SLOT_THEMES, SLOT_SYMBOLS, SLOT_PAIR_PAY, SLOT_TRIPLE,
-  PUMP, COLOR_MAP, COLOR_PAYS, SCRATCH_TILES, SCRATCH_P, SCRATCH_EDGE, SCRATCH_TABLE,
-  VIDEO_POKER_PAYS,
-  minesMult, towersStepFactor, towersMult, hiloChances, hiloMults, comb, kenoHitProb,
-  buildKenoTable, kenoTable, rouletteColor, diamondCategory, buildSlotTable, pumpMult,
-  digitColor, binom, cardFromIndex, drawDistinctCards, isFlush, isStraight, evalVideoPoker,
-  handTotal, toCents, debit, credit, balanceOf, recordBet
+  HOUSE, PLINKO, WHEEL, TOWERS, TOWERS_ROWS, KENO_N, KENO_DRAW, KENO_TABLES, DIAMOND_PAYS,
+  SLOT_THEMES, PUMP, COLOR_PAYS, SCRATCH_TILES, SCRATCH_P, SCRATCH_TABLE, VIDEO_POKER_PAYS,
+  minesMult, towersMult, hiloChances, hiloMults, rouletteColor, diamondCategory, pumpMult,
+  digitColor, cardFromIndex, drawDistinctCards, evalVideoPoker, handTotal, toCents, debit,
+  credit, balanceOf, recordBet
 } = require('./core');
 
 // ---------------------------------------------------------------- DICE

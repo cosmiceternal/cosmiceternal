@@ -24,7 +24,6 @@ function extract(names) {
   const end = src.indexOf('function tcpStart');
   assert.ok(start > 0 && end > start, 'tcp block found in games.js');
   const block = src.slice(start, end);
-  // eslint-disable-next-line no-new-func
   new Function('exportsObj', block + '\n' + names.map(n => `exportsObj.${n} = ${n};`).join('\n'))(sandbox);
   return sandbox;
 }
