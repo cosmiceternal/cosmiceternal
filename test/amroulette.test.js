@@ -8,7 +8,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'games.js'), 'utf8');
+const src = fs.readdirSync(path.join(__dirname, '..', 'server', 'games')).filter(f => f.endsWith('.js')).sort().map(f => fs.readFileSync(path.join(__dirname, '..', 'server', 'games', f), 'utf8')).join('\n');
 
 function extract(startMarker, endMarker, names) {
   const start = src.indexOf(startMarker);
