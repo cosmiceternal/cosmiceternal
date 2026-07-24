@@ -211,7 +211,17 @@ async function createDeposit(req, userId, { currency, amount }) {
     [userId, proc.name, currency, units, funCents, 'pending', null, Date.now()]
   );
   const depositId = Number(ins.rows[0].id);
-  const procResp = await proc.createDeposit({ id: depositId, userId, currency, units, funCents });
+  // The pending row is already committed, so a processor failure would strand
+  // it forever — burning one of the user's MAX_PENDING slots and leaking the
+  // provider's raw error to the client. Cancel it and surface a clean 502.
+  let procResp;
+  try {
+    procResp = await proc.createDeposit({ id: depositId, userId, currency, units, funCents });
+  } catch (e) {
+    console.error('deposit processor failed for deposit', depositId, e);
+    try { await db.query("UPDATE deposits SET status = 'cancelled' WHERE id = ?", [depositId]); } catch (_) {}
+    throw httpError(502, 'Deposit provider unavailable. Please try again.');
+  }
   await db.query('UPDATE deposits SET txid = ? WHERE id = ?', [procResp.txid || null, depositId]);
   logAudit(req, 'vault.deposit_created', userId, { depositId, currency, units, funCents });
 
@@ -234,24 +244,34 @@ async function confirmDeposit(req, userId, { depositId }) {
     const dep = rows[0];
     if (!dep) throw httpError(404, 'Deposit not found.');
     if (dep.status !== 'pending') throw httpError(409, 'Deposit already settled.');
-    // Re-check the cap atomically inside the tx (another deposit could have raced in).
-    const { rows: agg } = await q(
-      "SELECT COALESCE(SUM(fun_credited), 0) AS t FROM deposits WHERE user_id = ? AND status = 'completed' AND created_at >= ?",
-      [userId, startOfDay()]
-    );
-    const usedCents = Number(agg[0]?.t || 0);
-    const { capCents } = await limits.effectiveDepositCap(userId);
-    if (usedCents + Number(dep.fun_credited) > capCents) {
-      await q("UPDATE deposits SET status = 'cancelled' WHERE id = ?", [depositId]);
-      throw httpError(429, 'Daily cap would be exceeded by this deposit.');
-    }
     // Conditional update FIRST so two concurrent confirms can't both pass.
     // Postgres default READ COMMITTED can let two SELECTs both see 'pending';
     // the row-locking UPDATE here is what serializes them. The second one
     // updates 0 rows and we abort before crediting.
     const upd = await q("UPDATE deposits SET status = 'completed' WHERE id = ? AND status = 'pending'", [depositId]);
     if (!upd.rowCount) throw httpError(409, 'Deposit already settled.');
+    // Credit next: this takes the USER row lock, which is what serializes two
+    // confirms of DIFFERENT deposits by the same user. The conditional update
+    // above only dedupes the same deposit id — without the user lock held here,
+    // both could read the daily total below before either committed and both
+    // slip past the cap. Reading the sum after the lock means a waiting
+    // transaction sees the winner's committed row (READ COMMITTED gives each
+    // statement a fresh snapshot). If the cap is blown we throw, and the
+    // rollback undoes this credit along with the status flip.
     await q('UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?', [Number(dep.fun_credited), userId]);
+    const { rows: agg } = await q(
+      "SELECT COALESCE(SUM(fun_credited), 0) AS t FROM deposits WHERE user_id = ? AND status = 'completed' AND created_at >= ?",
+      [userId, startOfDay()]
+    );
+    // This deposit is already 'completed' above, so the sum includes it.
+    const usedCents = Number(agg[0]?.t || 0);
+    const { capCents } = await limits.effectiveDepositCap(userId);
+    if (usedCents > capCents) {
+      // No 'cancelled' write here: the throw rolls this transaction back, so
+      // any status change would be undone anyway. The deposit stays pending and
+      // remains confirmable once the daily window resets.
+      throw httpError(429, 'Daily cap would be exceeded by this deposit.');
+    }
     const { rows: balRow } = await q('SELECT balance_cents FROM users WHERE id = ?', [userId]);
     logAudit(req, 'vault.deposit_completed', userId, { depositId, funCredited: Number(dep.fun_credited) });
     return {

@@ -88,7 +88,13 @@
     deal.addEventListener('click', start);
     hitBtn.addEventListener('click', () => act(() => API.bjHit({ roundId })));
     standBtn.addEventListener('click', () => act(() => API.bjStand({ roundId })));
-    dblBtn.addEventListener('click', () => { stake = bet * 2; act(() => API.bjDouble({ roundId })); });
+    // Set the doubled stake only after the server accepts, otherwise a
+    // rejected double leaves stake at 2x and misreports the hand result.
+    dblBtn.addEventListener('click', () => act(async () => {
+      const r = await API.bjDouble({ roundId });
+      stake = bet * 2;
+      return r;
+    }));
     return function () {};
   }
   global.Games = global.Games || {};

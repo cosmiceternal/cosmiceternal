@@ -177,7 +177,7 @@ function playLimbo(userId, { bet, target }) {
 // ---------------------------------------------------------------- WHEEL
 function playWheel(userId, { bet, risk }) {
   const betCents = toCents(bet);
-  if (!WHEEL[risk]) throw httpError(400, 'Invalid risk.');
+  if (!Object.prototype.hasOwnProperty.call(WHEEL, risk)) throw httpError(400, 'Invalid risk.');
   const segments = WHEEL[risk];
 
   return db.tx(async (q) => {
@@ -284,7 +284,7 @@ function hiloCashout(userId, { roundId }) {
 // ---------------------------------------------------------------- TOWERS
 function towersStart(userId, { bet, difficulty }) {
   const betCents = toCents(bet);
-  if (!TOWERS[difficulty]) throw httpError(400, 'Invalid difficulty.');
+  if (!Object.prototype.hasOwnProperty.call(TOWERS, difficulty)) throw httpError(400, 'Invalid difficulty.');
   const { tiles, safe } = TOWERS[difficulty];
   const traps = tiles - safe;
 
@@ -542,7 +542,7 @@ function playCosmicReels(userId, body)  { return playSlotsThemed(userId, body, '
 // ---------------------------------------------------------------- PUMP (escalating meter)
 function pumpStart(userId, { bet, difficulty }) {
   const betCents = toCents(bet);
-  if (!PUMP[difficulty]) throw httpError(400, 'Invalid difficulty.');
+  if (!Object.prototype.hasOwnProperty.call(PUMP, difficulty)) throw httpError(400, 'Invalid difficulty.');
   const positions = PUMP[difficulty];
   return db.tx(async (q) => {
     await debit(q, userId, betCents);
@@ -903,7 +903,7 @@ function buildCascadeTable(p) {
 const CASCADE_TABLES = { low: buildCascadeTable(CASCADE_P.low), mid: buildCascadeTable(CASCADE_P.mid), high: buildCascadeTable(CASCADE_P.high) };
 function playCascade(userId, { bet, risk }) {
   const betCents = toCents(bet);
-  if (!CASCADE_P[risk]) throw httpError(400, 'Invalid risk.');
+  if (!Object.prototype.hasOwnProperty.call(CASCADE_P, risk)) throw httpError(400, 'Invalid risk.');
   const p = CASCADE_P[risk], table = CASCADE_TABLES[risk];
   return db.tx(async (q) => {
     await debit(q, userId, betCents);

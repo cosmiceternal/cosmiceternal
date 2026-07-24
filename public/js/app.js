@@ -408,7 +408,11 @@
       const gamePane = document.getElementById('gamePane');
       const inGame = focused && (focused.tagName === 'BUTTON' || (gamePane && gamePane.contains(focused)));
       if (!inGame) return;
-      const primary = document.querySelector('#gamePane .btn-primary:not([disabled])');
+      // Skip hidden buttons: games that swap the primary control mid-round
+      // hide it rather than disabling it, and clicking it would fire a bet the
+      // player cannot see.
+      const primary = [...document.querySelectorAll('#gamePane .btn-primary')]
+        .find(b => !b.disabled && b.offsetParent !== null);
       if (primary) {
         e.preventDefault();
         primary.click();
