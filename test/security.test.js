@@ -49,17 +49,7 @@ function forgeToken(userId, epoch, iatSec) {
   return `${payload}.${mac}`;
 }
 
-function waitForReady(url, timeoutMs = 10_000) {
-  const start = Date.now();
-  return new Promise((resolve, reject) => {
-    const tick = async () => {
-      try { const r = await fetch(url); if (r.ok) return resolve(); } catch (_) {}
-      if (Date.now() - start > timeoutMs) return reject(new Error('server did not start'));
-      setTimeout(tick, 150);
-    };
-    tick();
-  });
-}
+const { waitForReady } = require('./helpers/server-ready');
 
 test('security suite', async (t) => {
   rmDb();
@@ -78,7 +68,7 @@ test('security suite', async (t) => {
   });
 
   try {
-    await waitForReady(`${BASE}/healthz`);
+    await waitForReady(`${BASE}/healthz`, { child });
 
     // ---- Bootstrap one account we reuse across subtests ----
     const alice = newSession();

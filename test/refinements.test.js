@@ -34,17 +34,7 @@ async function req(sess, method, p, body) {
   let data = null; try { data = await r.json(); } catch (_) {}
   return { status: r.status, data };
 }
-function waitForReady(url, timeoutMs = 10_000) {
-  const start = Date.now();
-  return new Promise((resolve, reject) => {
-    const tick = async () => {
-      try { const r = await fetch(url); if (r.ok) return resolve(); } catch (_) {}
-      if (Date.now() - start > timeoutMs) return reject(new Error('server did not start'));
-      setTimeout(tick, 150);
-    };
-    tick();
-  });
-}
+const { waitForReady } = require('./helpers/server-ready');
 
 test('refinement security fixes', async (t) => {
   rmDb();
@@ -53,7 +43,7 @@ test('refinement security fixes', async (t) => {
     stdio: ['ignore', 'ignore', 'inherit']
   });
   try {
-    await waitForReady(`${BASE}/healthz`);
+    await waitForReady(`${BASE}/healthz`, { child });
 
     await t.test('sub-cent bets that round to 0 are rejected', async () => {
       const s = newSession();

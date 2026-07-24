@@ -33,17 +33,7 @@ async function req(sess, method, p, body) {
   let data = null; try { data = await r.json(); } catch (_) {}
   return { status: r.status, data };
 }
-function waitForReady(url, timeoutMs = 10_000) {
-  const start = Date.now();
-  return new Promise((resolve, reject) => {
-    const tick = async () => {
-      try { const r = await fetch(url); if (r.ok) return resolve(); } catch (_) {}
-      if (Date.now() - start > timeoutMs) return reject(new Error('server did not start'));
-      setTimeout(tick, 150);
-    };
-    tick();
-  });
-}
+const { waitForReady } = require('./helpers/server-ready');
 
 test('past bets persist + expose their fairness coordinates and re-derive', async (t) => {
   rmDb();
@@ -52,7 +42,7 @@ test('past bets persist + expose their fairness coordinates and re-derive', asyn
     stdio: ['ignore', 'ignore', 'inherit']
   });
   try {
-    await waitForReady(`${BASE}/healthz`);
+    await waitForReady(`${BASE}/healthz`, { child });
     const s = newSession();
     await req(s, 'GET', '/api/me');
     let r = await req(s, 'POST', '/api/auth/register', { username: 'verifier', password: 'longpassword1' });

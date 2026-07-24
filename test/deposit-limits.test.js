@@ -36,17 +36,7 @@ async function req(sess, method, p, body) {
   let data = null; try { data = await r.json(); } catch (_) {}
   return { status: r.status, data };
 }
-function waitForReady(url, timeoutMs = 10_000) {
-  const start = Date.now();
-  return new Promise((resolve, reject) => {
-    const tick = async () => {
-      try { const r = await fetch(url); if (r.ok) return resolve(); } catch (_) {}
-      if (Date.now() - start > timeoutMs) return reject(new Error('server did not start'));
-      setTimeout(tick, 150);
-    };
-    tick();
-  });
-}
+const { waitForReady } = require('./helpers/server-ready');
 
 test('graduated deposit limits + admin controls', async (t) => {
   rmDb();
@@ -63,7 +53,7 @@ test('graduated deposit limits + admin controls', async (t) => {
   });
 
   try {
-    await waitForReady(`${BASE}/healthz`);
+    await waitForReady(`${BASE}/healthz`, { child });
     const Database = require('better-sqlite3');
     const promote = (username) => { const db = new Database(DB); db.prepare('UPDATE users SET is_admin = 1 WHERE username = ?').run(username); db.close(); };
     const addBet = (userId, betCents) => { const db = new Database(DB); db.prepare(`INSERT INTO bets(user_id, game, bet_cents, mult, payout_cents, win, nonce, detail, created_at) VALUES(?, 'slots', ?, 0, 0, 0, 1, NULL, ?)`).run(userId, betCents, Date.now()); db.close(); };
