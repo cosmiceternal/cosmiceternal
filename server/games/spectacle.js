@@ -5,7 +5,7 @@ const db = require('../db');
 const fair = require('../fair');
 const { httpError } = require('../auth');
 const {
-  HOUSE, ROULETTE_RED, drawDistinctCards, toCents, debit, credit, balanceOf, recordBet
+  HOUSE, ROULETTE_RED, drawDistinctCards, toCents, debit, credit, balanceOf, recordBet, settleRound
 } = require('./core');
 
 // ---------------------------------------------------------------- CHICKEN ROAD
@@ -45,7 +45,7 @@ function chickenStep(userId, { roundId }) {
     const { floats, nonce } = await fair.drawTx(q, userId, 1);
     if (floats[0] >= s.p) {
       // Hit by traffic on this lane.
-      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await settleRound(q, roundId);
       await recordBet(q, userId, { game: 'chicken', betCents: s.betCents, mult: 0, payoutCents: 0, win: false, nonce, detail: { difficulty: s.difficulty, hitAt: s.step + 1 } });
       return { hit: true, step: s.step + 1, balance: await balanceOf(q, userId) / 100 };
     }
@@ -55,7 +55,7 @@ function chickenStep(userId, { roundId }) {
     if (s.step >= s.lanes) {
       const payoutCents = Math.round(s.betCents * mult);
       await credit(q, userId, payoutCents);
-      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await settleRound(q, roundId);
       await recordBet(q, userId, { game: 'chicken', betCents: s.betCents, mult, payoutCents, win: true, nonce, detail: { difficulty: s.difficulty, cleared: true } });
       return { hit: false, step: s.step, mult, cleared: true, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100 };
     }
@@ -79,7 +79,7 @@ function chickenCashout(userId, { roundId }) {
     const mult = chickenMult(s.p, s.step);
     const payoutCents = Math.round(s.betCents * mult);
     await credit(q, userId, payoutCents);
-    await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+    await settleRound(q, roundId);
     await recordBet(q, userId, { game: 'chicken', betCents: s.betCents, mult, payoutCents, win: true, nonce: s.nonce, detail: { difficulty: s.difficulty, step: s.step } });
     return { mult, payout: payoutCents / 100, step: s.step, balance: await balanceOf(q, userId) / 100 };
   });
@@ -129,12 +129,12 @@ function crapsRoll(userId, { roundId }) {
     if (sum === s.point) {
       const payoutCents = s.betCents * 2;
       await credit(q, userId, payoutCents);
-      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await settleRound(q, roundId);
       await recordBet(q, userId, { game: 'craps', betCents: s.betCents, mult: 2, payoutCents, win: true, nonce, detail: { point: s.point, made: true } });
       return { dice, sum, outcome: 'point_made', mult: 2, payout: payoutCents / 100, done: true, balance: await balanceOf(q, userId) / 100 };
     }
     if (sum === 7) {
-      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await settleRound(q, roundId);
       await recordBet(q, userId, { game: 'craps', betCents: s.betCents, mult: 0, payoutCents: 0, win: false, nonce, detail: { point: s.point, sevenOut: true } });
       return { dice, sum, outcome: 'seven_out', mult: 0, payout: 0, done: true, balance: await balanceOf(q, userId) / 100 };
     }
@@ -208,7 +208,7 @@ function tcpAct(userId, { roundId, action }) {
     if (!round) throw httpError(404, 'Round not found.');
     if (Number(round.settled)) throw httpError(409, 'Round already over.');
     const s = JSON.parse(round.state);
-    await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+    await settleRound(q, roundId);
     const pHand = tcpEvaluate(s.player), dHand = tcpEvaluate(s.dealer);
 
     if (action === 'fold') {
@@ -978,7 +978,7 @@ function penaltyShoot(userId, { roundId, dir }) {
     const keeper = s.dives[s.round];
     const scored = keeper !== shot;
     if (!scored) {
-      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await settleRound(q, roundId);
       await recordBet(q, userId, { game: 'penalty', betCents: s.betCents, mult: 0, payoutCents: 0, win: false, nonce: s.nonce, detail: { goals: s.round, savedRound: s.round + 1 } });
       return { saved: true, keeper, shot, round: s.round, balance: await balanceOf(q, userId) / 100 };
     }
@@ -987,7 +987,7 @@ function penaltyShoot(userId, { roundId, dir }) {
     if (s.round >= PENALTY_ROUNDS) {
       const payoutCents = Math.round(s.betCents * mult);
       await credit(q, userId, payoutCents);
-      await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+      await settleRound(q, roundId);
       await recordBet(q, userId, { game: 'penalty', betCents: s.betCents, mult, payoutCents, win: true, nonce: s.nonce, detail: { goals: s.round, perfect: true } });
       return { saved: false, keeper, shot, round: s.round, mult, perfect: true, payout: payoutCents / 100, balance: await balanceOf(q, userId) / 100 };
     }
@@ -1006,7 +1006,7 @@ function penaltyCashout(userId, { roundId }) {
     const mult = penaltyMult(s.round);
     const payoutCents = Math.round(s.betCents * mult);
     await credit(q, userId, payoutCents);
-    await q('UPDATE rounds SET settled = 1 WHERE id = ?', [roundId]);
+    await settleRound(q, roundId);
     await recordBet(q, userId, { game: 'penalty', betCents: s.betCents, mult, payoutCents, win: true, nonce: s.nonce, detail: { goals: s.round } });
     return { mult, payout: payoutCents / 100, goals: s.round, balance: await balanceOf(q, userId) / 100 };
   });
