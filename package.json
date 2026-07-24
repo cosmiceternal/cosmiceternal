@@ -11,7 +11,8 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "test": "node --test --test-concurrency=1 test/*.test.js",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "audit": "npm audit --omit=dev --audit-level=high"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.0",

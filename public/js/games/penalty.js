@@ -69,7 +69,7 @@
         Fair.bumpNonce();
         keeper.style.left = POS[res.keeper];
         ball.style.left = POS[res.shot]; ball.style.bottom = '64%';
-        await new Promise(r => setTimeout(r, 450));
+        await new Promise(r => { setTimeout(r, 450); });
         if (!alive) return;
         if (res.saved) {
           ball.style.opacity = '0.3';
