@@ -11,7 +11,7 @@ const globals = require('globals');
 // Declaring them lets no-undef catch typos (Bankrol.get()) without false
 // positives on the intended runtime sharing.
 const appGlobals = {};
-for (const g of ['API', 'Admin', 'Bankroll', 'Confetti', 'CryptNav', 'Fair', 'Feed',
+for (const g of ['API', 'Admin', 'Bankroll', 'ChatPanel', 'Confetti', 'CryptNav', 'Fair', 'Feed',
   'GameCatalog', 'GameKit', 'Games', 'Help', 'Jackpot', 'Limits', 'PlayerStats',
   'Progression', 'Sound', 'Toast', 'Tour', 'Vault', 'WinFx']) appGlobals[g] = 'writable';
 

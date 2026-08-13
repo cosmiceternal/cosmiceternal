@@ -90,7 +90,25 @@
       </div>
     </header>
 
+    <div class="promo-strip" id="promoStrip">
+      <span class="promo-dot"></span>
+      <span class="promo-text">Hourly races and a progressive jackpot are live — every spin builds the pot.</span>
+      <button class="promo-x" id="promoClose" aria-label="Dismiss">✕</button>
+    </div>
+
     <main class="layout">
+      <aside class="chat-side" id="chatSide">
+        <div class="cs-head">
+          <span class="cs-live"><span class="cs-dot"></span><b id="csOnline">—</b> online</span>
+          <button class="cs-toggle" id="csToggle" title="Hide chat">‹</button>
+        </div>
+        <ul class="cs-list" id="csList"></ul>
+        <div class="cs-input">
+          <input id="csInput" type="text" maxlength="200" placeholder="Say something…" autocomplete="off" />
+          <button class="btn btn-primary" id="csSend">➤</button>
+        </div>
+      </aside>
+
       <section class="game-pane" id="gamePane"></section>
 
       <aside class="feed-pane">
@@ -100,17 +118,12 @@
             <button class="feed-tab active" data-feed="all">Yours</button>
             <button class="feed-tab" data-feed="high">Big</button>
             <button class="feed-tab" data-feed="live"><span class="live-dot"></span> Live</button>
-            <button class="feed-tab" data-feed="chat">💬 Chat</button>
           </div>
         </div>
         <div class="feed-table-head" id="feedTableHead">
           <span>Game</span><span>Player</span><span>Bet</span><span>Mult</span><span>Profit</span>
         </div>
         <ul class="feed-list" id="feedList"></ul>
-        <div class="chat-input-row hidden" id="chatInputRow">
-          <input id="chatInput" type="text" maxlength="200" placeholder="Say something…" autocomplete="off" />
-          <button class="btn btn-primary" id="chatSend">Send</button>
-        </div>
       </aside>
     </main>
     <footer class="app-footer">
@@ -637,6 +650,7 @@
   <script src="js/help.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/playerstats.js"></script>
+  <script src="js/chatpanel.js"></script>
   <script src="js/tour.js"></script>
   <script src="js/app.js"></script>
 </body>
