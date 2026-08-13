@@ -1,11 +1,13 @@
 // Entry point. Boots one RadioStation per genre that has a Discord token
-// configured, then (optionally) brings up the Telegram remote that controls
-// all of them.
+// configured, wires each with the shared voice-over source and (optional) AI DJ,
+// then brings up the Telegram remote that controls them all.
 import 'dotenv/config';
 import ffmpegPath from 'ffmpeg-static';
 import { STATIONS, envKeys } from '../config/stations.js';
 import { RadioStation } from './station.js';
 import { startTelegram } from './telegram.js';
+import { createVoiceOver } from './sources/voiceover.js';
+import { createDJ } from './dj.js';
 import { checkYtDlp } from './sources/ytdlp.js';
 import { log } from './log.js';
 
@@ -20,11 +22,19 @@ async function main() {
   if (!yt.ok) {
     log.error(
       'yt-dlp not found. Install it (e.g. "pipx install yt-dlp" or "brew install yt-dlp") ' +
-        'or set YT_DLP_PATH. The radio cannot stream audio without it.',
+        'or set YT_DLP_PATH. The radio cannot stream music without it.',
     );
   } else {
     log.info(`yt-dlp ${yt.version} detected`);
   }
+
+  // Shared broadcast services.
+  const voice = createVoiceOver();
+  const dj = createDJ();
+  log.info(
+    `On-air voice: ${voice.ttsEnabled ? 'TTS spoken segments' : 'text + station stingers (set TTS_CMD for a talking DJ)'}`,
+  );
+  log.info(`AI DJ: ${dj.available ? 'on (Claude-generated banter)' : 'off (scripted lines)'}`);
 
   const stations = new Map();
 
@@ -33,6 +43,7 @@ async function main() {
     const token = process.env[keys.token];
     const guildId = process.env[keys.guild];
     const voiceId = process.env[keys.voice];
+    const textId = process.env[keys.text] || null;
 
     if (!token) continue; // station opted out — no token configured
 
@@ -42,13 +53,13 @@ async function main() {
     }
 
     const station = new RadioStation({
-      id: def.id,
-      name: def.name,
-      emoji: def.emoji,
-      catalogName: def.catalog,
+      def,
       token,
       guildId,
       voiceId,
+      textId,
+      voice,
+      dj,
       noRepeat: NO_REPEAT,
     });
 
@@ -66,7 +77,7 @@ async function main() {
         'one station in .env. See .env.example.',
     );
   } else {
-    log.info(`Started ${stations.size} station(s): ${[...stations.keys()].join(', ')}`);
+    log.info(`On air: ${[...stations.values()].map((s) => s.callSign).join(' · ')}`);
   }
 
   const tgToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -80,9 +91,8 @@ async function main() {
     log.info('TELEGRAM_BOT_TOKEN not set — running without the Telegram remote.');
   }
 
-  // Tidy shutdown.
   const shutdown = async () => {
-    log.info('shutting down…');
+    log.info('signing off…');
     await Promise.allSettled([...stations.values()].map((s) => s.stop()));
     process.exit(0);
   };

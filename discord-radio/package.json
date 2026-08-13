@@ -20,5 +20,8 @@
     "ffmpeg-static": "^5.2.0",
     "libsodium-wrappers": "^0.7.13",
     "telegraf": "^4.16.3"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.100.0"
   }
 }

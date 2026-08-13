@@ -11,13 +11,22 @@ function pick(stations, arg) {
   return stations.get(arg.toLowerCase()) || null;
 }
 
+function segmentSummary(st) {
+  if (!st.connected) return 'off air';
+  const seg = st.segment;
+  if (!seg) return 'tuning in…';
+  if (seg.type === 'song') return `🎵 ${seg.track.artist} – ${seg.track.title} (${seg.track.year})`;
+  if (seg.type === 'dj') return `🎙️ ${st.dj}: ${seg.text}`;
+  if (seg.type === 'ad') return '📢 commercial break';
+  return `📻 ${seg.text}`;
+}
+
 function stationList(stations) {
   return [...stations.values()]
     .map((s) => {
       const st = s.status();
-      const where = st.current ? `${st.current.artist} – ${st.current.title} (${st.current.year})` : (st.connected ? 'buffering…' : 'offline');
       const era = st.era ? ` [${st.era.from}–${st.era.to}]` : '';
-      return `${st.emoji} \`${st.id}\` *${st.name}*${era}\n   ${where}`;
+      return `${st.emoji} \`${st.id}\` *${st.callSign}*${era}\n   ${segmentSummary(st)}`;
     })
     .join('\n');
 }
@@ -90,18 +99,15 @@ export function startTelegram(token, stations, allowedUsers) {
   bot.command('stop', (ctx) => {
     const s = pick(stations, ctx.payload?.trim());
     if (!s) return ctx.reply('Usage: /stop <station-id>. See /stations.');
-    s.playing = false;
-    s._killChild();
-    s.player.stop(true);
-    s._updatePresence();
-    ctx.reply(`⏸️ ${s.name}: paused.`);
+    s.pause();
+    ctx.reply(`⏸️ ${s.short}: off air.`);
   });
 
   bot.command('play', (ctx) => {
     const s = pick(stations, ctx.payload?.trim());
     if (!s) return ctx.reply('Usage: /play <station-id>. See /stations.');
     s.resume();
-    ctx.reply(`▶️ ${s.name}: playing.`);
+    ctx.reply(`▶️ ${s.short}: back on air.`);
   });
 
   bot.catch((err, ctx) => log.warn(`update ${ctx.updateType} failed:`, err.message));
