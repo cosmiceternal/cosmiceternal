@@ -16,6 +16,7 @@ const admin = require('./admin');
 const chat = require('./chat');
 const race = require('./race');
 const limits = require('./limits');
+const presence = require('./presence');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -175,6 +176,9 @@ function timingSafeEq(a, b) {
 }
 app.use(csrf);
 app.use(auth.authenticate);
+// Stamp presence after authenticate so req.user is populated. In-memory and
+// free — see server/presence.js for the multi-instance caveat.
+app.use((req, res, next) => { if (req.user) presence.touch(req.user.id); next(); });
 
 // Wrap handlers so thrown/rejected httpErrors become JSON responses, and any
 // progression delta the request accumulates (XP gained, level-ups, achievement
@@ -347,7 +351,8 @@ app.get('/api/vault/withdrawals',      auth.requireAuth, h(async (req) => ({ wit
 
 // ---------------- Social & economy ----------------
 app.get('/api/jackpot', auth.requireAuth, h(() => games.jackpotState()));
-app.get('/api/chat',      auth.requireAuth, h((req) => chat.list(req.query.since, req.query.limit)));
+app.get('/api/chat',      auth.requireAuth, h(async (req) => Object.assign(await chat.list(req.query.since, req.query.limit), { online: presence.count() })));
+app.get('/api/online',    auth.requireAuth, h(() => ({ online: presence.count() })));
 app.post('/api/chat/send', auth.requireAuth, h((req) => chat.send(req.user.id, (req.body || {}).text)));
 app.get('/api/race', auth.requireAuth, h((req) => race.state(req.user.id)));
 

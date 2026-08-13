@@ -509,6 +509,15 @@
     userName.textContent = user.username;
     Bankroll.bindElement(document.getElementById('balanceValue'));
     Feed.init(document.getElementById('feedList'));
+    // Promo strip: dismissible, and it stays dismissed.
+    const promo = document.getElementById('promoStrip');
+    if (promo) {
+      try { if (localStorage.getItem('crypt.promoHidden') === '1') promo.classList.add('hidden'); } catch (_) {}
+      document.getElementById('promoClose')?.addEventListener('click', () => {
+        promo.classList.add('hidden');
+        try { localStorage.setItem('crypt.promoHidden', '1'); } catch (_) {}
+      });
+    }
     Fair.refresh();
     // Seed progression UI from the cheap fields on /api/me, then init() pulls
     // the full snapshot (achievements list + daily state) and pops the bonus
@@ -516,6 +525,7 @@
     if (global.Progression) { Progression.seed(user); Progression.init(); }
     if (global.Vault) Vault.wire();
     if (global.Admin) Admin.wire(user);
+    if (global.ChatPanel) ChatPanel.init();
     if (global.Jackpot) Jackpot.init();
     if (global.Limits) Limits.wire(user);
     if (global.Help) Help.wire();
