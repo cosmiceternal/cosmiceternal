@@ -13,6 +13,15 @@
 // first action (bust, board cleared, losing flip). Each flow below only cashes
 // out while the round is genuinely still live — otherwise the assertion would
 // flake roughly one run in three.
+//
+// The "round is over" signal differs per game and is NOT uniform. Verified
+// against the server's return statements:
+//   mines / towers / chicken   hit: true  |  cleared: true
+//   hilo / coin                win: false
+//   pump                       burst: true  |  maxed: true
+//   penalty                    saved: true  |  perfect: true
+//   craps / blackjack          done: true
+// Guessing these is how this test flaked in CI while passing locally.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -136,12 +145,14 @@ test('every game and feature is functional', async (t) => {
         assert.equal((await req('POST', '/api/play/towers/cashout', { roundId: st.data.roundId })).status, 200, 'towers cashout');
       }
 
-      // pump
+      // pump — `burst` is the bomb, `maxed` is every position cleared. Both
+      // settle the round server-side. (Guessing `done`/`hit` here made this
+      // flake roughly 1 run in 20, whenever the bomb came up on the first pump.)
       st = await req('POST', '/api/play/pump/start', { bet: 1, difficulty: 'easy' });
       assert.equal(st.status, 200, 'pump start');
       step = await req('POST', '/api/play/pump/pump', { roundId: st.data.roundId });
       assert.equal(step.status, 200, 'pump pump');
-      if (!step.data.done && !step.data.hit) {
+      if (!step.data.burst && !step.data.maxed) {
         assert.equal((await req('POST', '/api/play/pump/cashout', { roundId: st.data.roundId })).status, 200, 'pump cashout');
       }
 
