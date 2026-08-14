@@ -33,9 +33,15 @@
     if (!isLive) li.classList.add('me-row');
 
     const game = document.createElement('span');
+    game.className = 'feed-game';
     const tag = document.createElement('span');
     tag.className = 'game-tag ' + r.game;
-    tag.textContent = r.game;
+    // Show the catalogue's display name ("Dragon Tiger"), not the raw key
+    // ("dragontiger"). Long names are ellipsised by CSS, so the full name goes
+    // on the tooltip.
+    const label = (global.GameCatalog && GameCatalog.nameOf) ? GameCatalog.nameOf(r.game) : r.game;
+    tag.textContent = label;
+    tag.title = label;
     game.appendChild(tag);
 
     const player = document.createElement('span');
