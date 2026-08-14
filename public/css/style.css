@@ -428,8 +428,8 @@ input { font-family: inherit; }
 
 .feed-table-head {
   display: grid;
-  grid-template-columns: 70px 1fr 70px 60px 80px;
-  padding: 8px 14px;
+  grid-template-columns: 100px 1fr 56px 50px 68px;
+  padding: 8px 12px;
   font-size: 10px;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -447,8 +447,8 @@ input { font-family: inherit; }
 }
 .feed-list li {
   display: grid;
-  grid-template-columns: 70px 1fr 70px 60px 80px;
-  padding: 7px 14px;
+  grid-template-columns: 100px 1fr 56px 50px 68px;
+  padding: 7px 12px;
   border-bottom: 1px solid rgba(31, 42, 54, 0.6);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -466,17 +466,27 @@ input { font-family: inherit; }
 }
 .feed-list li.win .payout { color: var(--accent); font-weight: 700; }
 .feed-list li.loss .payout { color: var(--danger); }
+/* The name column must never bleed into Player. Game names run from "Dice" to
+   "American Roulette", and the tag used to be width:fit-content with no
+   clipping, so the long ones overlapped the next column by up to 32px. */
+.feed-game { min-width: 0; overflow: hidden; }
 .feed-list .game-tag {
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 2px 6px;
+  /* Sentence case, not uppercase: all-caps costs ~15% width and forced
+     "American Roulette" — the longest name in the catalogue — down to
+     "AMERICAN ...". At this size every one of the 50 names fits whole. */
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 2px 5px;
   border-radius: 4px;
   background: var(--bg-3);
   color: var(--muted);
-  display: inline-block;
-  width: fit-content;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .feed-list .game-tag.crash { color: #ff8a65; background: rgba(255, 138, 101, 0.12); }
 .feed-list .game-tag.mines { color: #82b1ff; background: rgba(130, 177, 255, 0.12); }

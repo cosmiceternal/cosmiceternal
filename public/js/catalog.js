@@ -79,5 +79,14 @@
   const byKey = {};
   GAMES.forEach(g => { byKey[g.key] = g; });
 
-  global.GameCatalog = { GAMES, CATS, GROUPS, byKey, nameOf: (k) => (byKey[k] ? byKey[k].name : k) };
+  // A few endpoints record a key that is not the catalogue key: the themed
+  // slots record their THEME ('sevens'), and three-card poker records 'tcp'.
+  // Aliasing here fixes the live feed and bet history for rows already in the
+  // database as well as new ones — no migration needed.
+  const ALIASES = { sevens: 'luckysevens', tcp: 'threecard' };
+  const nameOf = (k) => {
+    const key = byKey[k] ? k : (ALIASES[k] || k);
+    return byKey[key] ? byKey[key].name : k;
+  };
+  global.GameCatalog = { GAMES, CATS, GROUPS, byKey, ALIASES, nameOf };
 })(window);
