@@ -525,7 +525,7 @@
     if (global.Progression) { Progression.seed(user); Progression.init(); }
     if (global.Vault) Vault.wire();
     if (global.Admin) Admin.wire(user);
-    if (global.ChatPanel) ChatPanel.init();
+    if (global.ChatPanel) { ChatPanel.setUser(user.username); ChatPanel.init(); }
     if (global.Jackpot) Jackpot.init();
     if (global.Limits) Limits.wire(user);
     if (global.Help) Help.wire();
