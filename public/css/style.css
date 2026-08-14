@@ -711,6 +711,7 @@ input { font-family: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;   /* board + payout row sit together, centred */
   padding: 16px;
   position: relative;
 }
@@ -719,19 +720,29 @@ input { font-family: inherit; }
   background: var(--bg-1);
   border-radius: 8px;
   max-width: 100%;
-  flex: 1;
+  /* NOT flex:1 — stretching the element does not stretch its coordinate
+     space, so the pegs rendered as ellipses. The client sizes the canvas to
+     the board's real height; honour it. */
+  flex: 0 0 auto;
 }
 .plinko-multipliers {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   justify-content: center;
   margin-top: 6px;
   flex-wrap: nowrap;
+  width: 100%;
+  max-width: 720px;   /* the canvas ceiling — keeps chips aligned to the board */
+  align-self: center;
 }
 .plinko-mult {
-  flex: 1;
+  flex: 1 1 0;
+  /* min-width:0 is the load-bearing bit: a flex item defaults to min-width:auto
+     and refuses to shrink below its text, so 13 and 17-slot boards used to
+     burst straight out of the stage. */
+  min-width: 0;
   text-align: center;
-  padding: 6px 4px;
+  padding: 6px 2px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
@@ -739,7 +750,12 @@ input { font-family: inherit; }
   background: var(--bg-3);
   border: 1px solid var(--line);
   transition: all 0.2s;
+  white-space: nowrap;
 }
+/* Denser boards need smaller type to stay legible rather than clipped.
+   data-count is set by the client when it renders the row. */
+.plinko-multipliers[data-count="13"] .plinko-mult { font-size: 10px; padding: 5px 1px; }
+.plinko-multipliers[data-count="17"] .plinko-mult { font-size: 8.5px; padding: 5px 1px; letter-spacing: -0.2px; }
 .plinko-mult.flash {
   transform: scale(1.18);
   box-shadow: 0 0 24px var(--accent-glow);

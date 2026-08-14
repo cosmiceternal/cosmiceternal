@@ -114,6 +114,8 @@
     function renderMults() {
       const slots = SLOTS[rows][risk];
       multsEl.innerHTML = '';
+      // Lets the stylesheet tighten type on the denser 13/17-slot boards.
+      multsEl.dataset.count = String(slots.length);
       slots.forEach((m, i) => {
         const el = document.createElement('div');
         el.className = 'plinko-mult';
@@ -121,7 +123,10 @@
         el.style.background = `linear-gradient(180deg, ${c1}33, ${c1}11)`;
         el.style.borderColor = c1 + '66';
         el.style.color = c2;
-        el.textContent = (m >= 100 ? m.toFixed(0) : m.toFixed(1)) + '×';
+        // The 17-slot board leaves ~24px per chip; "1000×" does not fit, so the
+        // densest layout drops the × (the row is unmistakably multipliers).
+        const label = m >= 100 ? m.toFixed(0) : m.toFixed(1);
+        el.textContent = slots.length >= 17 ? label : label + '×';
         el.dataset.idx = i;
         multsEl.appendChild(el);
       });
@@ -129,29 +134,25 @@
     renderMults();
 
     let layout = {};
+    const PAD_X = 30, PAD_TOP = 26, PAD_BOTTOM = 18;
     function resize() {
       const dpr = window.devicePixelRatio || 1;
       const r = canvas.parentElement.getBoundingClientRect();
       const cssW = Math.max(280, Math.min(720, r.width - 32));
-      const cssH = Math.max(320, r.height - 60);
+      const availH = Math.max(260, r.height - 70);
+      // Peg spacing follows the width, then the canvas is sized to the board's
+      // NATURAL height. Filling the stage instead left the pegs floating with a
+      // long gap between the last row and the payout chips underneath.
+      const gapX = (cssW - PAD_X * 2) / (rows + 1);
+      const gapY = Math.min(gapX * 0.92, (availH - PAD_TOP - PAD_BOTTOM) / rows);
+      const cssH = Math.min(availH, PAD_TOP + gapY * rows + PAD_BOTTOM);
       canvas.style.width = cssW + 'px';
       canvas.style.height = cssH + 'px';
       canvas.width = cssW * dpr;
       canvas.height = cssH * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      computeLayout(cssW, cssH);
+      layout = { w: cssW, h: cssH, gapX, gapY, padTop: PAD_TOP };
       drawBoard();
-    }
-    function computeLayout(w, h) {
-      const padX = 30, padTop = 30, padBottom = 30;
-      const usableW = w - padX * 2;
-      const usableH = h - padTop - padBottom;
-      const bottomPegs = rows + 2;
-      const gapX = usableW / (bottomPegs - 1);
-      const gapY = Math.min(gapX * 0.92, usableH / rows);
-      const totalH = gapY * rows;
-      const top = padTop + (usableH - totalH) / 2;
-      layout = { w, h, gapX, gapY, padTop: top };
     }
     function pegPos(row, idx) {
       const pegsInRow = row + 3;
@@ -165,15 +166,25 @@
       const startX = (layout.w - rowW) / 2;
       return startX + (slotIdx + 0.5) * layout.gapX;
     }
-    function drawBoard() {
+    // `hit` = { row, idx, strength 0..1 } for the peg the ball just struck.
+    function drawBoard(hit) {
       ctx.clearRect(0, 0, layout.w, layout.h);
       for (let r = 0; r < rows; r++) {
         const pegs = r + 3;
         for (let i = 0; i < pegs; i++) {
           const p = pegPos(r, i);
+          const lit = hit && hit.row === r && hit.idx === i ? hit.strength : 0;
+          if (lit > 0) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3 + 5 * lit, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,94,156,${0.35 * lit})`;
+            ctx.fill();
+          }
           ctx.beginPath();
-          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.arc(p.x, p.y, 3 + lit, 0, Math.PI * 2);
+          ctx.fillStyle = lit > 0
+            ? `rgba(255,255,255,${0.4 + 0.6 * lit})`
+            : 'rgba(255,255,255,0.4)';
           ctx.fill();
         }
       }
@@ -207,7 +218,8 @@
       let col = 1;
       for (let r = 0; r < rows; r++) {
         const peg = pegPos(r, col);
-        path.push({ x: peg.x, y: peg.y - 5, kind: 'peg' });
+        // row/idx let the animation light up the exact peg being struck.
+        path.push({ x: peg.x, y: peg.y - 5, kind: 'peg', row: r, idx: col });
         if (dirs[r] === 1) col += 1;
       }
       const finalY = layout.padTop + rows * layout.gapY + 6;
@@ -233,26 +245,76 @@
     }
 
     function animatePath(path, done) {
-      const segDur = 170;
+      // The PATH is whatever the server drew — only the motion is cosmetic.
+      // Previously every row took a flat 170ms, so the ball descended at a
+      // constant crawl. A falling ball accelerates, so each row is crossed
+      // faster than the one above it, every peg contact throws a short hop and
+      // squashes the ball, and a fading trail sells the speed.
+      const FIRST_ROW_MS = 230;   // slow, readable start
+      const ACCEL = 0.19;         // fraction shaved off each successive row
+      const segMs = (i) => Math.max(62, FIRST_ROW_MS / (1 + i * ACCEL));
+
+      const trail = [];
       let segIdx = 0;
       let segStart = performance.now();
+
       function frame() {
         const now = performance.now();
-        const t = Math.min(1, (now - segStart) / segDur);
         const a = path[segIdx], b = path[segIdx + 1];
         if (!b) { done(); return; }
+        const dur = segMs(segIdx);
+        const t = Math.min(1, (now - segStart) / dur);
+
         const x = a.x + (b.x - a.x) * t;
-        const arc = (b.kind === 'peg' || b.kind === 'slot') ? Math.sin(Math.PI * t) * 6 : 0;
-        const y = a.y + (b.y - a.y) * t - arc;
-        drawBoard();
-        ctx.beginPath();
-        ctx.arc(x, y, 7, 0, Math.PI * 2);
-        const g = ctx.createRadialGradient(x, y, 0, x, y, 14);
+        // Arc up out of the peg, then fall — a bounce rather than a straight line.
+        const hopH = b.kind === 'slot' ? 4 : 10;
+        const y = a.y + (b.y - a.y) * t - Math.sin(Math.PI * t) * hopH;
+
+        // Impact squash: briefly flatten on contact, then recover.
+        const impact = t < 0.18 && segIdx > 0 ? (1 - t / 0.18) : 0;
+        const rx = 6 + 2.5 * impact;
+        const ry = 6 - 2.5 * impact;
+
+        // The peg being struck lights up as the ball leaves it.
+        const hit = (segIdx > 0 && a.kind === 'peg' && a.row != null)
+          ? { row: a.row, idx: a.idx, strength: Math.max(0, 1 - t * 2.2) }
+          : null;
+
+        trail.push({ x, y });
+        if (trail.length > 9) trail.shift();
+
+        drawBoard(hit);
+
+        // Fading trail behind the ball.
+        for (let i = 0; i < trail.length - 1; i++) {
+          const pt = trail[i], alpha = (i / trail.length) * 0.30;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 2 + (i / trail.length) * 3.4, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,94,156,${alpha})`;
+          ctx.fill();
+        }
+
+        // Glow + ball (squashed on impact).
+        const g = ctx.createRadialGradient(x, y, 0, x, y, 16);
         g.addColorStop(0, 'rgba(255,255,255,0.95)');
-        g.addColorStop(1, 'rgba(0,230,118,0)');
+        g.addColorStop(0.45, 'rgba(255,94,156,0.35)');
+        g.addColorStop(1, 'rgba(255,94,156,0)');
+        ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2);
         ctx.fillStyle = g; ctx.fill();
-        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-        if (t >= 1) { segIdx++; segStart = now; if (segIdx >= path.length - 1) { done(); return; } }
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.restore();
+
+        if (t >= 1) {
+          segIdx++;
+          segStart = now;
+          if (segIdx >= path.length - 1) { done(); return; }
+        }
         if (alive) requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);
