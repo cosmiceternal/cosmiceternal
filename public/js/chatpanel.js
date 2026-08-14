@@ -13,9 +13,14 @@
   let listEl, inputEl, sendEl, onlineEl;
   let msgs = [], lastId = 0, timer = null, alive = false;
 
+  // Set once the app knows who is signed in, so a player can pick their own
+  // lines out of the stream at a glance.
+  let me = '';
+  function setUser(name) { me = String(name || ''); }
+
   function rowEl(m) {
     const li = document.createElement('li');
-    li.className = 'cs-row';
+    li.className = 'cs-row' + (me && m.user === me ? ' is-me' : '');
     const who = document.createElement('span');
     who.className = 'cs-who';
     who.textContent = m.user;
@@ -116,5 +121,5 @@
     start();
   }
 
-  global.ChatPanel = { init, start, stop, load };
+  global.ChatPanel = { init, start, stop, load, setUser };
 })(window);

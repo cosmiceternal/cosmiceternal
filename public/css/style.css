@@ -2910,9 +2910,13 @@ input { font-family: inherit; }
   min-height: 0; overflow: hidden;
 }
 .cs-head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 10px 12px; border-bottom: 1px solid var(--line);
   background: linear-gradient(180deg, var(--bg-2), transparent);
+}
+.cs-title {
+  font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--muted); margin-right: auto;
 }
 .cs-live { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .cs-live b { color: var(--text); font-variant-numeric: tabular-nums; }
@@ -2929,20 +2933,40 @@ input { font-family: inherit; }
 .cs-toggle:hover { color: var(--text); border-color: var(--violet); }
 
 .cs-list {
-  list-style: none; margin: 0; padding: 8px 10px;
+  list-style: none; margin: 0; padding: 10px 10px 12px;
   flex: 1; min-height: 0; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 7px;
-  scrollbar-width: thin;
+  display: flex; flex-direction: column; gap: 2px;
+  scrollbar-width: thin; scrollbar-color: var(--bg-4) transparent;
 }
-.cs-row { font-size: 12.5px; line-height: 1.45; word-break: break-word; }
+.cs-list::-webkit-scrollbar { width: 6px; }
+.cs-list::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 3px; }
+.cs-list::-webkit-scrollbar-track { background: transparent; }
+/* Anchor the conversation to the bottom, next to the composer, the way every
+   chat client does. margin-top:auto on the first row (rather than
+   justify-content:flex-end) keeps normal scrolling once the list overflows. */
+.cs-row:first-child { margin-top: auto; }
+
+.cs-row {
+  font-size: 12.5px; line-height: 1.5; word-break: break-word;
+  padding: 4px 7px; border-radius: 7px;
+  animation: csIn 0.18s ease-out;
+}
+.cs-row:hover { background: rgba(255,255,255,0.035); }
+@keyframes csIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 .cs-who { color: var(--violet); font-weight: 700; margin-right: 4px; }
 .cs-lvl {
-  display: inline-block; font-size: 9.5px; font-weight: 800; color: var(--gold);
-  background: rgba(255,192,97,0.12); border-radius: 4px; padding: 1px 4px; margin-right: 5px;
+  display: inline-block; font-size: 9px; font-weight: 800; color: var(--gold);
+  background: rgba(255,192,97,0.12); border-radius: 4px; padding: 0 4px; margin-right: 5px;
   vertical-align: 1px;
 }
-.cs-text { color: var(--text); }
-.cs-empty { color: var(--muted); font-size: 12px; font-style: italic; text-align: center; padding: 20px 6px; }
+.cs-text { color: var(--text); opacity: 0.92; }
+/* Your own messages read as yours without shouting. */
+.cs-row.is-me { background: rgba(160,123,255,0.09); }
+.cs-row.is-me .cs-who { color: var(--accent); }
+.cs-empty {
+  margin-top: auto; color: var(--muted); font-size: 12px; font-style: italic;
+  text-align: center; padding: 18px 6px;
+}
 
 .cs-input { display: flex; gap: 6px; padding: 9px 10px; border-top: 1px solid var(--line); }
 .cs-input input {
@@ -2958,7 +2982,8 @@ input { font-family: inherit; }
 body.chat-collapsed .layout { grid-template-columns: 40px 1fr 360px; }
 body.chat-collapsed .cs-list,
 body.chat-collapsed .cs-input,
-body.chat-collapsed .cs-live { display: none; }
+body.chat-collapsed .cs-live,
+body.chat-collapsed .cs-title { display: none; }
 body.chat-collapsed .cs-head { justify-content: center; padding: 10px 4px; border-bottom: none; }
 body.chat-collapsed .chat-side { background: var(--bg-2); }
 
