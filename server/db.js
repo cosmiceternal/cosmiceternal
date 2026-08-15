@@ -166,6 +166,17 @@ const SCHEMA_SQLITE = `
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_chat_recent ON chat_messages(id DESC);
+  CREATE TABLE IF NOT EXISTS dm_messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    pair_key   TEXT NOT NULL,
+    from_user  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text       TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    read_at    INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages(pair_key, id);
+  CREATE INDEX IF NOT EXISTS idx_dm_unread ON dm_messages(to_user, read_at);
   CREATE TABLE IF NOT EXISTS withdrawals (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -274,6 +285,17 @@ const SCHEMA_PG = `
     created_at BIGINT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_chat_recent ON chat_messages(id DESC);
+  CREATE TABLE IF NOT EXISTS dm_messages (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    pair_key   TEXT NOT NULL,
+    from_user  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text       TEXT NOT NULL,
+    created_at BIGINT NOT NULL,
+    read_at    BIGINT
+  );
+  CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages(pair_key, id);
+  CREATE INDEX IF NOT EXISTS idx_dm_unread ON dm_messages(to_user, read_at);
   CREATE TABLE IF NOT EXISTS withdrawals (
     id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

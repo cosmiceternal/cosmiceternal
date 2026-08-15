@@ -380,6 +380,8 @@
       if (daily) daily.classList.add('hidden');
       const leaders = document.getElementById('leadersModal');
       if (leaders) { stopRaceCountdown(); leaders.classList.add('hidden'); }
+      // Messages owns polling timers, so let it close itself cleanly.
+      if (global.Messages && Messages.isOpen()) Messages.close();
       return;
     }
     // Space / Enter trigger the primary action of the currently mounted game,
@@ -398,7 +400,7 @@
       // user isn't trying to wager.
       const ddOpen = (() => { const p = document.getElementById('gamesDdPanel'); return p && !p.classList.contains('hidden'); })();
       if (ddOpen) return;
-      const blocking = ['vaultModal', 'leadersModal', 'fairModal', 'statsModal']
+      const blocking = ['vaultModal', 'leadersModal', 'fairModal', 'statsModal', 'dmModal']
         .some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
       const tour = document.getElementById('tourOverlay');
       if (blocking || (tour && !tour.classList.contains('hidden'))) return;
@@ -526,6 +528,7 @@
     if (global.Vault) Vault.wire();
     if (global.Admin) Admin.wire(user);
     if (global.ChatPanel) { ChatPanel.setUser(user.username); ChatPanel.init(); }
+    if (global.Messages) { Messages.setUser(user.username); Messages.init(); }
     if (global.Jackpot) Jackpot.init();
     if (global.Limits) Limits.wire(user);
     if (global.Help) Help.wire();

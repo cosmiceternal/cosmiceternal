@@ -33,6 +33,10 @@ Keno, Bingo Rush, Craps, Chicken Road, Three Card Poker, Sic Bo, Diamonds, Slots
   - *Picks & instants:* Mines, Keno, Dice, Diamonds, Slots, Coin Flip (streak), Scratch, Color.
 - **Stats & history** — per-account bet history feed and a stats panel (wagered, net
   profit, win rate, biggest win).
+- **Community & messaging** — a live lobby chat plus private **direct messages** between
+  players: an unread inbox, per-conversation threads with read receipts, and one-click
+  "message this player" from any name in chat. Poll-based and server-authoritative, with
+  per-sender rate limiting and the same XSS-safe rendering as chat.
 - Sleek dark UI, green accents, canvas animations, toasts.
 
 ---

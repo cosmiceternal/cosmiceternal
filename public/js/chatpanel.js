@@ -24,6 +24,12 @@
     const who = document.createElement('span');
     who.className = 'cs-who';
     who.textContent = m.user;
+    // Click another player's name to open a private message thread with them.
+    if (global.Messages && m.user && m.user !== me) {
+      who.classList.add('cs-dm');
+      who.title = 'Message ' + m.user;
+      who.addEventListener('click', () => Messages.openThread(m.user));
+    }
     const lvl = document.createElement('span');
     lvl.className = 'cs-lvl';
     lvl.textContent = 'L' + m.level;

@@ -14,6 +14,7 @@ const dealer = require('./dealer');
 const progression = require('./progression');
 const admin = require('./admin');
 const chat = require('./chat');
+const messages = require('./messages');
 const race = require('./race');
 const limits = require('./limits');
 const presence = require('./presence');
@@ -355,6 +356,13 @@ app.get('/api/chat',      auth.requireAuth, h(async (req) => Object.assign(await
 app.get('/api/online',    auth.requireAuth, h(() => ({ online: presence.count() })));
 app.post('/api/chat/send', auth.requireAuth, h((req) => chat.send(req.user.id, (req.body || {}).text)));
 app.get('/api/race', auth.requireAuth, h((req) => race.state(req.user.id)));
+
+// ---------------- Direct messages (private 1-on-1 mail) ----------------
+app.get( '/api/messages',        auth.requireAuth, h((req) => messages.conversations(req.user.id)));
+app.get( '/api/messages/unread', auth.requireAuth, h((req) => messages.unreadCount(req.user.id)));
+app.get( '/api/messages/thread', auth.requireAuth, h((req) => messages.thread(req.user.id, req.query.with, req.query.since)));
+app.post('/api/messages/send',   auth.requireAuth, h((req) => messages.send(req.user.id, (req.body || {}).to, (req.body || {}).text)));
+app.post('/api/messages/read',   auth.requireAuth, h((req) => messages.markRead(req.user.id, (req.body || {}).with)));
 
 // ---------------- Responsible gaming ----------------
 app.get( '/api/limits',              auth.requireAuth, h((req) => limits.state(req.user.id)));

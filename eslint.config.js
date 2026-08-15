@@ -12,7 +12,7 @@ const globals = require('globals');
 // positives on the intended runtime sharing.
 const appGlobals = {};
 for (const g of ['API', 'Admin', 'Bankroll', 'ChatPanel', 'Confetti', 'CryptNav', 'Fair', 'Feed',
-  'GameCatalog', 'GameKit', 'Games', 'Help', 'Jackpot', 'Limits', 'PlayerStats',
+  'GameCatalog', 'GameKit', 'Games', 'Help', 'Jackpot', 'Limits', 'Messages', 'PlayerStats',
   'Progression', 'Sound', 'Toast', 'Tour', 'Vault', 'WinFx']) appGlobals[g] = 'writable';
 
 // Rules that flag genuine defects (never formatting). Shared by both scopes.

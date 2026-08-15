@@ -75,6 +75,7 @@
         </div>
         <button class="btn btn-deposit" id="btnDeposit" title="Deposit crypto">Deposit</button>
         <button class="btn btn-admin hidden" id="btnAdmin" title="Admin">⚡ Admin</button>
+        <button class="btn btn-ghost btn-msgs" id="btnMessages" title="Messages">✉<span class="dm-badge hidden" id="dmBadge">0</span></button>
         <button class="btn btn-ghost" id="btnStats" title="Your stats">Stats</button>
         <button class="btn btn-ghost" id="btnLeaders" title="Leaderboard">🏆</button>
         <button class="btn btn-ghost" id="btnFair" title="Provably Fair">Fair</button>
@@ -532,6 +533,38 @@
     </div>
   </div>
 
+  <!-- Direct Messages Modal -->
+  <div class="modal-backdrop hidden" id="dmModal">
+    <div class="modal dm-modal">
+      <div class="modal-header">
+        <h2 id="dmTitle">✉ Messages</h2>
+        <button class="btn btn-ghost" id="dmClose">✕</button>
+      </div>
+      <div class="modal-body dm-body">
+        <!-- Inbox: conversation list + start-a-new-thread -->
+        <div class="dm-view" id="dmInbox">
+          <div class="dm-new">
+            <input id="dmNewUser" type="text" maxlength="20" placeholder="Message a player by username…" autocomplete="off" />
+            <button class="btn btn-primary" id="dmNewGo">Start</button>
+          </div>
+          <ul class="dm-convos" id="dmConvos"></ul>
+        </div>
+        <!-- Thread: a single conversation -->
+        <div class="dm-view hidden" id="dmThread">
+          <div class="dm-thread-head">
+            <button class="btn btn-ghost dm-back" id="dmBack">‹ Inbox</button>
+            <span class="dm-partner" id="dmPartner"></span>
+          </div>
+          <ul class="dm-msgs" id="dmMsgs"></ul>
+          <div class="dm-compose">
+            <input id="dmInput" type="text" maxlength="500" placeholder="Write a message…" autocomplete="off" />
+            <button class="btn btn-primary" id="dmSend">➤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Daily Bonus Modal -->
   <div class="modal-backdrop hidden" id="dailyModal">
     <div class="modal daily-modal">
@@ -652,6 +685,7 @@
   <script src="js/admin.js"></script>
   <script src="js/playerstats.js"></script>
   <script src="js/chatpanel.js"></script>
+  <script src="js/messages.js"></script>
   <script src="js/tour.js"></script>
   <script src="js/app.js"></script>
 </body>

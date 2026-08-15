@@ -154,6 +154,13 @@
     chatList:  (since)   => request('GET',  '/api/chat?since=' + (since || 0)),
     chatSend:  (text)    => request('POST', '/api/chat/send', { text }),
     race:      ()        => request('GET',  '/api/race'),
+
+    // Direct messages (private 1-on-1)
+    dmList:    ()          => request('GET',  '/api/messages'),
+    dmUnread:  ()          => request('GET',  '/api/messages/unread'),
+    dmThread:  (who, since) => request('GET',  '/api/messages/thread?with=' + encodeURIComponent(who || '') + '&since=' + (since || 0)),
+    dmSend:    (to, text)  => request('POST', '/api/messages/send', { to, text }),
+    dmRead:    (who)       => request('POST', '/api/messages/read', { with: who }),
     limits:        ()    => request('GET',  '/api/limits'),
     setLossLimit:  (v)   => request('POST', '/api/limits/loss-limit', { lossLimit: v }),
     selfExclude:   (d)   => request('POST', '/api/limits/self-exclude', { days: d }),
