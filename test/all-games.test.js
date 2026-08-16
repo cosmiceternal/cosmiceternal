@@ -31,7 +31,7 @@ const fs = require('node:fs');
 const { waitForReady } = require('./helpers/server-ready');
 
 const REPO = path.join(__dirname, '..');
-const PORT = 6400 + (process.pid % 100);
+const PORT = 7000 + (process.pid % 100);   // unique base — see test/ports.test.js
 const BASE = `http://localhost:${PORT}`;
 const DB = `/tmp/crypt-test-allgames-${process.pid}.db`;
 

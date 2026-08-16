@@ -12,7 +12,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 
 const REPO = path.join(__dirname, '..');
-const PORT = 6700 + (process.pid % 100);
+const PORT = 7200 + (process.pid % 100);   // unique base — see test/ports.test.js
 const BASE = `http://localhost:${PORT}`;
 const DB = `/tmp/crypt-test-lbcache-${process.pid}.db`;
 
