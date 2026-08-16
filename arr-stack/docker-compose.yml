@@ -1,0 +1,111 @@
+name: arr-stack
+
+# ---------------------------------------------------------------------------
+# One shared, user-defined network so every container can resolve the others
+# by their SERVICE NAME. This is the single most important line in the file:
+# it's what makes "http://sonarr:8989" work from inside the Prowlarr container.
+# (Docker's *default* bridge does NOT give you name resolution — a user-defined
+# network like this one does.)
+# ---------------------------------------------------------------------------
+networks:
+  arr:
+    name: arr
+    driver: bridge
+
+# Settings every LinuxServer.io container shares. Defined once, reused below.
+x-common-env: &common-env
+  PUID: ${PUID:-1000}
+  PGID: ${PGID:-1000}
+  TZ: ${TZ:-Etc/UTC}
+
+services:
+  # ----- Indexer manager -----------------------------------------------------
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    networks: [arr]
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/prowlarr:/config
+    ports:
+      - ${PROWLARR_PORT:-9696}:9696
+
+  # ----- TV ------------------------------------------------------------------
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    networks: [arr]
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/sonarr:/config
+      # NOTE: a SINGLE /data mount (not separate /downloads + /tv) is what lets
+      # Sonarr hardlink an imported file instead of doing a slow full copy.
+      - ${DATA_ROOT:-./data}:/data
+    ports:
+      - ${SONARR_PORT:-8989}:8989
+
+  # ----- Movies --------------------------------------------------------------
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    networks: [arr]
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/radarr:/config
+      - ${DATA_ROOT:-./data}:/data
+    ports:
+      - ${RADARR_PORT:-7878}:7878
+
+  # ----- Download client (torrents) -----------------------------------------
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+    networks: [arr]
+    environment:
+      <<: *common-env
+      # LSIO reconfigures qBittorrent to serve its WebUI on this port. Keep the
+      # host mapping below on the SAME number to avoid host-header rejections.
+      WEBUI_PORT: ${QBIT_WEBUI_PORT:-8080}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/qbittorrent:/config
+      - ${DATA_ROOT:-./data}:/data
+    ports:
+      - ${QBIT_WEBUI_PORT:-8080}:${QBIT_WEBUI_PORT:-8080}
+      - 6881:6881          # BitTorrent TCP (incoming peers)
+      - 6881:6881/udp      # BitTorrent UDP (DHT/uTP)
+
+  # ----- Subtitles (optional, cheap to keep) ---------------------------------
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    networks: [arr]
+    environment:
+      <<: *common-env
+    volumes:
+      - ${CONFIG_ROOT:-./config}/bazarr:/config
+      - ${DATA_ROOT:-./data}:/data
+    ports:
+      - ${BAZARR_PORT:-6767}:6767
+
+  # ----- Cloudflare solver (optional) ----------------------------------------
+  # Some indexers sit behind Cloudflare. Point those indexers in Prowlarr at
+  # http://flaresolverr:8191 (Settings -> Indexers -> add a FlareSolverr proxy,
+  # then tag the indexers that need it). Drop this service if you don't need it.
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    networks: [arr]
+    environment:
+      LOG_LEVEL: ${FLARESOLVERR_LOG_LEVEL:-info}
+      TZ: ${TZ:-Etc/UTC}
+    ports:
+      - ${FLARESOLVERR_PORT:-8191}:8191

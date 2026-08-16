@@ -1,0 +1,4 @@
+# Never commit real secrets, app databases, or media.
+.env
+config/
+data/
