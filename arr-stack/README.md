@@ -216,6 +216,45 @@ Jellyfin-clean names)→ /data/media ─(Connect ping)→ Jellyfin refreshes the
 
 ---
 
+## Add media from your Windows PC (SMB share)
+
+Common setup: you're on Windows day-to-day, but Jellyfin lives on a Linux box
+(e.g. Linux Mint). Here's how media gets onto it — and the one arrangement to
+avoid.
+
+**You don't have to run anything on Windows to *drive* this from Windows.** The
+whole stack is web-based. Once it's up on the Linux box, open its UIs from your
+Windows browser — `http://<linux-ip>:8989` (Sonarr), `:7878` (Radarr), `:9696`
+(Prowlarr), `:8080` (qBittorrent). Downloads land directly on Jellyfin's disk,
+nothing to copy. **This is the recommended layout:** the automation stays intact.
+(Find the box's IP with `hostname -I` on it.)
+
+**To also hand-drop files from Windows** — a disc you ripped, anything you
+already own — share the library over SMB so it appears in Windows Explorer:
+
+1. On the Linux box, set `SMB_PASS=...` in `.env`, then start the share:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.samba.yml up -d
+   ```
+2. On Windows: **File Explorer → This PC → Map network drive** → folder
+   `\\<linux-ip>\Media` → tick *Connect using different credentials* → enter the
+   `SMB_USER` / `SMB_PASS` from `.env`. It's now a drive letter. Drop movies
+   under `movies\` and shows under `tv\`, following the
+   [Jellyfin naming](#2-give-sonarrradarr-jellyfin-friendly-names-set-once) so
+   they match; Jellyfin's scan picks them up.
+
+> **Security:** SMB is for your home LAN only. Set a real `SMB_PASS`, and never
+> forward port 445 through your router to the internet.
+
+**The arrangement to avoid:** running the automated Sonarr/Radarr on Windows and
+copying finished files over to the Linux box. You lose hardlinks (every move
+becomes a slow full-size copy and breaks seeding), you lose auto-import and the
+Jellyfin refresh ping, and you're back to sorting files by hand. Run the arrs
+next to the storage and the problem vanishes — the SMB share is the escape hatch
+for the occasional manual file, not the main road.
+
+---
+
 ## Debug: "Prowlarr isn't talking to Sonarr"
 
 Nine times out of ten it's one of the first two rows. Read the **exact** error on

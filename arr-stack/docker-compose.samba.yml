@@ -1,0 +1,28 @@
+# Optional: share the media library to your LAN over SMB, so you can drag files
+# straight into Jellyfin's storage from Windows File Explorer.
+#
+# Start it alongside the stack (on the Linux box that holds the storage):
+#   docker compose -f docker-compose.yml -f docker-compose.samba.yml up -d
+#
+# SECURITY: SMB is for your LOCAL network only. Set a real SMB_PASS in .env, and
+# never forward port 445 through your router to the internet.
+
+services:
+  samba:
+    image: dockurr/samba
+    container_name: samba
+    restart: unless-stopped
+    environment:
+      NAME: ${SMB_SHARE_NAME:-Media}
+      USER: ${SMB_USER:-media}
+      PASS: ${SMB_PASS:?set SMB_PASS in your .env before starting the share}
+      # Match the stack's PUID/PGID so files dropped from Windows are owned the
+      # same as files the arrs write — no permission clashes, Jellyfin reads both.
+      UID: ${PUID:-1000}
+      GID: ${PGID:-1000}
+    volumes:
+      # Shares the finished library (Windows sees "movies" and "tv" inside).
+      # To expose downloads too, point this at ${DATA_ROOT:-./data}:/storage.
+      - ${DATA_ROOT:-./data}/media:/storage
+    ports:
+      - "445:445"
