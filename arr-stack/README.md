@@ -26,6 +26,11 @@ covers the classic "Prowlarr can't reach Sonarr" problem.
 | qBittorrent   | `lscr.io/linuxserver/qbittorrent`       | http://localhost:8080  | `http://qbittorrent:8080`     |
 | Bazarr        | `lscr.io/linuxserver/bazarr`            | http://localhost:6767  | `http://bazarr:6767`          |
 | FlareSolverr  | `ghcr.io/flaresolverr/flaresolverr`     | —                      | `http://flaresolverr:8191`    |
+| Jellyfin ¹    | `lscr.io/linuxserver/jellyfin`          | http://localhost:8096  | `http://jellyfin:8096`        |
+
+¹ Optional — only when you run Jellyfin **on this host** via the bundled
+`docker-compose.jellyfin.yml` override. If your Jellyfin is a separate box, you
+connect to it instead — see [Wire it into Jellyfin](#wire-it-into-jellyfin).
 
 The right-hand column is the golden rule: **from one container to another, use
 the service name and the container's internal port — never `localhost`.**
@@ -43,6 +48,9 @@ mkdir -p data/torrents data/media/tv data/media/movies
 
 docker compose up -d
 docker compose ps             # all should be "running"
+
+# Running Jellyfin on THIS host too? Bring it up alongside the stack:
+#   docker compose -f docker-compose.yml -f docker-compose.jellyfin.yml up -d
 ```
 
 Get the qBittorrent temporary admin password (recent images randomise it on
@@ -121,6 +129,90 @@ Once the app is connected, Prowlarr pushes every indexer into Sonarr/Radarr
 automatically. To force it: **Settings → Apps → Sync App Indexers** (the circular
 arrows). Indexers appear under each arr's **Settings → Indexers** as
 `(Prowlarr)` — you don't add indexers in Sonarr/Radarr directly anymore.
+
+---
+
+## Wire it into Jellyfin
+
+Sonarr and Radarr do the downloading and organising; Jellyfin just needs to
+**see the finished files** and get **poked to rescan** when new ones land. Three
+things to set up.
+
+### 1. Let Jellyfin see the library (shared path)
+
+Sonarr/Radarr write final files to `${DATA_ROOT}/media` on the host
+(`/data/media` inside their containers). Jellyfin has to read that exact folder.
+
+- **Jellyfin on the same host** — easiest. Bring it up with the bundled override,
+  which mounts the media read-only:
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.jellyfin.yml up -d
+  ```
+  Inside Jellyfin the library then lives at `/media/movies` and `/media/tv`.
+
+- **Jellyfin on another machine** — share `${DATA_ROOT}/media` over NFS or SMB,
+  mount it on the Jellyfin box, and point Jellyfin at that mount. Make sure
+  Jellyfin's user can read it: match the same `PUID`/`PGID`, or make the files
+  group-readable.
+
+### 2. Give Sonarr/Radarr Jellyfin-friendly names (set once)
+
+Jellyfin identifies things by folder/file name, so a clean scheme means
+near-100% correct posters and metadata. In each app under
+**Settings → Media Management** (tick *Rename Episodes/Movies*, then *Show
+Advanced*):
+
+**Radarr**
+- Movie Folder Format: `{Movie CleanTitle} ({Release Year}) [imdbid-{ImdbId}]`
+- Standard Movie Format: `{Movie CleanTitle} ({Release Year}) [{Quality Full}]`
+
+**Sonarr**
+- Series Folder Format: `{Series TitleYear} [tvdbid-{TvdbId}]`
+- Season Folder Format: `Season {season:00}`
+- Standard Episode Format:
+  `{Series TitleYear} - S{season:00}E{episode:00} - {Episode CleanTitle} [{Quality Full}]`
+
+The `[imdbid-…]` / `[tvdbid-…]` tag in the folder is a Jellyfin feature — it
+pins each item to the exact right entry so it never mis-matches a remake or a
+common title. (For the fully tuned versions, the TRaSH Guides naming pages are
+the reference.)
+
+### 3. Poke Jellyfin to rescan on every import
+
+So new episodes appear in seconds instead of waiting for a scheduled scan:
+
+1. In **Jellyfin → Dashboard → API Keys → +**, create a key.
+2. In **Sonarr → Settings → Connect → + → Emby / Jellyfin**:
+   - **Host:** `jellyfin` (same-host override) or your Jellyfin IP/hostname
+   - **Port:** `8096`
+   - **API Key:** the key from step 1
+   - **Update Library:** on; enable triggers **On Import** and **On Upgrade**
+   - **Test → Save**
+3. Repeat in **Radarr**.
+
+Finally, in Jellyfin add two libraries — **Movies** → the movies path, **Shows**
+→ the tv path — and switch on **Enable real-time monitoring** as a fallback.
+
+That's the whole pipeline:
+
+```
+Prowlarr ─(indexers)→ Sonarr / Radarr ─(grab)→ qBittorrent ─(hardlink import,
+Jellyfin-clean names)→ /data/media ─(Connect ping)→ Jellyfin refreshes the shelf
+```
+
+---
+
+## Start filling the library
+
+- **Radarr → Movies → Add New:** search a title, set Root Folder
+  `/data/media/movies` and a Quality Profile, tick *Search on add*, Add.
+- **Sonarr → Series → Add New:** same idea with `/data/media/tv`; choose which
+  seasons to monitor.
+- Track progress under **Activity → Queue**. On completion each item imports,
+  hardlinks into `media/`, and pings Jellyfin.
+- Tune **Quality Profiles** (Settings → Profiles) up front so you're not pulling
+  40 GB remuxes onto a small disk. As a reminder from the top of this file: point
+  your indexers at content you're entitled to.
 
 ---
 
@@ -220,24 +312,13 @@ broke after I added the VPN" report.
 
 ---
 
-## Optional: add a media server
+## Media server (Jellyfin)
 
-Point Jellyfin (or Plex/Emby) at `/data/media` read-only and you have the full
-picture. Sketch:
+Setup lives in [Wire it into Jellyfin](#wire-it-into-jellyfin) above. To run
+Jellyfin on this same host, use the bundled override:
 
-```yaml
-  jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
-    container_name: jellyfin
-    networks: [arr]
-    environment:
-      <<: *common-env
-    volumes:
-      - ${CONFIG_ROOT:-./config}/jellyfin:/config
-      - ${DATA_ROOT:-./data}/media:/data/media:ro
-    ports:
-      - 8096:8096
-    restart: unless-stopped
+```bash
+docker compose -f docker-compose.yml -f docker-compose.jellyfin.yml up -d
 ```
 
 ---
