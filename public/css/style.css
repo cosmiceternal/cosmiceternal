@@ -2092,7 +2092,10 @@ input { font-family: inherit; }
 .lobby-cat.active { background: rgba(255, 94, 156, 0.14); color: var(--text); border-color: var(--accent); }
 .lobby-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(128px, 11vw, 168px), 1fr));
+  /* Fixed min, not a vw clamp: the pane no longer tracks viewport width now
+     that the chat column takes 260px, so sizing cards off vw made a WIDER
+     window show FEWER, fatter cards (4 across at 1500px vs 5 at 1200px). */
+  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
   gap: 12px;
 }
 .lobby-card {
@@ -2110,7 +2113,10 @@ input { font-family: inherit; }
   box-shadow: 0 10px 26px -10px rgba(255, 94, 156, 0.45), 0 0 0 1px var(--accent-glow);
 }
 .lobby-icon { font-size: clamp(30px, 3vw, 42px); line-height: 1; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4)); }
-.lobby-name { font-weight: 700; font-size: 13px; }
+/* 12.5px keeps almost every name on one line, but names WRAP rather than
+   ellipsise: this is the picker, so a readable two-line "American Roulette"
+   beats a truncated one. */
+.lobby-name { font-weight: 700; font-size: 12.5px; text-align: center; line-height: 1.25; }
 .lobby-tag { font-size: 10px; color: var(--muted); letter-spacing: 0.3px; }
 .lobby-star {
   position: absolute; top: 7px; right: 10px;
@@ -3013,9 +3019,16 @@ body.chat-collapsed .cs-title { display: none; }
 body.chat-collapsed .cs-head { justify-content: center; padding: 10px 4px; border-bottom: none; }
 body.chat-collapsed .chat-side { background: var(--bg-2); }
 
+/* Hide the chat column wherever a third column will not fit. */
 @media (max-width: 1200px) {
+  .chat-side { display: none; }
+}
+/* Two columns ONLY between the stacked layout and the full three. This block
+   sits later in the file than the .layout stacking rules at 1100px and 720px,
+   so an unbounded max-width:1200px here overrode them and put a 320px feed
+   beside the game pane on a phone — which left the game about 40px wide. */
+@media (min-width: 1101px) and (max-width: 1200px) {
   .layout { grid-template-columns: 1fr 320px; }
-  .chat-side { display: none; }          /* no room for a third column */
   body.chat-collapsed .layout { grid-template-columns: 1fr 320px; }
 }
 @media (max-width: 900px) {
