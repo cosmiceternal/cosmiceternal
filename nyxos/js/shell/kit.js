@@ -37,18 +37,23 @@ export function segmented(tabs, { onChange } = {}) {
   const seg = el('div', { class: 'seg' });
   const body = el('div', { style: { marginTop: '14px' } });
   let cur = -1;
+  let curCleanup = null;
   const buttons = tabs.map((t, i) => el('button', { text: t.name, on: { click: () => select(i) } }));
   buttons.forEach((b) => seg.append(b));
+  function runCleanup() { if (curCleanup) { try { curCleanup(); } catch {} curCleanup = null; } }
   function select(i) {
     if (i === cur) return;
+    runCleanup();
     cur = i;
     buttons.forEach((b, j) => b.classList.toggle('on', j === i));
     body.replaceChildren();
-    tabs[i].render(body);
+    // A tab's render may return a cleanup fn (e.g. to clear its intervals).
+    const c = tabs[i].render(body);
+    if (typeof c === 'function') curCleanup = c;
     onChange?.(i);
   }
   select(0);
-  return { seg, body, select, el: el('div', {}, seg, body) };
+  return { seg, body, select, destroy: runCleanup, el: el('div', {}, seg, body) };
 }
 
 export function bigButton(label, { kind = '', onClick, icon: ic } = {}) {

@@ -10,8 +10,8 @@ function clockWidget() {
   const time = el('div', { style: { fontSize: '44px', fontWeight: '300', letterSpacing: '-1px' }, text: fmtClock() });
   const date = el('div', { style: { color: 'var(--text-dim)', marginTop: '2px' }, text: fmtDate() });
   w.append(time, date);
-  setInterval(() => { time.textContent = fmtClock(); date.textContent = fmtDate(); }, 10000);
-  return w;
+  const id = setInterval(() => { time.textContent = fmtClock(); date.textContent = fmtDate(); }, 10000);
+  return { node: w, stop: () => clearInterval(id) };
 }
 
 function weatherWidget() {
@@ -55,13 +55,14 @@ export function buildHome({ onOpenApp, onOpenDrawer, onOpenAppInfo }) {
   const layer = el('div', { class: 'screen-layer home' });
 
   const scroll = el('div', { class: 'home-scroll' });
-  scroll.append(el('div', { class: 'widget-area' }, clockWidget(), weatherWidget(), privacyWidget()));
+  const clock = clockWidget();
+  layer._cleanup = () => clock.stop();
+  scroll.append(el('div', { class: 'widget-area' }, clock.node, weatherWidget(), privacyWidget()));
 
   // Drawer handle
-  const handle = el('button', {
-    style: { margin: '8px auto 0', color: 'var(--text-dim)', fontSize: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' },
-    on: { click: onOpenDrawer },
-  }, el('span', { html: icon('chevronUp') }), el('span', { text: 'All apps' }));
+  const handle = el('button', { class: 'drawer-handle', attrs: { 'aria-label': 'Open app drawer' }, on: { click: onOpenDrawer } },
+    el('span', { class: 'grip' }),
+    el('span', { class: 'dh-label' }, el('span', { html: icon('chevronUp') }), el('span', { text: 'All apps' })));
   scroll.append(el('div', { class: 'lock-spacer' }), handle);
 
   // Dock: favorite apps

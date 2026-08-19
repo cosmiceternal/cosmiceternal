@@ -53,7 +53,18 @@ export function buildLock({ profileId, onUnlock, onDuress, showNotifs = false })
   const clock = el('div', { class: 'lock-clock', text: fmtClock() });
   const date = el('div', { class: 'lock-date', text: fmtDate() });
   const tick = setInterval(() => { clock.textContent = fmtClock(); date.textContent = fmtDate(); }, 10000);
-  layer._cleanup = () => clearInterval(tick);
+
+  // Live notifications area (updates if something arrives while locked).
+  const notifsHost = el('div', { class: 'lock-notifs-host' });
+  let offNotif = () => {};
+  if (showNotifs) {
+    const renderN = () => { const n = lockNotifs(); notifsHost.replaceChildren(n || el('div', { style: { height: '4px' } })); };
+    renderN();
+    const a = State.events.on('notif', renderN);
+    const b = State.events.on('notif-change', renderN);
+    offNotif = () => { a(); b(); };
+  }
+  layer._cleanup = () => { clearInterval(tick); offNotif(); };
 
   const status = el('div', { class: 'lock-status' }, el('span', { html: icon('lock') }), el('span', { text: 'Encrypted · enter PIN to decrypt' }));
   const dotsWrap = el('div', {});
@@ -83,7 +94,7 @@ export function buildLock({ profileId, onUnlock, onDuress, showNotifs = false })
 
   layer.append(
     el('div', { style: { textAlign: 'center', paddingTop: '20px' } }, clock, date, status),
-    showNotifs ? (lockNotifs() || el('div', { class: 'lock-spacer' })) : el('div', { class: 'lock-spacer' }),
+    notifsHost,
     el('div', { class: 'lock-spacer' }),
     dotsWrap,
     keypad({

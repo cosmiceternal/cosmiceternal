@@ -15,8 +15,8 @@ function clockView(root, ctx) {
   };
   paint();
   const id = setInterval(paint, 1000);
-  ctx.onCleanup(() => clearInterval(id));
   root.append(el('div', { class: 'clock-face' }, big, sub, tz));
+  return () => clearInterval(id);
 }
 
 function stopwatchView(root, ctx) {
@@ -29,7 +29,6 @@ function stopwatchView(root, ctx) {
   };
   const paint = () => { disp.textContent = fmt(elapsed + (running ? Date.now() - start : 0)); };
   const id = setInterval(() => { if (running) paint(); }, 33);
-  ctx.onCleanup(() => clearInterval(id));
 
   const startBtn = bigButton('Start', { kind: 'primary', onClick: () => {
     if (running) { elapsed += Date.now() - start; running = false; startBtn.querySelector('span:last-child').textContent = 'Start'; startBtn.classList.add('btn-primary'); }
@@ -44,6 +43,7 @@ function stopwatchView(root, ctx) {
   const resetBtn = bigButton('Reset', { onClick: () => { running = false; elapsed = 0; laps = []; lapList.replaceChildren(); startBtn.querySelector('span:last-child').textContent = 'Start'; startBtn.classList.remove('btn-danger'); startBtn.classList.add('btn-primary'); paint(); } });
 
   root.append(disp, el('div', { class: 'btn-row' }, resetBtn, startBtn, lapBtn), lapList);
+  return () => clearInterval(id);
 }
 
 function timerView(root, ctx, sys) {
@@ -59,7 +59,6 @@ function timerView(root, ctx, sys) {
       sys.toast('Timer finished', { type: 'ok', icon: 'clock' });
     } else if (running) paint();
   }, 250);
-  ctx.onCleanup(() => clearInterval(id));
 
   const startBtn = bigButton('Start', { kind: 'primary', onClick: () => {
     if (running) { running = false; remaining = endAt - Date.now(); }
@@ -68,6 +67,7 @@ function timerView(root, ctx, sys) {
   } });
   remaining = 60000; paint();
   root.append(el('div', { style: { textAlign: 'center' } }, disp), input, el('div', { style: { marginTop: '12px' } }, startBtn));
+  return () => clearInterval(id);
 }
 
 function alarmView(root, ctx, sys) {
@@ -103,12 +103,13 @@ function alarmView(root, ctx, sys) {
 registerApp({
   id: 'clock', name: 'Clock', icon: 'clock', color: '#7aa2ff', order: 10,
   mount(root, sys, ctx) {
-    const { el: view } = segmented([
+    const seg = segmented([
       { name: 'Clock', render: (c) => clockView(c, ctx) },
       { name: 'Alarm', render: (c) => alarmView(c, ctx, sys) },
       { name: 'Stopwatch', render: (c) => stopwatchView(c, ctx) },
       { name: 'Timer', render: (c) => timerView(c, ctx, sys) },
     ]);
-    root.append(view);
+    root.append(seg.el);
+    ctx.onCleanup(() => seg.destroy());
   },
 });
