@@ -1,0 +1,16 @@
+{
+  "name": "nyxos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NyxOS — a privacy-first phone OS. Installable PWA, zero dependencies, fully offline.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "dev": "node tools/serve.js",
+    "integrity": "node tools/gen-integrity.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

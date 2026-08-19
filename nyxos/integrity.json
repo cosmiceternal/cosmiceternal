@@ -1,0 +1,186 @@
+{
+  "generatedAt": "2026-08-19T00:24:03.360Z",
+  "count": 45,
+  "files": [
+    {
+      "path": "css/apps.css",
+      "sha256": "3fb0ee78a5bd9cd30682c5ec083d3279ae65ddc8151e3c9b98668600ce4ecf15"
+    },
+    {
+      "path": "css/os.css",
+      "sha256": "3e20fc86d07af32f5d578e98b1822b035a9cbaedbc13d5a928a34e4595478697"
+    },
+    {
+      "path": "css/reset.css",
+      "sha256": "cc12963243ee0bad4306910ee2040089b7e2e5bda8da85530116be4633490577"
+    },
+    {
+      "path": "css/theme.css",
+      "sha256": "2be17b3647c5b0eb2a2eb28549d1c44d03616b106998ea114ad7365a07ce853c"
+    },
+    {
+      "path": "index.html",
+      "sha256": "7669cb733837738f7722f8dded5cbc0b0c0e968796e4584458867e438bb988ab"
+    },
+    {
+      "path": "js/apps/appstore.js",
+      "sha256": "e374025b775eae0be76e6f65c2dcb0da926f471649c509311ae14388b7f4880e"
+    },
+    {
+      "path": "js/apps/browser.js",
+      "sha256": "824c6494860d988fc95899803003465377c7ceb0d4d9ae228df79ff63f65efb5"
+    },
+    {
+      "path": "js/apps/calculator.js",
+      "sha256": "c1f60f7aac9fe99d40a93c9618a6b05f1365eae6fe8ee1091ee7525905b3ba62"
+    },
+    {
+      "path": "js/apps/camera.js",
+      "sha256": "3ebcdafcda81df42412d767b5432457523ea1cc8da50a038ee4c2f55eb1e4f85"
+    },
+    {
+      "path": "js/apps/clock.js",
+      "sha256": "1f31d72c311b6f03e911d2c746eead989d9eeb2796f85e77fe020d207fbbe713"
+    },
+    {
+      "path": "js/apps/compass.js",
+      "sha256": "a939de5cb33fd08b1c5a67c6164cfe231cc384ebf02460acc868e4d5cdd6ba8a"
+    },
+    {
+      "path": "js/apps/files.js",
+      "sha256": "599522126e81e1b054a23e9394a06147deca7b229cafbdfb8c7dd29896af37a0"
+    },
+    {
+      "path": "js/apps/index.js",
+      "sha256": "3baa9c67bc381c680e79ab998c52e3fa4520a6654b6da3195a3942bd7caf15bd"
+    },
+    {
+      "path": "js/apps/notes.js",
+      "sha256": "9037624c3894197b0f9d57763c50af11f490b96bdd67e2a51bfe7c18959e4622"
+    },
+    {
+      "path": "js/apps/privacy.js",
+      "sha256": "d4491757fc1535ea761153a3bc19cd40ced4bb62911f42d5366a107e5f6f1444"
+    },
+    {
+      "path": "js/apps/recorder.js",
+      "sha256": "939d26ffe3ec204fe5347cb0a22f1514f50826be529b80765f0e53594323c8d2"
+    },
+    {
+      "path": "js/apps/settings.js",
+      "sha256": "e78e807a6596f96951a5995673968c6f12bc1acb00ff264aca6f48b406ce0683"
+    },
+    {
+      "path": "js/apps/weather.js",
+      "sha256": "5495c48239e38060edf6d488f90d3a97378d5e96ddb7d632cc1103b6cac93173"
+    },
+    {
+      "path": "js/core/bridge.js",
+      "sha256": "bbce0f8c9e4f769aa178410fbd4514ae8de452c504006fb342383a58b97f6e00"
+    },
+    {
+      "path": "js/core/crypto.js",
+      "sha256": "7b379e6110d4a4bec46a52086a4993c63647a3ead45e3b5c913090462048cba9"
+    },
+    {
+      "path": "js/core/icons.js",
+      "sha256": "38116e47d0e2b11797d743932994ea689d77c6685b6b6eb58ea7286a9543977c"
+    },
+    {
+      "path": "js/core/integrity.js",
+      "sha256": "3c04b2420592f422e2104a2449e3387fcadfd1892dcfb9a5c80a3501969e02aa"
+    },
+    {
+      "path": "js/core/notifications.js",
+      "sha256": "7b554f8e2f5b5769281c6ccc717b2e1e01d4898e5cb3aa6c1c88626279f5f852"
+    },
+    {
+      "path": "js/core/permissions.js",
+      "sha256": "68c4c9ac103e45006c4e1e90b2fcd85aba0313ce27e0b853eee469bb5527dac6"
+    },
+    {
+      "path": "js/core/registry.js",
+      "sha256": "70ac62f9f0d84b3edd189d485ad665be6dba07c4f952bcbfd800f23885a5815c"
+    },
+    {
+      "path": "js/core/security.js",
+      "sha256": "2ec47675baac690630ef005bf582167635e1141fd63323393379734017fa0646"
+    },
+    {
+      "path": "js/core/state.js",
+      "sha256": "78733917fa2e5307f8321360285f563fb96b5b67ba9f307f2593d9e00a90c2c7"
+    },
+    {
+      "path": "js/core/store.js",
+      "sha256": "43355d5f0db6252ec9792b80d2da6181375cfcd82904ceeec4d3ceacaa8be22d"
+    },
+    {
+      "path": "js/core/util.js",
+      "sha256": "f8a2d2fce12f9179d20c88a2be89d33bab8175473f210ce55d8cdfeac9648ba2"
+    },
+    {
+      "path": "js/os.js",
+      "sha256": "165b5583fc2eae5f3c396420e7d35229de545c41233afd325f9bf0eb5ccde299"
+    },
+    {
+      "path": "js/shell/appcell.js",
+      "sha256": "9caa58fc34bd7a2ce0a5133f8ef847a9c498e8302b17dab69c65df689b8c5d0b"
+    },
+    {
+      "path": "js/shell/appframe.js",
+      "sha256": "102ff6ff7b9db0ffe575d7d446a7b45dc88e6221bf455f564b820680c4060ca7"
+    },
+    {
+      "path": "js/shell/drawer.js",
+      "sha256": "9c589b35dc5901aadd565362a1c03e218f86b7175c5f8841a35102457c49eb7d"
+    },
+    {
+      "path": "js/shell/home.js",
+      "sha256": "7fe46e20d42fbb9fc6e801e9f7c006dccf9fb20d5d1cda24626cd3ac28b14806"
+    },
+    {
+      "path": "js/shell/kit.js",
+      "sha256": "3ccdc7b1317c67d6501ceec3bad579ef53b52be99f42781c7d2c1bf22627109a"
+    },
+    {
+      "path": "js/shell/lockscreen.js",
+      "sha256": "4fadd2451d70dce3ae703b83a5b4404c9969817832167b4ba53da122f2d2ef47"
+    },
+    {
+      "path": "js/shell/navbar.js",
+      "sha256": "750727ab0636b5aad1ca777c28e3b8ac4dbd23180383d8a9b3f50d9d0bab26ef"
+    },
+    {
+      "path": "js/shell/recents.js",
+      "sha256": "205d9316293d0f58bf6efdbd687ec170db4655c7ac6abaef91a22427570da09a"
+    },
+    {
+      "path": "js/shell/shade.js",
+      "sha256": "82a40fc46bf1196ce1db5a8943f2975dd235d4626d4165c64f7bd6ab81c03116"
+    },
+    {
+      "path": "js/shell/shell.js",
+      "sha256": "d1414308cd7837de0fc2b9b140adc22dbeae28ce4f6b6f6009842038840a4253"
+    },
+    {
+      "path": "js/shell/statusbar.js",
+      "sha256": "b7804e1ceac4d4eea52d48be3265652598eed91f0fa1d3f5c77ca7f6b6d5310e"
+    },
+    {
+      "path": "js/shell/theme-apply.js",
+      "sha256": "3d53f2a7240394fb51264dc6ce3291085d24f1f85da680ab27be17262946ca27"
+    },
+    {
+      "path": "js/shell/ui.js",
+      "sha256": "5bf71bc2922c4176795e40a316a8e7573f953175522ad62fc907119b82235c41"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "sha256": "474d329372b99287c218eacbafc40d43564f2c434537b38b9d3a04be741c9599"
+    },
+    {
+      "path": "sw.js",
+      "sha256": "116634eb7d92e78f1611b97720bb8e31ae2364e3bfb4a14a881d5adea038c880"
+    }
+  ]
+}

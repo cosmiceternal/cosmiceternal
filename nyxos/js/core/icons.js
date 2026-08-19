@@ -1,0 +1,97 @@
+// Inline SVG icon set. 24x24, stroke = currentColor. Feather-ish.
+const P = (paths) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+
+export const ICONS = {
+  back: P('<path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>'),
+  forward: P('<path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>'),
+  home: P('<circle cx="12" cy="12" r="8"/>'),
+  recents: P('<rect x="5" y="5" width="14" height="14" rx="3"/>'),
+  chevronRight: P('<path d="M9 18l6-6-6-6"/>'),
+  chevronLeft: P('<path d="M15 18l-6-6 6-6"/>'),
+  chevronDown: P('<path d="M6 9l6 6 6-6"/>'),
+  chevronUp: P('<path d="M18 15l-6-6-6 6"/>'),
+  x: P('<path d="M18 6L6 18M6 6l12 12"/>'),
+  check: P('<path d="M20 6L9 17l-5-5"/>'),
+  plus: P('<path d="M12 5v14M5 12h14"/>'),
+  minus: P('<path d="M5 12h14"/>'),
+  trash: P('<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/>'),
+  more: P('<circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>'),
+  refresh: P('<path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/>'),
+  search: P('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'),
+  edit: P('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/>'),
+
+  wifi: P('<path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><path d="M2 9a15 15 0 0 1 20 0"/><circle cx="12" cy="19.5" r="0.6" fill="currentColor"/>'),
+  wifiOff: P('<path d="M2 9a15 15 0 0 1 6-3.8M12 5c3.5 0 6.8 1.4 9.3 3.7"/><path d="M8.5 16a5 5 0 0 1 6-.8"/><path d="M12 19.5h.01"/><path d="M2 2l20 20"/>'),
+  signal: P('<path d="M4 20v-3M9 20v-7M14 20v-11M19 20V6"/>'),
+  battery: P('<rect x="2" y="8" width="16" height="9" rx="2"/><path d="M20 11v3"/>'),
+  bluetooth: P('<path d="M7 8l10 8-5 4V4l5 4L7 16"/>'),
+  airplane: P('<path d="M12 3l0 0a1.5 1.5 0 0 1 1.5 1.5V10l7 4v2l-7-2v4l2 1.5V21l-3.5-1L9 21v-1.5L11 18v-4l-7 2v-2l7-4V4.5A1.5 1.5 0 0 1 12 3z"/>'),
+  location: P('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>'),
+  dnd: P('<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'),
+  cast: P('<path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M2 12a6 6 0 0 1 6 6M2 16a2 2 0 0 1 2 2"/><circle cx="2.5" cy="19.5" r="0.6" fill="currentColor"/>'),
+  flashlight: P('<path d="M8 3h8l-1 5-3 3-3-3z" /><path d="M9 11h6v3l-1 7h-4l-1-7z"/>'),
+  rotate: P('<path d="M12 3a9 9 0 1 1-8.5 6"/><path d="M3 3v5h5"/>'),
+  brightness: P('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  moon: P('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+  sun: P('<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+
+  shield: P('<path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z"/>'),
+  shieldCheck: P('<path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/>'),
+  lock: P('<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'),
+  unlock: P('<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>'),
+  eye: P('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>'),
+  eyeOff: P('<path d="M9.9 5.2A9 9 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9 9 0 0 0 3.4-.6"/><path d="M9.5 9.5a3 3 0 0 0 4.2 4.2"/><path d="M2 2l20 20"/>'),
+  key: P('<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M17 6l2 2M14 9l2 2"/>'),
+  fingerprint: P('<path d="M12 10a2 2 0 0 1 2 2c0 3-.5 5-1 6"/><path d="M8.5 11.5A3.5 3.5 0 0 1 15 12c0 4-1 6-1 6"/><path d="M5.5 12a6.5 6.5 0 0 1 12.8-1.6"/><path d="M9 20c1-2 1.5-4 1.5-8"/>'),
+  network: P('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>'),
+  networkOff: P('<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M4 4l16 16"/>'),
+  sensor: P('<circle cx="12" cy="12" r="2.5"/><path d="M7.5 7.5a6 6 0 0 0 0 9M16.5 16.5a6 6 0 0 0 0-9M4.7 4.7a10 10 0 0 0 0 14.6M19.3 19.3a10 10 0 0 0 0-14.6"/>'),
+  clipboard: P('<rect x="6" y="4" width="12" height="18" rx="2"/><path d="M9 4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9z"/><path d="M9 12h6M9 16h4"/>'),
+  mic: P('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/>'),
+  micOff: P('<path d="M9 9v-2a3 3 0 0 1 5.1-2.1M15 11v-1"/><path d="M6 11a6 6 0 0 0 9.3 5M18 11a6 6 0 0 1-.3 1.9"/><path d="M12 17v4"/><path d="M3 3l18 18"/>'),
+  camera: P('<path d="M4 8a2 2 0 0 1 2-2h1.5l1-2h5l1 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/>'),
+  usb: P('<circle cx="12" cy="20" r="1.6"/><path d="M12 18V6"/><path d="M9 9l3-3 3 3"/><path d="M12 12l4-2v3M12 14l-4-2v3"/>'),
+  tor: P('<circle cx="12" cy="12" r="9"/><path d="M12 12l0-6M12 12l4 3"/><circle cx="12" cy="12" r="2"/>'),
+  vpn: P('<path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/>'),
+  flag: P('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
+  alert: P('<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>'),
+  bug: P('<rect x="8" y="7" width="8" height="12" rx="4"/><path d="M8 11H4M20 11h-4M8 15H4M20 15h-4M9 7l-2-3M15 7l2-3"/>'),
+
+  settings: P('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V22a2 2 0 0 1-4 0v-.2a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15H4.4a2 2 0 0 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.4a2 2 0 0 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.2a2 2 0 0 1 0 4h-.2a1.6 1.6 0 0 0-1.5 1z"/>'),
+  clock: P('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  calc: P('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/>'),
+  notes: P('<path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>'),
+  files: P('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
+  folder: P('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
+  doc: P('<path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/>'),
+  image: P('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 16l-5-5-9 9"/>'),
+  browser: P('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'),
+  weather: P('<circle cx="9" cy="9" r="3.2"/><path d="M9 2v1.5M9 14.5V16M2 9h1.5M14.5 9H16M4 4l1 1M13 13l1 1M4 14l1-1M13 5l1-1"/><path d="M12 18a3 3 0 0 1 .5-6 4 4 0 0 1 7.5 1.5 2.75 2.75 0 0 1-.5 5z"/>'),
+  cloud: P('<path d="M7 18a4 4 0 0 1-.5-8 6 6 0 0 1 11.4 1.5A3.5 3.5 0 0 1 17.5 18z"/>'),
+  store: P('<path d="M4 8h16l-1 12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/>'),
+  download: P('<path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/>'),
+  user: P('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+  users: P('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.6M18 20a6.5 6.5 0 0 0-3-5.5"/>'),
+  info: P('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
+  palette: P('<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.6 1.7-1.6H16a5 5 0 0 0 5-5c0-3.9-4-7.2-9-7.2z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/>'),
+  bell: P('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M10.3 21a2 2 0 0 0 3.4 0"/>'),
+  bellOff: P('<path d="M13.7 21a2 2 0 0 1-3.4 0"/><path d="M18 8a6 6 0 0 0-9.3-5M6 8c0 7-3 9-3 9h13"/><path d="M3 3l18 18"/>'),
+  power: P('<path d="M12 3v9"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/>'),
+  calendar: P('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/>'),
+  globe: P('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>'),
+  storage: P('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>'),
+  play: P('<path d="M6 4l14 8-14 8z"/>'),
+  pause: P('<path d="M8 5v14M16 5v14"/>'),
+  flag2: P('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
+  reset: P('<path d="M3 3v5h5"/><path d="M3.5 8A9 9 0 1 1 3 12"/>'),
+};
+
+export function icon(name) { return ICONS[name] || ICONS.info; }
+export function iconEl(name, cls) {
+  const span = document.createElement('span');
+  span.className = 'ic' + (cls ? ' ' + cls : '');
+  span.style.display = 'inline-flex';
+  span.innerHTML = icon(name);
+  return span;
+}

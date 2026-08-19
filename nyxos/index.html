@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0e14" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="color-scheme" content="dark light" />
+  <title>NyxOS</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/icon.svg" />
+  <link rel="stylesheet" href="./css/reset.css" />
+  <link rel="stylesheet" href="./css/theme.css" />
+  <link rel="stylesheet" href="./css/os.css" />
+  <link rel="stylesheet" href="./css/apps.css" />
+</head>
+<body>
+  <!-- The phone frame is only visible on wide (desktop) viewports; on a phone the
+       screen fills the display. -->
+  <div id="device" aria-label="NyxOS device">
+    <div id="screen">
+      <div id="statusbar" class="statusbar" role="banner"></div>
+      <main id="stage" class="stage" aria-live="polite"></main>
+      <div id="shade" class="shade" aria-hidden="true"></div>
+      <div id="navbar" class="navbar" role="navigation" aria-label="System navigation"></div>
+      <div id="modal-root"></div>
+      <div id="toast-root" class="toast-root" aria-live="assertive"></div>
+    </div>
+  </div>
+
+  <noscript>
+    <p style="color:#fff;padding:2rem;font-family:sans-serif">
+      NyxOS requires JavaScript. As a privacy-first OS it runs entirely on your device with no server.
+    </p>
+  </noscript>
+
+  <script type="module" src="./js/os.js"></script>
+</body>
+</html>
