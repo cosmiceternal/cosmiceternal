@@ -85,6 +85,9 @@ export const ICONS = {
   pause: P('<path d="M8 5v14M16 5v14"/>'),
   flag2: P('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
   reset: P('<path d="M3 3v5h5"/><path d="M3.5 8A9 9 0 1 1 3 12"/>'),
+  chat: P('<path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M8 10h8M8 13h5"/>'),
+  send: P('<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>'),
+  alarm: P('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3L2 6M19 3l3 3"/>'),
 };
 
 export function icon(name) { return ICONS[name] || ICONS.info; }

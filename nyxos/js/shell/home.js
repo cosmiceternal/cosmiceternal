@@ -14,6 +14,21 @@ function clockWidget() {
   return w;
 }
 
+function weatherWidget() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let s = (Math.floor(today.getTime() / 86400000) + 7) % 2147483647; if (s <= 0) s += 2147483646;
+  const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const temp = Math.round(12 + r() * 16);
+  const cond = ['Clear', 'Partly cloudy', 'Cloudy', 'Light rain', 'Breezy'][Math.floor(r() * 5)];
+  const hasLoc = getPerm('weather', 'location');
+  return el('div', { class: 'widget' },
+    el('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
+      el('div', { style: { color: 'var(--accent)' }, html: icon('weather') }),
+      el('div', { style: { flex: '1' } },
+        el('div', { style: { fontSize: '20px', fontWeight: '600' }, text: `${temp}° · ${cond}` }),
+        el('div', { style: { fontSize: '12px', color: 'var(--text-dim)' }, text: hasLoc ? 'Your area' : 'Sample City · location off' }))));
+}
+
 function privacyWidget() {
   const apps = installedApps();
   const netBlocked = apps.filter((a) => !getPerm(a.id, 'network')).length;
@@ -40,7 +55,7 @@ export function buildHome({ onOpenApp, onOpenDrawer, onOpenAppInfo }) {
   const layer = el('div', { class: 'screen-layer home' });
 
   const scroll = el('div', { class: 'home-scroll' });
-  scroll.append(el('div', { class: 'widget-area' }, clockWidget(), privacyWidget()));
+  scroll.append(el('div', { class: 'widget-area' }, clockWidget(), weatherWidget(), privacyWidget()));
 
   // Drawer handle
   const handle = el('button', {

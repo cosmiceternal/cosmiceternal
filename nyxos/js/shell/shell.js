@@ -7,6 +7,7 @@ import { State } from '../core/state.js';
 import { Bridge } from '../core/bridge.js';
 import { LockPolicy, duressWipe } from '../core/security.js';
 import { Notifications } from '../core/notifications.js';
+import { AlarmService } from '../core/alarms.js';
 import { ensureInstalled } from '../core/registry.js';
 import { applyTheme } from './theme-apply.js';
 import { Statusbar } from './statusbar.js';
@@ -21,7 +22,7 @@ import { toast, confirm, modal, installUIBridge } from './ui.js';
 
 export const Shell = {
   stage: null, screen: null,
-  homeLayer: null, drawerLayer: null, recentsLayer: null,
+  homeLayer: null, drawerLayer: null, recentsLayer: null, lockOverlay: null,
   currentApp: null, recents: [],
 
   init() {
@@ -48,7 +49,7 @@ export const Shell = {
     });
 
     // Shade lives above the stage.
-    this.screen.appendChild(Shade.build({ onOpenSettings: () => this.openApp('settings') }));
+    this.screen.appendChild(Shade.build({ onOpenSettings: () => this.openApp('settings'), onLock: () => this.screenLock() }));
 
     // Top "grabber": tap or swipe down to reveal the notification shade.
     const grabber = el('div', { style: { position: 'absolute', top: '0', left: '0', right: '0', height: '36px', zIndex: '40' } });
@@ -82,6 +83,7 @@ export const Shell = {
 
   showLock(profileId) {
     Navbar.setHidden(true);
+    this._removeOverlay();
     this.teardownApp();
     Shade.close();
     const layer = buildLock({
@@ -116,21 +118,70 @@ export const Shell = {
   onUnlocked(id, key, vault) {
     State.unlock(id, key, vault);
     ensureInstalled();
-    applyTheme();
-    LockPolicy.arm(() => this.lock());
+    this.seedDemoNotifications();
     this.recents = [];
+    this.goToHome();
+    AlarmService.start();
+  },
+
+  goToHome() {
+    applyTheme();
+    LockPolicy.arm(() => this.screenLock());
     this.buildHomeAndDrawer();
     this._setBase(this.homeLayer);
     Navbar.setHidden(false);
     Statusbar.refresh();
   },
 
+  // Screen lock (AFU): frosted overlay on top of the live UI; keys stay in
+  // memory so the lock screen can show notifications and unlock is instant.
+  screenLock() {
+    if (State.dataLocked) return;
+    State.screenLock();
+    LockPolicy.disarm();
+    Shade.close(); this.closeDrawer(); this.closeRecents();
+    Navbar.setHidden(true);
+    const layer = buildLock({
+      profileId: State.activeId,
+      showNotifs: true,
+      onUnlock: () => this.resumeFromLock(),
+      onDuress: () => this.onDuress(),
+    });
+    layer.classList.add('lock-overlay');
+    this._removeOverlay();
+    this.lockOverlay = layer;
+    this.screen.appendChild(layer);
+    Statusbar.refresh();
+  },
+
+  resumeFromLock() {
+    State.unlockScreen();
+    this._removeOverlay();
+    applyTheme();
+    LockPolicy.arm(() => this.screenLock());
+    Navbar.setHidden(false);
+    Statusbar.refresh();
+  },
+
+  _removeOverlay() {
+    if (this.lockOverlay) { try { this.lockOverlay._cleanup?.(); } catch {} this.lockOverlay.remove(); this.lockOverlay = null; }
+  },
+
+  seedDemoNotifications() {
+    if (State.get('seededDemo', false)) return;
+    State.set('seededDemo', true, { silent: true });
+    Notifications.post({ appId: 'system', title: 'Welcome to NyxOS', text: 'Your profile is encrypted. Swipe down for quick settings, up for all apps.', icon: 'moon', color: '#6ee7d0' });
+    Notifications.post({ appId: 'messages', title: 'Alex', text: 'Hey — are we still on for tonight?', icon: 'chat', color: '#7aa2ff', sensitive: true });
+  },
+
   onDuress() {
+    AlarmService.stop();
     duressWipe();
     // Wipe complete — reinitialize to a pristine device and show setup.
     State.init();
     toast('Data wiped', { type: 'danger', icon: 'shield' });
     this.recents = [];
+    this._removeOverlay();
     this.teardownApp();
     this.decideEntry();
   },
@@ -151,6 +202,7 @@ export const Shell = {
 
   // --- home + drawer --------------------------------------------------
   buildHomeAndDrawer() {
+    this.drawerLayer?.remove();
     this.homeLayer = buildHome({
       onOpenApp: (id) => this.openApp(id),
       onOpenDrawer: () => this.openDrawer(),

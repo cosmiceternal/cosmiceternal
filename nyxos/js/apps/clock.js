@@ -1,6 +1,7 @@
 import { registerApp } from '../core/registry.js';
-import { el, fmtClock, fmtDate, pad2 } from '../core/util.js';
-import { segmented, bigButton, list, row } from '../shell/kit.js';
+import { el, fmtClock, fmtDate, pad2, uuid } from '../core/util.js';
+import { icon } from '../core/icons.js';
+import { segmented, bigButton, list, row, toggle } from '../shell/kit.js';
 
 function clockView(root, ctx) {
   const big = el('div', { class: 'clock-big' });
@@ -69,11 +70,42 @@ function timerView(root, ctx, sys) {
   root.append(el('div', { style: { textAlign: 'center' } }, disp), input, el('div', { style: { marginTop: '12px' } }, startBtn));
 }
 
+function alarmView(root, ctx, sys) {
+  const loadA = () => sys.storage.get('alarms', []);
+  const saveA = (a) => sys.storage.set('alarms', a);
+
+  const addAlarm = async () => {
+    const time = await sys.prompt({ title: 'Alarm time', type: 'time', value: '07:00', confirmLabel: 'Next' });
+    if (!time) return;
+    const label = await sys.prompt({ title: 'Label (optional)', placeholder: 'Wake up', confirmLabel: 'Add' });
+    const arr = loadA(); arr.push({ id: uuid(), time, label: label || '', enabled: true }); saveA(arr); paint();
+  };
+
+  const paint = () => {
+    const alarms = loadA().sort((a, b) => a.time.localeCompare(b.time));
+    const rows = alarms.map((a) => row({
+      icon: 'alarm', iconColor: '#7aa2ff', title: a.time, sub: a.label || 'Alarm',
+      right: el('div', { style: { display: 'flex', gap: '10px', alignItems: 'center' } },
+        toggle(a.enabled, (v) => { const arr = loadA(); const f = arr.find((x) => x.id === a.id); if (f) { f.enabled = v; saveA(arr); } }),
+        el('button', { style: { color: 'var(--text-mute)', padding: '2px' }, attrs: { 'aria-label': 'Delete' }, html: icon('trash'),
+          on: { click: async () => { if (await sys.confirm({ title: 'Delete alarm?', confirmLabel: 'Delete', danger: true })) { saveA(loadA().filter((x) => x.id !== a.id)); paint(); } } } }),
+      ),
+    }));
+    root.replaceChildren(
+      el('div', { style: { padding: '4px 0 12px' } }, bigButton('Add alarm', { kind: 'primary', icon: 'plus', onClick: addAlarm })),
+      alarms.length ? list(...rows) : el('div', { class: 'empty-state' }, el('div', { html: icon('alarm') }), el('p', { text: 'No alarms' })),
+      el('div', { class: 'hint', text: 'Alarms fire even when the Clock is closed — and while the screen is locked.' }),
+    );
+  };
+  paint();
+}
+
 registerApp({
   id: 'clock', name: 'Clock', icon: 'clock', color: '#7aa2ff', order: 10,
   mount(root, sys, ctx) {
     const { el: view } = segmented([
       { name: 'Clock', render: (c) => clockView(c, ctx) },
+      { name: 'Alarm', render: (c) => alarmView(c, ctx, sys) },
       { name: 'Stopwatch', render: (c) => stopwatchView(c, ctx) },
       { name: 'Timer', render: (c) => timerView(c, ctx, sys) },
     ]);

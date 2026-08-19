@@ -1,7 +1,29 @@
-import { el, fmtClock, fmtDate, haptic } from '../core/util.js';
+import { el, fmtClock, fmtDate, haptic, relTime } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { State } from '../core/state.js';
 import { verifyPin, setupPin } from '../core/security.js';
+import { Notifications } from '../core/notifications.js';
+import { getApp } from '../core/registry.js';
+
+function lockNotifs() {
+  const list = Notifications.list().slice(0, 4);
+  if (!list.length) return null;
+  const hide = State.get('security.hideNotifContent', true);
+  const wrap = el('div', { class: 'lock-notifs' });
+  for (const n of list) {
+    const app = getApp(n.appId);
+    const sensitiveHidden = n.sensitive && hide;
+    wrap.append(el('div', { class: 'lock-notif' },
+      el('div', { class: 'ln-icon', style: { background: n.color || app?.color || '#2a3350' }, html: icon(n.icon || app?.icon || 'bell') }),
+      el('div', { class: 'ln-body' },
+        el('div', { class: 'ln-top' }, el('span', { class: 'ln-app', text: app?.name || n.appId }), el('span', { class: 'ln-time', text: relTime(n.ts) })),
+        sensitiveHidden
+          ? el('div', { class: 'ln-hidden', text: 'Content hidden' })
+          : el('div', { class: 'ln-title', text: n.title })),
+    ));
+  }
+  return wrap;
+}
 
 function keypad({ onDigit, onBack, onSubmit }) {
   const grid = el('div', { class: 'keypad' });
@@ -24,7 +46,7 @@ function dotsRow(len) {
 }
 
 /** Live lock screen for an existing profile. */
-export function buildLock({ profileId, onUnlock, onDuress }) {
+export function buildLock({ profileId, onUnlock, onDuress, showNotifs = false }) {
   let pin = '';
   const layer = el('div', { class: 'screen-layer lock' });
 
@@ -61,6 +83,7 @@ export function buildLock({ profileId, onUnlock, onDuress }) {
 
   layer.append(
     el('div', { style: { textAlign: 'center', paddingTop: '20px' } }, clock, date, status),
+    showNotifs ? (lockNotifs() || el('div', { class: 'lock-spacer' })) : el('div', { class: 'lock-spacer' }),
     el('div', { class: 'lock-spacer' }),
     dotsWrap,
     keypad({

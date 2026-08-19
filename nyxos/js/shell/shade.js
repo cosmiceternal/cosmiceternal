@@ -5,15 +5,17 @@ import { Notifications } from '../core/notifications.js';
 import { getApp } from '../core/registry.js';
 
 export const Shade = {
-  el: null, tilesEl: null, listEl: null, onOpenSettings: null,
+  el: null, tilesEl: null, listEl: null, onOpenSettings: null, onLock: null,
 
-  build({ onOpenSettings }) {
+  build({ onOpenSettings, onLock }) {
     this.onOpenSettings = onOpenSettings;
+    this.onLock = onLock;
     const head = el('div', { class: 'shade-head' });
     head.append(
       el('div', { class: 'st' }, el('div', { text: fmtClock() }), el('div', { style: { fontSize: '11px', opacity: '.7' }, text: fmtDate() })),
       el('div', { style: { display: 'flex', gap: '4px' } },
         el('button', { text: 'Clear', on: { click: () => Notifications.clear() } }),
+        el('button', { attrs: { 'aria-label': 'Lock' }, html: icon('lock'), on: { click: () => { this.close(); onLock?.(); } } }),
         el('button', { attrs: { 'aria-label': 'Settings' }, html: icon('settings'), on: { click: () => { this.close(); onOpenSettings(); } } }),
       ),
     );

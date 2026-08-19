@@ -12,3 +12,4 @@ import './camera.js';
 import './appstore.js';
 import './compass.js';
 import './recorder.js';
+import './messages.js';

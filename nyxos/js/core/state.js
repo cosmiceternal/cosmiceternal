@@ -58,6 +58,7 @@ class OSState {
     this.vault = null;
     this.key = null;
     this.activeId = null;
+    this.screenLocked = false;
     this.events = emitter();
     this._saveTimer = null;
   }
@@ -73,21 +74,41 @@ class OSState {
 
   saveDevice() { Store.saveDevice(this.device); }
 
-  get locked() { return !this.vault || !this.key; }
+  // Locked from the user's perspective (screen lock OR data lock).
+  get locked() { return this.screenLocked || !this.vault || !this.key; }
+  // Data-at-rest lock (before first unlock / after reboot): vault not in memory.
+  get dataLocked() { return !this.vault || !this.key; }
 
   unlock(id, key, vault) {
     this.activeId = id;
     this.key = key;
     this.vault = vault;
+    this.screenLocked = false;
     this.device.activeId = id;
     this.saveDevice();
     this.events.emit('unlock');
   }
 
+  // Screen lock (after first unlock): keep the key in memory so the lock screen
+  // can show notifications, exactly like a phone in the AFU state. Data at rest
+  // stays encrypted (the persisted blob is always ciphertext).
+  screenLock() {
+    this.persistNow();
+    this.screenLocked = true;
+    this.events.emit('lock');
+  }
+
+  unlockScreen() {
+    this.screenLocked = false;
+    this.events.emit('unlock');
+  }
+
+  // Full lock / eviction (reboot, profile switch): drop the key and plaintext.
   lock() {
     this.persistNow();
     this.vault = null;
     this.key = null;
+    this.screenLocked = true;
     this.events.emit('lock');
   }
 

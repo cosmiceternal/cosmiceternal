@@ -120,6 +120,22 @@ body {
 .pin-dots.err .dot { border-color: var(--danger); animation: shake .35s; }
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
 
+/* Lock-screen notifications */
+.lock-notifs { width: 100%; max-width: 340px; margin: 18px auto 0; display: flex; flex-direction: column; gap: 8px; }
+.lock-notif { display: flex; gap: 10px; align-items: center; text-align: left; background: color-mix(in srgb, var(--surface) 55%, transparent); border: 1px solid color-mix(in srgb, var(--border) 45%, transparent); border-radius: 16px; padding: 10px 12px; backdrop-filter: blur(8px); }
+.lock-notif .ln-icon { width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center; color: #fff; }
+.lock-notif .ln-icon svg { width: 16px; height: 16px; }
+.lock-notif .ln-body { flex: 1; min-width: 0; }
+.lock-notif .ln-top { display: flex; justify-content: space-between; gap: 8px; }
+.lock-notif .ln-app { font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: var(--text-dim); }
+.lock-notif .ln-time { font-size: 10.5px; color: var(--text-mute); }
+.lock-notif .ln-title { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lock-notif .ln-hidden { font-size: 12.5px; color: var(--text-mute); font-style: italic; display: flex; align-items: center; gap: 6px; }
+.lock-notif .ln-hidden::before { content: ""; width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(45deg, var(--text-mute) 0 2px, transparent 2px 4px); opacity: .6; }
+
+/* Screen-lock overlay (AFU): frosted glass over the running UI */
+.lock-overlay { position: absolute; inset: 0; z-index: 55; background: color-mix(in srgb, var(--bg-0) 60%, transparent); backdrop-filter: blur(34px) saturate(120%); }
+
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 300px; margin: 0 auto; }
 .keypad button {
   aspect-ratio: 1; max-height: 74px; border-radius: 50%;
@@ -248,7 +264,8 @@ body {
 .notif .n-title .n-time { color: var(--text-mute); font-weight: 500; font-size: 11px; flex: none; }
 .notif .n-text { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; overflow-wrap: anywhere; }
 .notif .n-app { font-size: 10.5px; color: var(--text-mute); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
-.notif.sensitive .n-text { filter: blur(5px); user-select: none; }
+/* Sensitive content is hidden on the lock screen (see lockscreen.js), not in the
+   unlocked shade — once you're in, you can read your own notifications. */
 .notif-empty { text-align: center; color: var(--text-mute); padding: 30px 0; font-size: 13px; }
 
 /* ========================================================================
