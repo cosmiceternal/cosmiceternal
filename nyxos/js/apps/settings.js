@@ -5,11 +5,14 @@ import { State, WALLPAPERS, ACCENTS } from '../core/state.js';
 import { Store } from '../core/store.js';
 import { Bridge } from '../core/bridge.js';
 import { PBKDF2_ITERS } from '../core/crypto.js';
-import { changePin, setDuressPin, hasDuress, setupPin } from '../core/security.js';
+import { changePin, setDuressPin, hasDuress, setupPin, setAutoWipe, getPublicMeta } from '../core/security.js';
 import { section, list, row, toggleRow, toggle, bigButton, segmented } from '../shell/kit.js';
 import { modal } from '../shell/ui.js';
 
 export const OS = { name: 'NyxOS', version: '0.1.0', codename: 'Nightfall' };
+
+const AUTOWIPE = [{ label: 'Off', n: 0 }, { label: 'After 5', n: 5 }, { label: 'After 10', n: 10 }, { label: 'After 15', n: 15 }, { label: 'After 30', n: 30 }];
+const CLIPCLEAR = [{ label: 'Never', n: 0 }, { label: '30 seconds', n: 30 }, { label: '45 seconds', n: 45 }, { label: '1 minute', n: 60 }, { label: '2 minutes', n: 120 }];
 
 const AUTOLOCK = [
   { label: 'Immediately', ms: 1 }, { label: '15 seconds', ms: 15000 },
@@ -96,45 +99,126 @@ registerApp({
       );
     }
 
+    // Generic single-choice picker (safe DOM, no innerHTML).
+    function picker(title, options, isCurrent, onPick) {
+      const body = el('div', {});
+      options.forEach((o) => body.append(el('button', {
+        class: 'row tap', style: { width: '100%', background: 'var(--surface-2)', borderRadius: '10px', marginBottom: '6px' },
+        on: { click: () => { document.querySelector('.modal-scrim')?.remove(); onPick(o); } },
+      }, el('span', { class: 'r-main' }, el('span', { class: 'r-title', text: o.label })),
+      isCurrent(o) ? el('span', { html: icon('check'), style: { color: 'var(--accent)' } }) : null)));
+      modal({ title, body, actions: [{ label: 'Close', kind: 'ghost', value: 0 }] });
+    }
+
     // ---- security ----
     function showSecurity() {
       ctx._view = 'security'; ctx.setTitle('Security'); ctx.pushBack(showRoot);
       const sec = () => State.get('security', {}) || {};
       const autolock = AUTOLOCK.find((a) => a.ms === sec().autoLockMs) || AUTOLOCK[2];
+      const autowipe = AUTOWIPE.find((a) => a.n === (sec().autoWipeAttempts || 0)) || AUTOWIPE[0];
+      const clip = CLIPCLEAR.find((c) => c.n === (sec().clipboardClearSec ?? 45)) || CLIPCLEAR[2];
+      const mode = getPublicMeta(State.activeId)?.mode || 'pin';
+      const modeLabel = mode === 'passphrase' ? 'Passphrase' : 'PIN';
+      const iters = Store.loadMeta(State.activeId)?.iterations || PBKDF2_ITERS;
 
       root.replaceChildren(
+        list(
+          row({ icon: 'shieldCheck', iconColor: '#6ee7d0', title: 'Security checkup', sub: 'Review and harden your setup', onClick: showSecurityCheckup }),
+        ),
         section('Authentication'),
         list(
-          row({ icon: 'key', iconColor: '#ffd166', title: 'Change PIN', onClick: changePinFlow }),
+          row({ icon: 'key', iconColor: '#ffd166', title: `Change ${modeLabel.toLowerCase()}`, onClick: () => setCredentialFlow(mode) }),
+          row({ icon: 'lock', iconColor: '#7aa2ff', title: 'Unlock method', value: modeLabel, onClick: switchMethod }),
           row({ icon: 'flag', iconColor: '#ff6b6b', title: 'Duress PIN', sub: hasDuress(State.activeId) ? 'Set — wipes device when entered' : 'Not set', onClick: duressFlow }),
+          row({ icon: 'trash', iconColor: '#ff6b6b', title: 'Auto-wipe on failed unlocks', value: autowipe.label, onClick: pickAutowipe }),
           row({ icon: 'clock', iconColor: '#7aa2ff', title: 'Auto-lock', value: autolock.label, onClick: pickAutolock }),
         ),
         section('Lock screen'),
         list(
+          mode === 'pin' ? toggleRow({ icon: 'shield', iconColor: '#c58cff', title: 'Scramble PIN layout', sub: 'Randomize keypad to defeat shoulder-surfing', value: !!State.device.scramblePin, onChange: (v) => { State.device.scramblePin = v; State.saveDevice(); } }) : null,
           toggleRow({ icon: 'usb', iconColor: '#c58cff', title: 'Block USB when locked', sub: 'Ignore USB data on the lock screen', value: sec().lockUsb, onChange: (v) => State.set('security.lockUsb', v) }),
           toggleRow({ icon: 'camera', iconColor: '#ff9e7a', title: 'Block camera when locked', value: sec().lockCamera, onChange: (v) => State.set('security.lockCamera', v) }),
           toggleRow({ icon: 'settings', iconColor: '#9aa7c2', title: 'Hide quick tiles when locked', value: sec().lockQuickTiles, onChange: (v) => State.set('security.lockQuickTiles', v) }),
+        ),
+        section('Privacy'),
+        list(
+          row({ icon: 'clipboard', iconColor: '#ffd166', title: 'Clipboard auto-clear', value: clip.label, onClick: pickClipClear }),
+          toggleRow({ icon: 'eyeOff', iconColor: '#7aa2ff', title: 'Hide sensitive notifications', sub: 'On the lock screen', value: sec().hideNotifContent !== false, onChange: (v) => State.set('security.hideNotifContent', v) }),
         ),
         section('Protection'),
         list(
           toggleRow({ icon: 'shieldCheck', iconColor: '#6ee7d0', title: 'Advanced Protection', sub: 'Stricter defaults: sensors off, USB blocked, network guarded', value: sec().advancedProtection, onChange: applyAdvanced }),
         ),
         list(
-          row({ icon: 'lock', iconColor: '#8be9a0', title: 'Encryption', sub: `AES‑256‑GCM · PBKDF2 ${(PBKDF2_ITERS / 1000)}k iterations`, onClick: () => modal({ title: 'Storage encryption', body: 'This profile is encrypted with AES‑256‑GCM. The key is derived from your PIN with PBKDF2‑SHA256 (' + PBKDF2_ITERS.toLocaleString() + ' iterations). Data at rest is ciphertext; without your PIN it cannot be read.', actions: [{ label: 'Close', kind: 'primary', value: 1 }] }) }),
+          row({ icon: 'lock', iconColor: '#8be9a0', title: 'Encryption', sub: `AES‑256‑GCM · PBKDF2 ${Math.round(iters / 1000)}k iterations`, onClick: () => modal({ title: 'Storage encryption', body: `This profile is encrypted with AES‑256‑GCM. The key is derived from your ${mode} with PBKDF2‑SHA256 (${iters.toLocaleString()} iterations). Data at rest is ciphertext; without your ${mode} it cannot be read.`, actions: [{ label: 'Close', kind: 'primary', value: 1 }] }) }),
         ),
         section('Danger zone'),
         el('div', { style: { padding: '4px' } }, bigButton('Factory reset this device', { kind: 'danger', icon: 'trash', onClick: factoryReset })),
       );
     }
 
-    async function changePinFlow() {
-      const p1 = await sys.prompt({ title: 'New PIN', message: 'Enter 4–12 digits', type: 'password', confirmLabel: 'Next' });
+    async function setCredentialFlow(targetMode) {
+      const isPass = targetMode === 'passphrase';
+      const p1 = await sys.prompt({ title: isPass ? 'New passphrase' : 'New PIN', message: isPass ? 'Use a strong, memorable passphrase (6+ characters)' : 'Enter 4–12 digits', type: 'password', confirmLabel: 'Next' });
       if (p1 == null) return;
-      if (!/^\d{4,12}$/.test(p1)) return sys.toast('PIN must be 4–12 digits', { icon: 'alert' });
-      const p2 = await sys.prompt({ title: 'Confirm PIN', type: 'password', confirmLabel: 'Change' });
-      if (p2 !== p1) return sys.toast('PINs did not match', { icon: 'alert' });
-      await changePin(State.activeId, p1);
-      sys.toast('PIN changed', { type: 'ok', icon: 'check' });
+      if (isPass) { if (p1.length < 6) return sys.toast('Passphrase must be 6+ characters', { icon: 'alert' }); }
+      else if (!/^\d{4,12}$/.test(p1)) return sys.toast('PIN must be 4–12 digits', { icon: 'alert' });
+      const p2 = await sys.prompt({ title: 'Confirm', type: 'password', confirmLabel: 'Save' });
+      if (p2 !== p1) return sys.toast('Entries did not match', { icon: 'alert' });
+      await changePin(State.activeId, p1, targetMode);
+      sys.toast(isPass ? 'Passphrase set' : 'PIN changed', { type: 'ok', icon: 'check' });
+      showSecurity();
+    }
+
+    function switchMethod() {
+      const cur = getPublicMeta(State.activeId)?.mode || 'pin';
+      picker('Unlock method',
+        [{ label: 'PIN (numeric)', mode: 'pin' }, { label: 'Passphrase (letters & numbers)', mode: 'passphrase' }],
+        (o) => o.mode === cur, (o) => setCredentialFlow(o.mode));
+    }
+
+    function pickAutowipe() {
+      picker('Auto-wipe on failed unlocks', AUTOWIPE, (o) => o.n === (State.get('security.autoWipeAttempts', 0)), async (o) => {
+        if (o.n > 0 && !(await sys.confirm({ title: 'Enable auto-wipe?', message: `After ${o.n} failed unlock attempts, this device will be PERMANENTLY WIPED.`, confirmLabel: 'Enable', danger: true }))) return;
+        State.set('security.autoWipeAttempts', o.n); setAutoWipe(State.activeId, o.n);
+        sys.toast(o.n ? `Auto-wipe after ${o.n} attempts` : 'Auto-wipe off', { icon: 'shield', type: o.n ? 'danger' : '' });
+        showSecurity();
+      });
+    }
+
+    function pickClipClear() {
+      picker('Clipboard auto-clear', CLIPCLEAR, (o) => o.n === (State.get('security.clipboardClearSec', 45)), (o) => { State.set('security.clipboardClearSec', o.n); showSecurity(); });
+    }
+
+    function showSecurityCheckup() {
+      ctx._view = 'checkup'; ctx.setTitle('Security checkup'); ctx.pushBack(showSecurity);
+      const sec = State.get('security', {}) || {};
+      const mode = getPublicMeta(State.activeId)?.mode || 'pin';
+      const checks = [
+        { ok: mode === 'passphrase', title: 'Strong unlock secret', good: 'Using a passphrase', bad: 'A passphrase resists offline brute force far better than a PIN', fix: switchMethod },
+        { ok: hasDuress(State.activeId), title: 'Duress PIN', good: 'Configured', bad: 'Set a PIN that wipes the device under coercion', fix: duressFlow },
+        { ok: (sec.autoWipeAttempts || 0) > 0, title: 'Auto-wipe', good: `After ${sec.autoWipeAttempts} attempts`, bad: 'Wipe after repeated failed unlocks', fix: pickAutowipe },
+        { ok: sec.autoLockMs > 0 && sec.autoLockMs <= 60000, title: 'Quick auto-lock', good: 'One minute or less', bad: 'Lock the screen sooner when idle', fix: pickAutolock },
+        { ok: sec.hideNotifContent !== false, title: 'Lock-screen privacy', good: 'Sensitive content hidden', bad: 'Hide sensitive notifications when locked', fix: () => { State.set('security.hideNotifContent', true); showSecurityCheckup(); } },
+        { ok: (sec.clipboardClearSec ?? 45) > 0, title: 'Clipboard auto-clear', good: 'On', bad: 'Clear copied secrets automatically', fix: pickClipClear },
+        { ok: !!sec.advancedProtection, title: 'Advanced Protection', good: 'On', bad: 'Enable stricter privacy defaults', fix: () => applyAdvanced(true) },
+      ];
+      const passed = checks.filter((c) => c.ok).length;
+      const pct = Math.round((passed / checks.length) * 100);
+      const color = pct >= 80 ? 'var(--ok)' : pct >= 50 ? 'var(--warn)' : 'var(--danger)';
+      root.replaceChildren(
+        el('div', { class: 'list', style: { padding: '18px', textAlign: 'center' } },
+          el('div', { style: { fontSize: '36px', fontWeight: '700', color }, text: `${passed}/${checks.length}` }),
+          el('div', { class: 'hint', text: 'security features enabled' }),
+          el('div', { class: 'storage-bar', style: { marginTop: '12px' } }, el('span', { style: { width: pct + '%', background: color } }))),
+        list(...checks.map((c) => row({
+          icon: c.ok ? 'shieldCheck' : 'alert', iconColor: c.ok ? '#6ee7d0' : '#ffcf6b',
+          title: c.title, sub: c.ok ? c.good : c.bad,
+          right: c.ok ? el('span', { class: 'badge-pill live', text: 'On' })
+            : el('button', { class: 'sc-btn', style: { padding: '6px 14px' }, text: 'Fix', on: { click: () => c.fix() } }),
+        }))),
+        el('div', { class: 'hint', text: 'These are controls NyxOS enforces in a browser. Hardware-backed items (verified boot, secure element, hardware key throttling) require a real device.' }),
+      );
     }
 
     async function duressFlow() {
@@ -157,9 +241,7 @@ registerApp({
     }
 
     function pickAutolock() {
-      const body = el('div', {});
-      AUTOLOCK.forEach((a) => body.append(el('button', { class: 'row tap', style: { width: '100%', background: 'var(--surface-2)', borderRadius: '10px', marginBottom: '6px' }, html: `<span class="r-main"><span class="r-title">${a.label}</span></span>`, on: { click: () => { State.set('security.autoLockMs', a.ms); document.querySelector('.modal-scrim')?.remove(); showSecurity(); } } })));
-      modal({ title: 'Auto-lock', body, actions: [{ label: 'Close', kind: 'ghost', value: 0 }] });
+      picker('Auto-lock', AUTOLOCK, (a) => a.ms === State.get('security.autoLockMs', 30000), (a) => { State.set('security.autoLockMs', a.ms); showSecurity(); });
     }
 
     function applyAdvanced(v) {
@@ -214,7 +296,9 @@ registerApp({
     async function deleteProfile() {
       const others = State.device.profiles.filter((p) => p.id !== State.activeId);
       const body = el('div', {});
-      others.forEach((p) => body.append(el('button', { class: 'row tap', style: { width: '100%', background: 'var(--surface-2)', borderRadius: '10px', marginBottom: '6px' }, html: `<span class="r-icon" style="background:${p.color}">${icon('user')}</span><span class="r-main"><span class="r-title">${p.name}</span></span>`, on: { click: async () => { document.querySelector('.modal-scrim')?.remove(); if (await sys.confirm({ title: `Delete “${p.name}”?`, message: 'All of this profile’s data will be erased.', confirmLabel: 'Delete', danger: true })) { Store.wipeProfile(p.id); State.device.profiles = State.device.profiles.filter((x) => x.id !== p.id); State.saveDevice(); sys.toast('Profile deleted'); showProfiles(); } } } })));
+      others.forEach((p) => body.append(el('button', { class: 'row tap', style: { width: '100%', background: 'var(--surface-2)', borderRadius: '10px', marginBottom: '6px' }, on: { click: async () => { document.querySelector('.modal-scrim')?.remove(); if (await sys.confirm({ title: `Delete “${p.name}”?`, message: 'All of this profile’s data will be erased.', confirmLabel: 'Delete', danger: true })) { Store.wipeProfile(p.id); State.device.profiles = State.device.profiles.filter((x) => x.id !== p.id); State.saveDevice(); sys.toast('Profile deleted'); showProfiles(); } } } },
+        el('span', { class: 'r-icon', style: { background: p.color }, html: icon('user') }),
+        el('span', { class: 'r-main' }, el('span', { class: 'r-title', text: p.name })))));
       modal({ title: 'Delete profile', body, actions: [{ label: 'Cancel', kind: 'ghost', value: 0 }] });
     }
 
@@ -248,10 +332,15 @@ registerApp({
         list(
           feat('App sandboxing', 'Capability-scoped; apps can’t reach what you don’t grant', 'live'),
           feat('Stronger permission model', 'Per-app network, sensors, storage scopes & more', 'live'),
-          feat('Filesystem-style encryption', 'AES‑256‑GCM at rest, PIN-derived key', 'live'),
+          feat('Filesystem-style encryption', 'AES‑256‑GCM, PBKDF2‑600k, PIN/passphrase key', 'live'),
+          feat('Brute-force throttling', 'Escalating lockout after failed unlocks', 'live'),
+          feat('Auto-wipe', 'Optional device wipe after N failed unlocks', 'live'),
+          feat('Passphrase unlock', 'Alphanumeric secret resists offline attack', 'live'),
           feat('Duress PIN', 'A secret PIN that wipes the device', 'live'),
+          feat('Scramble PIN layout', 'Anti shoulder-surf / smudge', 'live'),
           feat('Lock screen restrictions', 'USB, camera & quick tiles when locked', 'live'),
-          feat('Clipboard access alerts', 'Notifies when an app reads the clipboard', 'live'),
+          feat('Clipboard alerts + auto-clear', 'Surface reads; wipe copied secrets on a timer', 'live'),
+          feat('Content-Security-Policy', 'No inline scripts, no eval, no framing', 'live'),
         ),
         section('Partial'),
         list(

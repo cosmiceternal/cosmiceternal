@@ -1,9 +1,10 @@
 import { el, fmtClock, fmtDate, haptic, relTime } from '../core/util.js';
 import { icon } from '../core/icons.js';
 import { State } from '../core/state.js';
-import { verifyPin, setupPin } from '../core/security.js';
+import { verifyPin, setupPin, getPublicMeta } from '../core/security.js';
 import { Notifications } from '../core/notifications.js';
 import { getApp } from '../core/registry.js';
+import { bigButton } from './kit.js';
 
 function lockNotifs() {
   const list = Notifications.list().slice(0, 4);
@@ -25,15 +26,27 @@ function lockNotifs() {
   return wrap;
 }
 
-function keypad({ onDigit, onBack, onSubmit }) {
+function shuffled(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function keypad({ onDigit, onBack, onSubmit, scramble = false }) {
   const grid = el('div', { class: 'keypad' });
-  const mkDigit = (d, sub) => el('button', {
-    on: { click: () => { haptic(8); onDigit(d); } },
-  }, String(d), sub ? el('span', { class: 'sub', text: sub }) : null);
   const subs = { 2: 'ABC', 3: 'DEF', 4: 'GHI', 5: 'JKL', 6: 'MNO', 7: 'PQRS', 8: 'TUV', 9: 'WXYZ' };
-  for (let d = 1; d <= 9; d++) grid.append(mkDigit(d, subs[d]));
+  const mkDigit = (d) => el('button', {
+    on: { click: () => { haptic(8); onDigit(d); } },
+  }, String(d), (!scramble && subs[d]) ? el('span', { class: 'sub', text: subs[d] }) : null);
+  // Scramble randomizes every digit's position to defeat shoulder-surfing and
+  // smudge attacks; the standard layout keeps 0 in the bottom-middle slot.
+  const order = scramble ? shuffled([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+  for (let i = 0; i < 9; i++) grid.append(mkDigit(order[i]));
   grid.append(el('button', { class: 'aux', attrs: { 'aria-label': 'Backspace' }, html: icon('back'), on: { click: () => { haptic(6); onBack(); } } }));
-  grid.append(mkDigit(0));
+  grid.append(mkDigit(order[9]));
   grid.append(el('button', { class: 'aux', attrs: { 'aria-label': 'Submit' }, html: icon('check'), on: { click: () => { haptic(10); onSubmit(); } } }));
   return grid;
 }
@@ -45,8 +58,17 @@ function dotsRow(len) {
   return row;
 }
 
+function fmtDur(sec) {
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return `${m}m${s ? ' ' + s + 's' : ''}`;
+}
+
 /** Live lock screen for an existing profile. */
-export function buildLock({ profileId, onUnlock, onDuress, showNotifs = false }) {
+export function buildLock({ profileId, onUnlock, onDuress, onWipe, showNotifs = false }) {
+  const pub = getPublicMeta(profileId) || { mode: 'pin', fails: 0, lockUntil: 0, autoWipe: 0 };
+  const isPass = pub.mode === 'passphrase';
+  const scramble = !isPass && !!State.device?.scramblePin;
   let pin = '';
   const layer = el('div', { class: 'screen-layer lock' });
 
@@ -54,7 +76,6 @@ export function buildLock({ profileId, onUnlock, onDuress, showNotifs = false })
   const date = el('div', { class: 'lock-date', text: fmtDate() });
   const tick = setInterval(() => { clock.textContent = fmtClock(); date.textContent = fmtDate(); }, 10000);
 
-  // Live notifications area (updates if something arrives while locked).
   const notifsHost = el('div', { class: 'lock-notifs-host' });
   let offNotif = () => {};
   if (showNotifs) {
@@ -64,46 +85,87 @@ export function buildLock({ profileId, onUnlock, onDuress, showNotifs = false })
     const b = State.events.on('notif-change', renderN);
     offNotif = () => { a(); b(); };
   }
-  layer._cleanup = () => { clearInterval(tick); offNotif(); };
 
-  const status = el('div', { class: 'lock-status' }, el('span', { html: icon('lock') }), el('span', { text: 'Encrypted · enter PIN to decrypt' }));
-  const dotsWrap = el('div', {});
+  const status = el('div', { class: 'lock-status' }, el('span', { html: icon('lock') }),
+    el('span', { text: isPass ? 'Encrypted · enter passphrase' : 'Encrypted · enter PIN to decrypt' }));
   const hint = el('div', { class: 'lock-hint', text: '' });
+  const inputArea = el('div', { class: 'lock-input' });
 
-  const render = () => dotsWrap.replaceChildren(dotsRow(pin.length));
-  render();
+  // --- lockout countdown ------------------------------------------------
+  let lockUntil = pub.lockUntil || 0;
+  let cdTimer = null;
+  const setDisabled = (on) => { inputArea.classList.toggle('disabled', on); };
+  const stopCountdown = () => { clearInterval(cdTimer); cdTimer = null; };
+  const startCountdown = () => {
+    stopCountdown(); setDisabled(true);
+    const step = () => {
+      const rem = Math.ceil((lockUntil - Date.now()) / 1000);
+      if (rem <= 0) { stopCountdown(); setDisabled(false); hint.textContent = ''; return; }
+      hint.textContent = `Too many attempts · try again in ${fmtDur(rem)}`;
+    };
+    step(); cdTimer = setInterval(step, 1000);
+  };
+
+  layer._cleanup = () => { clearInterval(tick); offNotif(); stopCountdown(); };
+
+  // --- PIN vs passphrase input -----------------------------------------
+  let field = null, dotsWrap = null;
+  const renderDots = () => dotsWrap && dotsWrap.replaceChildren(dotsRow(pin.length));
+  const getSecret = () => (isPass ? (field?.value || '') : pin);
+  const clearSecret = () => { pin = ''; if (field) field.value = ''; renderDots(); };
+
+  const shakeErr = (msg) => {
+    if (dotsWrap) { const dr = dotsWrap.querySelector('.pin-dots'); if (dr) dr.classList.add('err'); }
+    if (field) field.classList.add('err');
+    haptic(40); hint.textContent = msg;
+    setTimeout(() => { clearSecret(); if (field) field.classList.remove('err'); if (!cdTimer) hint.textContent = ''; }, 500);
+  };
 
   let busy = false;
-  const fail = () => {
-    const dr = dotsWrap.querySelector('.pin-dots');
-    if (dr) { dr.classList.add('err'); }
-    haptic(40);
-    hint.textContent = 'Wrong PIN';
-    setTimeout(() => { pin = ''; render(); hint.textContent = ''; }, 450);
-  };
   const submit = async () => {
-    if (busy || pin.length < 4) { if (pin.length && pin.length < 4) fail(); return; }
-    busy = true;
-    hint.textContent = 'Decrypting…';
-    const res = await verifyPin(profileId, pin);
+    if (busy || cdTimer) return;
+    const secret = getSecret();
+    const min = isPass ? 1 : 4;
+    if (secret.length < min) { if (secret.length) shakeErr(isPass ? 'Enter your passphrase' : 'Too short'); return; }
+    busy = true; hint.textContent = 'Decrypting…';
+    const res = await verifyPin(profileId, secret);
     busy = false;
-    if (res.status === 'ok') { clearInterval(tick); onUnlock(res.key, res.vault); }
-    else if (res.status === 'duress') { clearInterval(tick); onDuress(); }
-    else fail();
+    if (res.status === 'ok') { layer._cleanup(); onUnlock(res.key, res.vault); return; }
+    if (res.status === 'duress') { layer._cleanup(); onDuress(); return; }
+    if (res.status === 'wipe') { layer._cleanup(); (onWipe || onDuress)(); return; }
+    if (res.status === 'throttled') { lockUntil = res.until; clearSecret(); startCountdown(); return; }
+    // plain fail
+    const label = isPass ? 'passphrase' : 'PIN';
+    const msg = res.remaining != null ? `Wrong ${label} · ${res.remaining} left before wipe` : `Wrong ${label}`;
+    shakeErr(msg);
+    if (res.until && res.until > Date.now()) { lockUntil = res.until; startCountdown(); }
   };
+
+  if (isPass) {
+    field = el('input', { class: 'field lock-pass', attrs: { type: 'password', placeholder: 'Passphrase', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } });
+    field.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    inputArea.append(field, el('div', { style: { marginTop: '12px', maxWidth: '300px', margin: '12px auto 0' } }, bigButton('Unlock', { kind: 'primary', icon: 'unlock', onClick: submit })));
+  } else {
+    dotsWrap = el('div', {});
+    renderDots();
+    inputArea.append(dotsWrap, keypad({
+      scramble,
+      onDigit: (d) => { if (pin.length < 16) { pin += d; renderDots(); } },
+      onBack: () => { pin = pin.slice(0, -1); renderDots(); },
+      onSubmit: submit,
+    }));
+  }
 
   layer.append(
     el('div', { style: { textAlign: 'center', paddingTop: '20px' } }, clock, date, status),
     notifsHost,
     el('div', { class: 'lock-spacer' }),
-    dotsWrap,
-    keypad({
-      onDigit: (d) => { if (pin.length < 12) { pin += d; render(); } },
-      onBack: () => { pin = pin.slice(0, -1); render(); },
-      onSubmit: submit,
-    }),
+    inputArea,
     hint,
   );
+
+  if (lockUntil > Date.now()) startCountdown();
+  else if (isPass) setTimeout(() => field && field.focus(), 80);
   return layer;
 }
 

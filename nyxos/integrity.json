@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-19T03:47:48.826Z",
+  "generatedAt": "2026-08-20T05:55:22.672Z",
   "count": 47,
   "files": [
     {
@@ -8,7 +8,7 @@
     },
     {
       "path": "css/os.css",
-      "sha256": "1d65bf9696a5988b1440fc182157fa4e9cd161ba52b1087f1c5c2d90dffbd14e"
+      "sha256": "83beb6ea0c5a6b83e8d13623b4e65f82abcdba1a6c2566a565ea9d0fdcc46a54"
     },
     {
       "path": "css/reset.css",
@@ -20,7 +20,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "7669cb733837738f7722f8dded5cbc0b0c0e968796e4584458867e438bb988ab"
+      "sha256": "83a3b9dafa9c38a83a21b392c09a98ce506d3482d8d63d515573682562e759ce"
     },
     {
       "path": "js/apps/appstore.js",
@@ -72,7 +72,7 @@
     },
     {
       "path": "js/apps/settings.js",
-      "sha256": "e78e807a6596f96951a5995673968c6f12bc1acb00ff264aca6f48b406ce0683"
+      "sha256": "45184709f6f5773c32bd4aabe0c6a66f63f68e188a16f8f58b9fa100d8c7ca53"
     },
     {
       "path": "js/apps/weather.js",
@@ -88,7 +88,7 @@
     },
     {
       "path": "js/core/crypto.js",
-      "sha256": "7b379e6110d4a4bec46a52086a4993c63647a3ead45e3b5c913090462048cba9"
+      "sha256": "2eb8484df3f79227dac612e8ae0ed48211bc80cfce2bd3da378488dd237b3b80"
     },
     {
       "path": "js/core/icons.js",
@@ -104,7 +104,7 @@
     },
     {
       "path": "js/core/permissions.js",
-      "sha256": "68c4c9ac103e45006c4e1e90b2fcd85aba0313ce27e0b853eee469bb5527dac6"
+      "sha256": "4a45f92d34d790b4d1b6ef35d25da270a6abe78c4dab62281b2554143c29075b"
     },
     {
       "path": "js/core/registry.js",
@@ -112,11 +112,11 @@
     },
     {
       "path": "js/core/security.js",
-      "sha256": "2ec47675baac690630ef005bf582167635e1141fd63323393379734017fa0646"
+      "sha256": "c6b8fa34d8a956df4013352f54be65598d11a2ece93cb6e0f58ad2b571124a23"
     },
     {
       "path": "js/core/state.js",
-      "sha256": "2a8911a61502b4491355a986e425288aedc9a34dc00923cec04d125161776e41"
+      "sha256": "c8da85163effc746fa12c32000104ac9124b8eb06d6457ffd32b4ef73d954798"
     },
     {
       "path": "js/core/store.js",
@@ -128,7 +128,7 @@
     },
     {
       "path": "js/os.js",
-      "sha256": "165b5583fc2eae5f3c396420e7d35229de545c41233afd325f9bf0eb5ccde299"
+      "sha256": "6205321a8c40445c6fd5c68e934e77ce1b964de5eff09a391dcb46bed5a20b92"
     },
     {
       "path": "js/shell/appcell.js",
@@ -152,7 +152,7 @@
     },
     {
       "path": "js/shell/lockscreen.js",
-      "sha256": "3229693c615b9a0ee08b3766ba86aaa4c306cea1b41f46dcfbf03e501c4bd048"
+      "sha256": "69cd26e3568355acaf4bc7f6e2c2c2d5250a847ac0701282a3af1730aa03fa9e"
     },
     {
       "path": "js/shell/navbar.js",
@@ -168,7 +168,7 @@
     },
     {
       "path": "js/shell/shell.js",
-      "sha256": "341207d3ffeebd4cf0b27215d53fe4f81f021b28d4cdb37193ab4dba63f2e8df"
+      "sha256": "395dc5734763f0905201d78eb0a063925ef3551624816dc54b714552ee1e998e"
     },
     {
       "path": "js/shell/statusbar.js",

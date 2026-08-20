@@ -10,6 +10,35 @@ const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const PORT = process.env.PORT ? Number(process.env.PORT) : 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 
+// Strict CSP: our scripts only, no eval, no inline scripts, no framing. Styles
+// allow inline attributes (the UI is built with element.style). Apps may fetch
+// over https only when the OS grants them the network permission.
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "media-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self' https:",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+].join('; ');
+
+const SECURITY_HEADERS = {
+  'Content-Security-Policy': CSP,
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'X-Frame-Options': 'DENY',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Permissions-Policy': 'browsing-topics=(), interest-cohort=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=(), idle-detection=()',
+};
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -52,8 +81,7 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, {
       'Content-Type': type,
       'Cache-Control': 'no-cache',
-      // Service workers need same-origin; these headers keep crypto + SW happy.
-      'Cross-Origin-Opener-Policy': 'same-origin',
+      ...SECURITY_HEADERS,
     });
     res.end(body);
   } catch (err) {

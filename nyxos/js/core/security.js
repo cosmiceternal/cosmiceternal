@@ -1,23 +1,33 @@
-// PIN lifecycle + duress detection. A profile's data key is derived from its PIN;
-// we never store the PIN, only a salt and an encrypted verifier token.
+// Credential lifecycle: PIN or passphrase, duress detection, brute-force
+// throttling, and optional auto-wipe. A profile's data key is derived from its
+// secret; we never store the secret, only a salt + an encrypted verifier token.
+// Attempt counters live in the (plaintext) profile meta so they can be enforced
+// before the vault is decrypted — the honest browser analog of a phone's
+// hardware-throttled keystore (documented as such in the Security screen).
 import { Store } from './store.js';
 import { deriveKey, encryptJSON, decryptJSON, randomBytes, toB64, PBKDF2_ITERS } from './crypto.js';
 import { State, defaultVault } from './state.js';
 
 const VERIFIER = { magic: 'nyxos.verify.v1' };
 
-async function makeVerifier(pin, salt, iterations) {
-  const key = await deriveKey(pin, salt, iterations);
+async function makeVerifier(secret, salt, iterations) {
+  const key = await deriveKey(secret, salt, iterations);
   const verifier = await encryptJSON(key, VERIFIER);
   return { key, verifier };
 }
 
-/** Create a profile's PIN + initial encrypted vault. */
-export async function setupPin(profileId, pin, { name, color } = {}) {
+/** Escalating delay after repeated failures: 5→30s, 6→60s, 7→2m … capped 30m. */
+export function backoffMs(fails) {
+  if (fails < 5) return 0;
+  return Math.min(30_000 * 2 ** (fails - 5), 1_800_000);
+}
+
+/** Create a profile's credential + initial encrypted vault. */
+export async function setupPin(profileId, secret, { name, color, mode = 'pin' } = {}) {
   const salt = randomBytes(16);
   const iterations = PBKDF2_ITERS;
-  const { key, verifier } = await makeVerifier(pin, salt, iterations);
-  const meta = { salt: toB64(salt), iterations, verifier, duress: null, createdAt: Date.now() };
+  const { key, verifier } = await makeVerifier(secret, salt, iterations);
+  const meta = { salt: toB64(salt), iterations, verifier, duress: null, mode, fails: 0, lockUntil: 0, autoWipe: 0, createdAt: Date.now() };
   Store.saveMeta(profileId, meta);
 
   const vault = defaultVault(name, color);
@@ -28,44 +38,73 @@ export async function setupPin(profileId, pin, { name, color } = {}) {
 }
 
 /**
- * Verify a PIN against a profile.
- * @returns {status:'ok', key, vault} | {status:'duress'} | {status:'fail'}
+ * Verify a secret against a profile, enforcing throttling and auto-wipe.
+ * @returns {status:'ok',key,vault} | {status:'duress'} | {status:'wipe'}
+ *          | {status:'throttled',until} | {status:'fail',fails,remaining,until}
  */
-export async function verifyPin(profileId, pin) {
+export async function verifyPin(profileId, secret) {
   const meta = Store.loadMeta(profileId);
   if (!meta) return { status: 'fail' };
 
-  // Normal PIN?
+  const now = Date.now();
+  if (meta.lockUntil && now < meta.lockUntil) return { status: 'throttled', until: meta.lockUntil };
+
+  // Correct secret?
   try {
-    const key = await deriveKey(pin, meta.salt, meta.iterations);
+    const key = await deriveKey(secret, meta.salt, meta.iterations);
     const check = await decryptJSON(key, meta.verifier);
     if (check && check.magic === VERIFIER.magic) {
+      if (meta.fails || meta.lockUntil) { meta.fails = 0; meta.lockUntil = 0; Store.saveMeta(profileId, meta); }
       const blob = Store.loadVaultBlob(profileId);
       const vault = blob ? await decryptJSON(key, blob) : defaultVault();
       return { status: 'ok', key, vault };
     }
-  } catch { /* wrong pin → GCM auth fails */ }
+  } catch { /* wrong secret → GCM auth fails */ }
 
-  // Duress PIN?
+  // Duress secret? (a "correct" secret that triggers a wipe — not a failed try)
   if (meta.duress) {
     try {
-      const dkey = await deriveKey(pin, meta.duress.salt, meta.duress.iterations);
+      const dkey = await deriveKey(secret, meta.duress.salt, meta.duress.iterations);
       const dcheck = await decryptJSON(dkey, meta.duress.verifier);
       if (dcheck && dcheck.magic === VERIFIER.magic) return { status: 'duress' };
-    } catch { /* not the duress pin either */ }
+    } catch { /* not the duress secret either */ }
   }
 
-  return { status: 'fail' };
+  // Failed attempt: count it, maybe auto-wipe, otherwise throttle.
+  meta.fails = (meta.fails || 0) + 1;
+  const wipeAt = meta.autoWipe || 0;
+  if (wipeAt && meta.fails >= wipeAt) return { status: 'wipe', fails: meta.fails };
+  meta.lockUntil = meta.fails >= 5 ? now + backoffMs(meta.fails) : 0;
+  Store.saveMeta(profileId, meta);
+  return {
+    status: 'fail',
+    fails: meta.fails,
+    remaining: wipeAt ? Math.max(0, wipeAt - meta.fails) : null,
+    until: meta.lockUntil,
+  };
 }
 
-/** Set (or clear) the duress PIN for a profile. */
-export async function setDuressPin(profileId, pin) {
+/** Public (pre-unlock) view of a profile's credential state, for the lock screen. */
+export function getPublicMeta(profileId) {
+  const meta = Store.loadMeta(profileId);
+  if (!meta) return null;
+  return {
+    mode: meta.mode || 'pin',
+    fails: meta.fails || 0,
+    lockUntil: meta.lockUntil || 0,
+    autoWipe: meta.autoWipe || 0,
+    hasDuress: !!meta.duress,
+  };
+}
+
+/** Set (or clear) the duress secret for a profile. */
+export async function setDuressPin(profileId, secret) {
   const meta = Store.loadMeta(profileId);
   if (!meta) throw new Error('no profile');
-  if (!pin) { meta.duress = null; Store.saveMeta(profileId, meta); return; }
+  if (!secret) { meta.duress = null; Store.saveMeta(profileId, meta); return; }
   const salt = randomBytes(16);
   const iterations = PBKDF2_ITERS;
-  const { verifier } = await makeVerifier(pin, salt, iterations);
+  const { verifier } = await makeVerifier(secret, salt, iterations);
   meta.duress = { salt: toB64(salt), iterations, verifier };
   Store.saveMeta(profileId, meta);
 }
@@ -75,25 +114,33 @@ export function hasDuress(profileId) {
   return !!(meta && meta.duress);
 }
 
-/** Change a profile's PIN, re-encrypting the current in-memory vault. */
-export async function changePin(profileId, newPin) {
+/** Configure auto-wipe threshold (0 = off). Stored in meta so it applies pre-unlock. */
+export function setAutoWipe(profileId, n) {
+  const meta = Store.loadMeta(profileId);
+  if (!meta) return;
+  meta.autoWipe = Math.max(0, n | 0);
+  Store.saveMeta(profileId, meta);
+}
+
+/** Change a profile's credential, re-encrypting the current in-memory vault. */
+export async function changePin(profileId, newSecret, mode = 'pin') {
   const salt = randomBytes(16);
   const iterations = PBKDF2_ITERS;
-  const { key, verifier } = await makeVerifier(newPin, salt, iterations);
+  const { key, verifier } = await makeVerifier(newSecret, salt, iterations);
   const meta = Store.loadMeta(profileId) || {};
   meta.salt = toB64(salt);
   meta.iterations = iterations;
   meta.verifier = verifier;
+  meta.mode = mode;
+  meta.fails = 0;
+  meta.lockUntil = 0;
   Store.saveMeta(profileId, meta);
   State.key = key;
   await State.persistNow();
   return key;
 }
 
-/**
- * Execute a duress wipe: destroy all NyxOS data on the device.
- * Faithful to GrapheneOS — the duress PIN wipes everything.
- */
+/** Destroy all NyxOS data on the device (duress or auto-wipe). */
 export function duressWipe() {
   State.vault = null;
   State.key = null;

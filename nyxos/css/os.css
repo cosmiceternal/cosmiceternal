@@ -139,6 +139,11 @@ body {
 /* Screen-lock overlay (AFU): frosted glass over the running UI */
 .lock-overlay { position: absolute; inset: 0; z-index: 55; background: color-mix(in srgb, var(--bg-0) 60%, transparent); backdrop-filter: blur(34px) saturate(120%); }
 
+.lock-input { transition: opacity .2s; }
+.lock-input.disabled { opacity: .35; pointer-events: none; filter: grayscale(.3); }
+.lock-pass { max-width: 300px; margin: 0 auto; text-align: center; letter-spacing: 3px; }
+.field.err { border-color: var(--danger); animation: shake .35s; }
+
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 300px; margin: 0 auto; }
 .keypad button {
   aspect-ratio: 1; max-height: 74px; border-radius: 50%;

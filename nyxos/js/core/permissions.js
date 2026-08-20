@@ -81,10 +81,20 @@ function scopedStorage(appId) {
   };
 }
 
-// --- Clipboard (OS-internal; access is surfaced) ------------------------
+// --- Clipboard (OS-internal; access is surfaced, auto-cleared) ----------
+let _clipTimer = null;
 function clipboardApi(appId) {
   return {
-    write(text) { State.set('clipboard', { text: String(text), ts: Date.now(), byApp: appId }, { silent: true }); },
+    write(text) {
+      State.set('clipboard', { text: String(text), ts: Date.now(), byApp: appId }, { silent: true });
+      // Auto-clear the clipboard after a timeout so copied secrets don't linger.
+      clearTimeout(_clipTimer);
+      const sec = State.get('security.clipboardClearSec', 45);
+      if (sec > 0) _clipTimer = setTimeout(() => {
+        // Guard: the vault may have been evicted (lock/profile switch) meanwhile.
+        if (!State.dataLocked && State.get('clipboard', null)) State.set('clipboard', null, { silent: true });
+      }, sec * 1000);
+    },
     read() {
       const c = State.get('clipboard', null);
       // A read by an app that isn't the writer surfaces a notification.
@@ -124,7 +134,8 @@ function netApi(appId) {
     async fetch(url, opts = {}) {
       if (!can(appId, 'network')) throw new PermissionDenied('network');
       // A privacy OS surfaces where traffic goes; routing is annotated, not faked.
-      return fetch(url, { ...opts, referrerPolicy: 'no-referrer' });
+      // Never attach ambient cookies/credentials and never leak a referrer.
+      return fetch(url, { credentials: 'omit', ...opts, referrerPolicy: 'no-referrer' });
     },
   };
 }

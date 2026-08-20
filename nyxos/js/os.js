@@ -46,10 +46,19 @@ async function boot() {
   Shell.init();
   Shell.decideEntry();
 
-  // If integrity failed, surface it prominently after unlock is possible.
+  // If integrity failed, block with a prominent, non-dismissible warning —
+  // on real hardware verified boot would refuse to start.
   if (!integrity.ok) {
-    const { toast } = await import('./shell/ui.js');
-    toast('Boot integrity check failed', { type: 'danger', icon: 'alert', ms: 5000 });
+    const { modal } = await import('./shell/ui.js');
+    const detail = integrity.mode === 'signed'
+      ? `${integrity.mismatches?.length || 0} core file(s) failed verification${integrity.mismatches?.length ? ': ' + integrity.mismatches.slice(0, 6).join(', ') : ''}.`
+      : 'Core files changed since the first boot on this device.';
+    modal({
+      title: '⚠ Boot integrity failed',
+      body: `NyxOS could not verify its own code. ${detail} On a real device, verified boot would refuse to start. Only continue if you intentionally edited the source — then run “npm run integrity” to re-sign.`,
+      actions: [{ label: 'Continue anyway', kind: 'danger', value: 1 }],
+      dismissable: false,
+    });
   }
 
   splash.style.transition = 'opacity .35s';

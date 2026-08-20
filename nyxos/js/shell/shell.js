@@ -90,14 +90,14 @@ export const Shell = {
       profileId,
       onUnlock: (key, vault) => this.onUnlocked(profileId, key, vault),
       onDuress: () => this.onDuress(),
+      onWipe: () => this.onAutoWipe(),
     });
     if (State.device.profiles.length > 1) {
       const cur = State.device.profiles.find((p) => p.id === profileId);
       layer.append(el('button', {
-        class: 'btn btn-ghost', style: { margin: '10px auto 0' },
-        html: icon('users') + `<span style="margin-left:6px">${cur ? cur.name : 'Profile'} · switch</span>`,
+        class: 'btn btn-ghost', style: { margin: '10px auto 0', display: 'inline-flex', alignItems: 'center', gap: '6px' },
         on: { click: () => this.pickProfile() },
-      }));
+      }, el('span', { html: icon('users') }), el('span', { text: `${cur ? cur.name : 'Profile'} · switch` })));
     }
     this._setBase(layer);
     applyTheme();
@@ -108,9 +108,10 @@ export const Shell = {
     State.device.profiles.forEach((p) => {
       body.append(el('button', {
         class: 'row tap', style: { width: '100%', borderRadius: '12px', marginBottom: '6px', background: 'var(--surface-2)' },
-        html: `<span class="r-icon" style="background:${p.color}">${icon('user')}</span><span class="r-main"><span class="r-title">${p.name}</span></span>`,
         on: { click: () => { document.querySelector('.modal-scrim')?.remove(); this.showLock(p.id); } },
-      }));
+      },
+      el('span', { class: 'r-icon', style: { background: p.color }, html: icon('user') }),
+      el('span', { class: 'r-main' }, el('span', { class: 'r-title', text: p.name }))));
     });
     modal({ title: 'Unlock profile', body, actions: [{ label: 'Close', kind: 'ghost', value: null }] });
   },
@@ -146,6 +147,7 @@ export const Shell = {
       showNotifs: true,
       onUnlock: () => this.resumeFromLock(),
       onDuress: () => this.onDuress(),
+      onWipe: () => this.onAutoWipe(),
     });
     layer.classList.add('lock-overlay');
     this._removeOverlay();
@@ -174,12 +176,15 @@ export const Shell = {
     Notifications.post({ appId: 'messages', title: 'Alex', text: 'Hey — are we still on for tonight?', icon: 'chat', color: '#7aa2ff', sensitive: true });
   },
 
-  onDuress() {
+  onDuress() { this.wipeAndReset('Data wiped'); },
+  onAutoWipe() { this.wipeAndReset('Device wiped — too many attempts'); },
+
+  wipeAndReset(msg) {
     AlarmService.stop();
     duressWipe();
     // Wipe complete — reinitialize to a pristine device and show setup.
     State.init();
-    toast('Data wiped', { type: 'danger', icon: 'shield' });
+    toast(msg, { type: 'danger', icon: 'shield' });
     this.recents = [];
     this._removeOverlay();
     this.teardownApp();

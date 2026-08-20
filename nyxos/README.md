@@ -36,15 +36,24 @@ profile**.
 ## Features
 
 ### Security
-- **PIN-derived encryption at rest** — the whole profile is AES-256-GCM ciphertext; the
-  key is derived from your PIN with PBKDF2-SHA256 (210k iterations). Without the PIN the
-  stored bytes are unreadable.
-- **Duress PIN** — a secret second PIN that, when entered at the lock screen, **wipes the
-  entire device**.
-- **Lock-screen restrictions** — block USB data, camera, and quick tiles while locked.
-- **Auto-lock** with configurable timeout; **masked password entry**.
+See **[SECURITY.md](./SECURITY.md)** for the full threat model.
+- **Encryption at rest** — the whole profile is AES-256-GCM ciphertext; the key is derived
+  from your PIN **or passphrase** with PBKDF2-SHA256 (600k iterations). Without the secret
+  the stored bytes are unreadable.
+- **Passphrase unlock** — switch from a numeric PIN to an alphanumeric passphrase to
+  resist offline brute force (surfaced in the in-app **Security checkup**).
+- **Brute-force throttling** — failed unlocks trigger an escalating lockout (30s → 30m),
+  enforced before the vault is decrypted.
+- **Auto-wipe** — optionally wipe the device after N failed unlocks.
+- **Duress PIN** — a secret second PIN that, when entered, **wipes the entire device**.
+- **Scramble PIN layout**, **masked entry**, and lock-screen restrictions for **USB**,
+  **camera**, and **quick tiles**.
+- **Auto-lock** with configurable timeout.
 - **Boot integrity verification** — core files are checked against a signed manifest
-  (`integrity.json`) on every boot; a web-scoped analog of verified boot.
+  (`integrity.json`) on every boot; a mismatch blocks with a warning (a web-scoped analog
+  of verified boot).
+- **Content-Security-Policy** + hardening headers — `script-src 'self'`, no `eval`, no
+  inline scripts, no framing; app fetches send no cookies and no referrer.
 
 ### Privacy controls
 - **Capability-based app sandbox** — apps only get a `sys` object scoped to themselves.
@@ -55,7 +64,8 @@ profile**.
 - **Sensors permission** + a global sensors kill-switch.
 - **Storage Scopes** — every app is confined to its own encrypted namespace (enforced,
   cannot be disabled).
-- **Clipboard access alerts** — you're notified when an app reads the clipboard.
+- **Clipboard access alerts + auto-clear** — you're notified when an app reads the
+  clipboard, and copied secrets are wiped automatically after a timeout.
 - **Sensitive notifications hidden** on the lock screen; keyboard suggestions off by
   default.
 - **Per-profile traffic routing** — Direct / VPN / Tor selector.

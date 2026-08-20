@@ -39,8 +39,10 @@ export function defaultVault(name = 'Owner', color = '#6ee7d0') {
       hidePasswords: true,      // mask password entry
       keyboardSuggestions: false, // personalized suggestions off by default
       clipboardNotify: true,    // notify on clipboard access
+      clipboardClearSec: 45,    // auto-clear clipboard after N seconds (0 = never)
       sensorsGlobal: true,      // master sensors availability
       autoLockMs: 30_000,
+      autoWipeAttempts: 0,      // wipe device after N failed unlocks (0 = off)
       advancedProtection: false,
     },
     apps: {
@@ -121,6 +123,7 @@ class OSState {
   }
 
   set(path, value, { silent = false } = {}) {
+    if (this.vault == null) return value; // no vault in memory → ignore writes
     const parts = path.split('.');
     let cur = this.vault;
     for (let i = 0; i < parts.length - 1; i++) {
@@ -134,7 +137,7 @@ class OSState {
     return value;
   }
 
-  update(fn) { fn(this.vault); this.persist(); this.events.emit('change', '*'); }
+  update(fn) { if (this.vault == null) return; fn(this.vault); this.persist(); this.events.emit('change', '*'); }
 
   // --- persistence (debounced encryption) -----------------------------
   persist() {

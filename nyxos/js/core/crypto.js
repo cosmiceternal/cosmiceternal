@@ -5,7 +5,10 @@
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-export const PBKDF2_ITERS = 210_000;
+// OWASP-aligned PBKDF2-SHA256 work factor. A short numeric PIN has little
+// entropy, so the KDF cost is the main brake on offline brute force of the
+// vault blob — a passphrase (see security.js) is the real fix.
+export const PBKDF2_ITERS = 600_000;
 
 export function randomBytes(n) {
   return crypto.getRandomValues(new Uint8Array(n));
