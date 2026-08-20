@@ -5,14 +5,26 @@ import { State, WALLPAPERS, ACCENTS } from '../core/state.js';
 import { Store } from '../core/store.js';
 import { Bridge } from '../core/bridge.js';
 import { PBKDF2_ITERS } from '../core/crypto.js';
-import { changePin, setDuressPin, hasDuress, setupPin, setAutoWipe, getPublicMeta } from '../core/security.js';
+import { changePin, setDuressPin, hasDuress, setupPin, setAutoWipe, getPublicMeta, verifySecret, securityLog, clearSecurityLog } from '../core/security.js';
 import { section, list, row, toggleRow, toggle, bigButton, segmented } from '../shell/kit.js';
 import { modal } from '../shell/ui.js';
+import { relTime } from '../core/util.js';
 
 export const OS = { name: 'NyxOS', version: '0.1.0', codename: 'Nightfall' };
 
 const AUTOWIPE = [{ label: 'Off', n: 0 }, { label: 'After 5', n: 5 }, { label: 'After 10', n: 10 }, { label: 'After 15', n: 15 }, { label: 'After 30', n: 30 }];
 const CLIPCLEAR = [{ label: 'Never', n: 0 }, { label: '30 seconds', n: 30 }, { label: '45 seconds', n: 45 }, { label: '1 minute', n: 60 }, { label: '2 minutes', n: 120 }];
+const AUTOREBOOT = [{ label: 'Off', n: 0 }, { label: '5 minutes', n: 5 }, { label: '15 minutes', n: 15 }, { label: '30 minutes', n: 30 }, { label: '1 hour', n: 60 }, { label: '4 hours', n: 240 }];
+
+const LOG_LABELS = {
+  'unlock': ['Unlocked', 'unlock', '#6ee7d0'],
+  'unlock-failed': ['Failed unlock', 'x', '#ffcf6b'],
+  'lockout': ['Locked out (throttled)', 'clock', '#ff6b6b'],
+  'auto-wipe': ['Auto-wipe triggered', 'shield', '#ff6b6b'],
+  'duress-set': ['Duress PIN set', 'flag', '#c58cff'],
+  'duress-cleared': ['Duress PIN removed', 'flag', '#9aa7c2'],
+  'credential-changed': ['Unlock secret changed', 'key', '#7aa2ff'],
+};
 
 const AUTOLOCK = [
   { label: 'Immediately', ms: 1 }, { label: '15 seconds', ms: 15000 },
@@ -110,6 +122,15 @@ registerApp({
       modal({ title, body, actions: [{ label: 'Close', kind: 'ghost', value: 0 }] });
     }
 
+    // Re-authenticate before a sensitive change (no throttle side effects).
+    async function requireAuth(reason) {
+      const mode = getPublicMeta(State.activeId)?.mode || 'pin';
+      const s = await sys.prompt({ title: 'Confirm it’s you', message: reason || `Enter your current ${mode}`, type: 'password', confirmLabel: 'Confirm' });
+      if (s == null) return false;
+      if (!(await verifySecret(State.activeId, s))) { sys.toast('Incorrect', { icon: 'alert' }); return false; }
+      return true;
+    }
+
     // ---- security ----
     function showSecurity() {
       ctx._view = 'security'; ctx.setTitle('Security'); ctx.pushBack(showRoot);
@@ -132,6 +153,7 @@ registerApp({
           row({ icon: 'flag', iconColor: '#ff6b6b', title: 'Duress PIN', sub: hasDuress(State.activeId) ? 'Set — wipes device when entered' : 'Not set', onClick: duressFlow }),
           row({ icon: 'trash', iconColor: '#ff6b6b', title: 'Auto-wipe on failed unlocks', value: autowipe.label, onClick: pickAutowipe }),
           row({ icon: 'clock', iconColor: '#7aa2ff', title: 'Auto-lock', value: autolock.label, onClick: pickAutolock }),
+          row({ icon: 'power', iconColor: '#c58cff', title: 'Auto-reboot when locked', sub: 'Evict keys — return to first-unlock state', value: (AUTOREBOOT.find((a) => a.n === (sec().autoRebootMin || 0)) || AUTOREBOOT[0]).label, onClick: pickAutoreboot }),
         ),
         section('Lock screen'),
         list(
@@ -144,12 +166,14 @@ registerApp({
         list(
           row({ icon: 'clipboard', iconColor: '#ffd166', title: 'Clipboard auto-clear', value: clip.label, onClick: pickClipClear }),
           toggleRow({ icon: 'eyeOff', iconColor: '#7aa2ff', title: 'Hide sensitive notifications', sub: 'On the lock screen', value: sec().hideNotifContent !== false, onChange: (v) => State.set('security.hideNotifContent', v) }),
+          toggleRow({ icon: 'vpn', iconColor: '#8be9a0', title: 'Block network without VPN/Tor', sub: 'Deny all app traffic unless routed', value: !!sec().blockWithoutVpn, onChange: (v) => State.set('security.blockWithoutVpn', v) }),
         ),
         section('Protection'),
         list(
           toggleRow({ icon: 'shieldCheck', iconColor: '#6ee7d0', title: 'Advanced Protection', sub: 'Stricter defaults: sensors off, USB blocked, network guarded', value: sec().advancedProtection, onChange: applyAdvanced }),
         ),
         list(
+          row({ icon: 'doc', iconColor: '#9aa7c2', title: 'Security log', sub: 'Recent authentication events', onClick: showSecurityLog }),
           row({ icon: 'lock', iconColor: '#8be9a0', title: 'Encryption', sub: `AES‑256‑GCM · PBKDF2 ${Math.round(iters / 1000)}k iterations`, onClick: () => modal({ title: 'Storage encryption', body: `This profile is encrypted with AES‑256‑GCM. The key is derived from your ${mode} with PBKDF2‑SHA256 (${iters.toLocaleString()} iterations). Data at rest is ciphertext; without your ${mode} it cannot be read.`, actions: [{ label: 'Close', kind: 'primary', value: 1 }] }) }),
         ),
         section('Danger zone'),
@@ -158,6 +182,7 @@ registerApp({
     }
 
     async function setCredentialFlow(targetMode) {
+      if (!(await requireAuth('Enter your current secret to change it'))) return;
       const isPass = targetMode === 'passphrase';
       const p1 = await sys.prompt({ title: isPass ? 'New passphrase' : 'New PIN', message: isPass ? 'Use a strong, memorable passphrase (6+ characters)' : 'Enter 4–12 digits', type: 'password', confirmLabel: 'Next' });
       if (p1 == null) return;
@@ -179,6 +204,7 @@ registerApp({
 
     function pickAutowipe() {
       picker('Auto-wipe on failed unlocks', AUTOWIPE, (o) => o.n === (State.get('security.autoWipeAttempts', 0)), async (o) => {
+        if (!(await requireAuth('Confirm to change auto-wipe'))) return;
         if (o.n > 0 && !(await sys.confirm({ title: 'Enable auto-wipe?', message: `After ${o.n} failed unlock attempts, this device will be PERMANENTLY WIPED.`, confirmLabel: 'Enable', danger: true }))) return;
         State.set('security.autoWipeAttempts', o.n); setAutoWipe(State.activeId, o.n);
         sys.toast(o.n ? `Auto-wipe after ${o.n} attempts` : 'Auto-wipe off', { icon: 'shield', type: o.n ? 'danger' : '' });
@@ -190,6 +216,28 @@ registerApp({
       picker('Clipboard auto-clear', CLIPCLEAR, (o) => o.n === (State.get('security.clipboardClearSec', 45)), (o) => { State.set('security.clipboardClearSec', o.n); showSecurity(); });
     }
 
+    function pickAutoreboot() {
+      picker('Auto-reboot when locked', AUTOREBOOT, (o) => o.n === (State.get('security.autoRebootMin', 0)), (o) => {
+        State.set('security.autoRebootMin', o.n);
+        sys.toast(o.n ? `Auto-reboot after ${o.n} min locked` : 'Auto-reboot off', { icon: 'power' });
+        showSecurity();
+      });
+    }
+
+    function showSecurityLog() {
+      ctx._view = 'seclog'; ctx.setTitle('Security log'); ctx.pushBack(showSecurity);
+      const events = securityLog();
+      const rows = events.map((e) => {
+        const [label, ic, color] = LOG_LABELS[e.type] || [e.type, 'info', '#9aa7c2'];
+        return row({ icon: ic, iconColor: color, title: label, value: relTime(e.ts) });
+      });
+      root.replaceChildren(
+        el('div', { class: 'hint', text: 'Authentication events on this device. Timestamps and event types only — no secrets or content are recorded.' }),
+        events.length ? list(...rows) : el('div', { class: 'empty-state' }, el('div', { html: icon('doc') }), el('p', { text: 'No events yet' })),
+        events.length ? el('div', { style: { padding: '10px 4px' } }, bigButton('Clear log', { onClick: () => { clearSecurityLog(); showSecurityLog(); } })) : null,
+      );
+    }
+
     function showSecurityCheckup() {
       ctx._view = 'checkup'; ctx.setTitle('Security checkup'); ctx.pushBack(showSecurity);
       const sec = State.get('security', {}) || {};
@@ -198,6 +246,7 @@ registerApp({
         { ok: mode === 'passphrase', title: 'Strong unlock secret', good: 'Using a passphrase', bad: 'A passphrase resists offline brute force far better than a PIN', fix: switchMethod },
         { ok: hasDuress(State.activeId), title: 'Duress PIN', good: 'Configured', bad: 'Set a PIN that wipes the device under coercion', fix: duressFlow },
         { ok: (sec.autoWipeAttempts || 0) > 0, title: 'Auto-wipe', good: `After ${sec.autoWipeAttempts} attempts`, bad: 'Wipe after repeated failed unlocks', fix: pickAutowipe },
+        { ok: (sec.autoRebootMin || 0) > 0, title: 'Auto-reboot', good: `After ${sec.autoRebootMin} min locked`, bad: 'Evict keys after a period locked', fix: pickAutoreboot },
         { ok: sec.autoLockMs > 0 && sec.autoLockMs <= 60000, title: 'Quick auto-lock', good: 'One minute or less', bad: 'Lock the screen sooner when idle', fix: pickAutolock },
         { ok: sec.hideNotifContent !== false, title: 'Lock-screen privacy', good: 'Sensitive content hidden', bad: 'Hide sensitive notifications when locked', fix: () => { State.set('security.hideNotifContent', true); showSecurityCheckup(); } },
         { ok: (sec.clipboardClearSec ?? 45) > 0, title: 'Clipboard auto-clear', good: 'On', bad: 'Clear copied secrets automatically', fix: pickClipClear },
@@ -222,6 +271,7 @@ registerApp({
     }
 
     async function duressFlow() {
+      if (!(await requireAuth('Confirm to change the duress PIN'))) return;
       if (hasDuress(State.activeId)) {
         if (await sys.confirm({ title: 'Remove duress PIN?', message: 'The duress PIN will no longer wipe the device.', confirmLabel: 'Remove', danger: true })) {
           await setDuressPin(State.activeId, null); sys.toast('Duress PIN removed'); showSecurity();
@@ -254,6 +304,7 @@ registerApp({
     }
 
     async function factoryReset() {
+      if (!(await requireAuth('Confirm your secret to factory reset'))) return;
       if (!await sys.confirm({ title: 'Factory reset?', message: 'This erases every profile and all data on this device. This cannot be undone.', confirmLabel: 'Erase everything', danger: true })) return;
       Store.wipeAll();
       Bridge.reboot();
@@ -335,7 +386,11 @@ registerApp({
           feat('Filesystem-style encryption', 'AES‑256‑GCM, PBKDF2‑600k, PIN/passphrase key', 'live'),
           feat('Brute-force throttling', 'Escalating lockout after failed unlocks', 'live'),
           feat('Auto-wipe', 'Optional device wipe after N failed unlocks', 'live'),
+          feat('Auto-reboot', 'Evict keys to first-unlock state when idle', 'live'),
           feat('Passphrase unlock', 'Alphanumeric secret resists offline attack', 'live'),
+          feat('Re-authentication', 'Confirm secret before sensitive changes', 'live'),
+          feat('Network kill switch', 'Block app traffic unless routed via VPN/Tor', 'live'),
+          feat('Security audit log', 'Records auth events (no secrets)', 'live'),
           feat('Duress PIN', 'A secret PIN that wipes the device', 'live'),
           feat('Scramble PIN layout', 'Anti shoulder-surf / smudge', 'live'),
           feat('Lock screen restrictions', 'USB, camera & quick tiles when locked', 'live'),

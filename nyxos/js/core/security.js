@@ -16,6 +16,34 @@ async function makeVerifier(secret, salt, iterations) {
   return { key, verifier };
 }
 
+// --- Security audit log (device-level, non-sensitive: types + timestamps) ---
+export function logEvent(type) {
+  try {
+    const d = State.device;
+    if (!d) return;
+    d.secLog = d.secLog || [];
+    d.secLog.unshift({ ts: Date.now(), type });
+    if (d.secLog.length > 40) d.secLog.length = 40;
+    State.saveDevice();
+  } catch { /* logging must never throw */ }
+}
+export function securityLog() { return State.device?.secLog || []; }
+export function clearSecurityLog() { if (State.device) { State.device.secLog = []; State.saveDevice(); } }
+
+/**
+ * Verify a secret WITHOUT any side effects (no counters, no throttle, no vault
+ * load). Used to re-authenticate before sensitive settings changes.
+ */
+export async function verifySecret(profileId, secret) {
+  const meta = Store.loadMeta(profileId);
+  if (!meta) return false;
+  try {
+    const key = await deriveKey(secret, meta.salt, meta.iterations);
+    const check = await decryptJSON(key, meta.verifier);
+    return !!(check && check.magic === VERIFIER.magic);
+  } catch { return false; }
+}
+
 /** Escalating delay after repeated failures: 5→30s, 6→60s, 7→2m … capped 30m. */
 export function backoffMs(fails) {
   if (fails < 5) return 0;
@@ -57,6 +85,7 @@ export async function verifyPin(profileId, secret) {
       if (meta.fails || meta.lockUntil) { meta.fails = 0; meta.lockUntil = 0; Store.saveMeta(profileId, meta); }
       const blob = Store.loadVaultBlob(profileId);
       const vault = blob ? await decryptJSON(key, blob) : defaultVault();
+      logEvent('unlock');
       return { status: 'ok', key, vault };
     }
   } catch { /* wrong secret → GCM auth fails */ }
@@ -72,9 +101,11 @@ export async function verifyPin(profileId, secret) {
 
   // Failed attempt: count it, maybe auto-wipe, otherwise throttle.
   meta.fails = (meta.fails || 0) + 1;
+  logEvent('unlock-failed');
   const wipeAt = meta.autoWipe || 0;
-  if (wipeAt && meta.fails >= wipeAt) return { status: 'wipe', fails: meta.fails };
+  if (wipeAt && meta.fails >= wipeAt) { logEvent('auto-wipe'); return { status: 'wipe', fails: meta.fails }; }
   meta.lockUntil = meta.fails >= 5 ? now + backoffMs(meta.fails) : 0;
+  if (meta.lockUntil) logEvent('lockout');
   Store.saveMeta(profileId, meta);
   return {
     status: 'fail',
@@ -101,12 +132,13 @@ export function getPublicMeta(profileId) {
 export async function setDuressPin(profileId, secret) {
   const meta = Store.loadMeta(profileId);
   if (!meta) throw new Error('no profile');
-  if (!secret) { meta.duress = null; Store.saveMeta(profileId, meta); return; }
+  if (!secret) { meta.duress = null; Store.saveMeta(profileId, meta); logEvent('duress-cleared'); return; }
   const salt = randomBytes(16);
   const iterations = PBKDF2_ITERS;
   const { verifier } = await makeVerifier(secret, salt, iterations);
   meta.duress = { salt: toB64(salt), iterations, verifier };
   Store.saveMeta(profileId, meta);
+  logEvent('duress-set');
 }
 
 export function hasDuress(profileId) {
@@ -137,6 +169,7 @@ export async function changePin(profileId, newSecret, mode = 'pin') {
   Store.saveMeta(profileId, meta);
   State.key = key;
   await State.persistNow();
+  logEvent('credential-changed');
   return key;
 }
 

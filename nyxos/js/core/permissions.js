@@ -62,7 +62,10 @@ export function can(appId, perm) {
   if (perm === 'sensors') return State.get('security.sensorsGlobal', true);
   if (perm === 'network') {
     if (State.get('toggles.airplane', false)) return false;
-    return State.get('toggles.wifi', true);
+    if (!State.get('toggles.wifi', true)) return false;
+    // Kill switch: deny all app traffic unless routed through VPN/Tor.
+    if (State.get('security.blockWithoutVpn', false) && State.get('toggles.routing', 'direct') === 'direct') return false;
+    return true;
   }
   if (perm === 'location') return State.get('toggles.location', true);
   return true;

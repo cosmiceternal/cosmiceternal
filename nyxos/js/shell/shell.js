@@ -23,7 +23,7 @@ import { toast, confirm, modal, installUIBridge } from './ui.js';
 export const Shell = {
   stage: null, screen: null,
   homeLayer: null, drawerLayer: null, recentsLayer: null, lockOverlay: null,
-  currentApp: null, recents: [],
+  currentApp: null, recents: [], _rebootTimer: null,
 
   init() {
     this.screen = document.getElementById('screen');
@@ -83,6 +83,7 @@ export const Shell = {
 
   showLock(profileId) {
     Navbar.setHidden(true);
+    this._disarmAutoReboot();
     this._removeOverlay();
     this.teardownApp();
     Shade.close();
@@ -126,6 +127,7 @@ export const Shell = {
   },
 
   goToHome() {
+    this._disarmAutoReboot();
     applyTheme();
     LockPolicy.arm(() => this.screenLock());
     this.buildHomeAndDrawer();
@@ -153,10 +155,12 @@ export const Shell = {
     this._removeOverlay();
     this.lockOverlay = layer;
     this.screen.appendChild(layer);
+    this._armAutoReboot();
     Statusbar.refresh();
   },
 
   resumeFromLock() {
+    this._disarmAutoReboot();
     State.unlockScreen();
     this._removeOverlay();
     applyTheme();
@@ -167,6 +171,23 @@ export const Shell = {
 
   _removeOverlay() {
     if (this.lockOverlay) { try { this.lockOverlay._cleanup?.(); } catch {} this.lockOverlay.remove(); this.lockOverlay = null; }
+  },
+
+  // Auto-reboot: after N minutes screen-locked, evict keys and fall back to the
+  // before-first-unlock state (full re-derive required, no notifications shown).
+  _armAutoReboot() {
+    this._disarmAutoReboot();
+    const min = State.get('security.autoRebootMin', 0);
+    if (min > 0) this._rebootTimer = setTimeout(() => this._autoRebootFire(), min * 60000);
+  },
+  _disarmAutoReboot() { clearTimeout(this._rebootTimer); this._rebootTimer = null; },
+  _autoRebootFire() {
+    if (!State.screenLocked || State.dataLocked) return;
+    State.lock();                 // evict key + plaintext vault from memory
+    this._removeOverlay();
+    this.teardownApp();
+    AlarmService.stop();
+    this.showLock(State.activeId); // BFU base lock: full decrypt required to return
   },
 
   seedDemoNotifications() {

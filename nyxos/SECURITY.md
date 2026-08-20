@@ -17,6 +17,13 @@ hardware ROM.
 - **Auto‑wipe (optional):** after a configurable number of failed unlocks, the
   device wipes all data.
 - **Duress secret:** a separate secret that, when entered, wipes everything.
+- **Auto-reboot:** after a configurable period locked, the key is evicted from
+  memory and the device returns to the before-first-unlock state, so a seized
+  device that sat idle can't have its key recovered from RAM.
+- **Re-authentication:** changing the credential, duress PIN, auto-wipe, or
+  factory-resetting requires re-entering the current secret — a grabbed, unlocked
+  phone can't be used to weaken or wipe security silently. (This check is
+  side-effect free: it does not count toward the failed-attempt throttle.)
 - **Passphrase mode:** an alphanumeric secret dramatically raises the cost of an
   offline attack on the vault versus a 4–6 digit PIN. This is the single most
   important hardening a user can enable, surfaced in **Settings → Security →
@@ -31,6 +38,12 @@ hardware ROM.
 - **Storage Scopes** are enforced: an app can only read its own namespace.
 - App network requests are sent with **`credentials: 'omit'`** and
   **`Referrer-Policy: no-referrer`**.
+- **Network kill switch:** an optional policy denies *all* app traffic unless the
+  profile is routed through VPN/Tor — even an app you granted the network
+  permission gets nothing while routing is Direct.
+- **Security audit log:** authentication events (unlocks, failed unlocks,
+  lockouts, credential/duress changes, auto-wipe) are recorded with timestamps
+  and types only — never secrets or content — and viewable in Settings.
 
 **Shoulder‑surfing / smudge / lock‑screen leakage.**
 - Optional **scrambled PIN layout**; **masked** secret entry.

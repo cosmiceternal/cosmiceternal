@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-20T05:55:22.672Z",
+  "generatedAt": "2026-08-20T12:45:48.311Z",
   "count": 47,
   "files": [
     {
@@ -72,7 +72,7 @@
     },
     {
       "path": "js/apps/settings.js",
-      "sha256": "45184709f6f5773c32bd4aabe0c6a66f63f68e188a16f8f58b9fa100d8c7ca53"
+      "sha256": "acd842daa50d6a5eba90cbd90b0ad78885a51d3ae24c9802c53ad2e07c97c95f"
     },
     {
       "path": "js/apps/weather.js",
@@ -104,7 +104,7 @@
     },
     {
       "path": "js/core/permissions.js",
-      "sha256": "4a45f92d34d790b4d1b6ef35d25da270a6abe78c4dab62281b2554143c29075b"
+      "sha256": "0ff5f271fd01cd1221d1c934c4abb1cb3f2091ad912c2282476a706ca3d079b8"
     },
     {
       "path": "js/core/registry.js",
@@ -112,11 +112,11 @@
     },
     {
       "path": "js/core/security.js",
-      "sha256": "c6b8fa34d8a956df4013352f54be65598d11a2ece93cb6e0f58ad2b571124a23"
+      "sha256": "57e687fd61289018b399a66fa15227cdec0223dad91f7d7cb7d2d2f8230e0150"
     },
     {
       "path": "js/core/state.js",
-      "sha256": "c8da85163effc746fa12c32000104ac9124b8eb06d6457ffd32b4ef73d954798"
+      "sha256": "f4b9a29251c07ace42bfdb7fdf7769ef23762f1920b3d88e0d50b158f0d017ad"
     },
     {
       "path": "js/core/store.js",
@@ -168,7 +168,7 @@
     },
     {
       "path": "js/shell/shell.js",
-      "sha256": "395dc5734763f0905201d78eb0a063925ef3551624816dc54b714552ee1e998e"
+      "sha256": "463272df49f0993ac9828065a32a0ac6baef5aab0a97d19731a492308b1e5230"
     },
     {
       "path": "js/shell/statusbar.js",

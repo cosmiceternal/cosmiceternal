@@ -43,6 +43,8 @@ export function defaultVault(name = 'Owner', color = '#6ee7d0') {
       sensorsGlobal: true,      // master sensors availability
       autoLockMs: 30_000,
       autoWipeAttempts: 0,      // wipe device after N failed unlocks (0 = off)
+      autoRebootMin: 0,         // evict keys (return to BFU) after N min locked (0 = off)
+      blockWithoutVpn: false,   // deny app network unless routed via VPN/Tor
       advancedProtection: false,
     },
     apps: {
