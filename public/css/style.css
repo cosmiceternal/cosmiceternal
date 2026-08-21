@@ -3034,3 +3034,113 @@ body.chat-collapsed .chat-side { background: var(--bg-2); }
 @media (max-width: 900px) {
   .promo-strip { font-size: 11.5px; padding: 6px 12px; }
 }
+
+/* ============================================================================
+   SKIN · Moonlit Boneyard  (graveyard theme)
+   A scoped token override — because the whole app is token-driven, recoloring
+   :root here re-skins every screen at once. Activated by data-skin="boneyard"
+   on <html>. Blue-black night · ghost-teal glow · silver bone · amethyst.
+   ========================================================================== */
+html[data-skin="boneyard"] {
+  --bg-0: #05080e;
+  --bg-1: #0a0f18;
+  --bg-2: #111a27;
+  --bg-3: #17222f;    /* was #18242d — nudged so hover borders read */
+  --bg-4: #223247;
+  --line: #223247;
+  --text: #e9efe6;             /* bone / silver */
+  --muted: #8b98ad;
+  --accent: #7ce0c0;           /* ghost teal — primary glow */
+  --accent-2: #a6ecd8;
+  --accent-glow: rgba(124, 224, 192, 0.45);
+  --violet: #9d84ee;           /* amethyst support */
+  --violet-glow: rgba(157, 132, 238, 0.42);
+  --gold: #ffcf7a;             /* candle gold — kept for wins/brand */
+  --gold-glow: rgba(255, 207, 122, 0.40);
+  --teal: #7ce0c0;
+  --teal-glow: rgba(124, 224, 192, 0.40);
+  --danger: #ff7089;
+  --warn: #ffcf7a;
+}
+/* Moonlit ground: teal breath top-left, amethyst top-right, candle whisper
+   bottom-right, faint fog scanlines, over blue-black. */
+html[data-skin="boneyard"] body {
+  background:
+    radial-gradient(1100px 620px at 15% -10%, rgba(124, 224, 192, 0.13), transparent 60%),
+    radial-gradient(1000px 640px at 92% -6%, rgba(157, 132, 238, 0.12), transparent 58%),
+    radial-gradient(900px 520px at 108% 110%, rgba(255, 207, 122, 0.06), transparent 60%),
+    repeating-linear-gradient(180deg, transparent 0 5px, rgba(180, 210, 225, 0.010) 5px 6px),
+    var(--bg-0);
+}
+html[data-skin="boneyard"] .topbar {
+  box-shadow:
+    inset 0 -1px 0 rgba(124, 224, 192, 0.24),
+    0 8px 22px rgba(0, 0, 0, 0.5);
+}
+
+/* Headstone game tiles: arched top + engraved stone. */
+html[data-skin="boneyard"] .lobby-card {
+  border-radius: 66px 66px 13px 13px;
+  padding-top: 26px;
+  background:
+    linear-gradient(180deg, var(--bg-3), var(--bg-2)),
+    radial-gradient(120% 60% at 50% 0%, rgba(124,224,192,0.06), transparent 70%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -10px 24px -18px #000;
+}
+html[data-skin="boneyard"] .lobby-card::after {
+  /* faint carved arch line near the crown */
+  content: "";
+  position: absolute; top: 9px; left: 50%; transform: translateX(-50%);
+  width: 54%; height: 40px;
+  border: 1px solid rgba(160, 180, 175, 0.10);
+  border-bottom: none; border-radius: 40px 40px 0 0;
+  pointer-events: none;
+}
+html[data-skin="boneyard"] .lobby-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 12px 28px -10px rgba(124, 224, 192, 0.5), 0 0 0 1px var(--accent-glow);
+}
+
+/* ---- Atmosphere layer (moon, stars, drifting fog). Hidden off-skin. ---- */
+.crypt-sky { display: none; }
+html[data-skin="boneyard"] .crypt-sky {
+  display: block; position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+}
+html[data-skin="boneyard"] .app,
+html[data-skin="boneyard"] .auth-gate { position: relative; z-index: 1; }
+.crypt-moon {
+  position: absolute; top: 40px; right: 8%; width: 92px; height: 92px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, #f6f4e6, #d7dac6 60%, #b7bda4);
+  box-shadow: 0 0 56px 16px rgba(230, 240, 210, 0.16), inset -12px -10px 0 rgba(120,126,96,0.26);
+  opacity: 0.9;
+}
+.crypt-moon::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background:
+    radial-gradient(8px 8px at 62% 40%, rgba(120,126,96,0.26), transparent 60%),
+    radial-gradient(6px 6px at 46% 66%, rgba(120,126,96,0.22), transparent 60%);
+}
+.crypt-stars {
+  position: absolute; top: 0; left: 0; width: 2px; height: 2px; border-radius: 50%; background: #fff;
+  box-shadow:
+    80px 60px #fff, 220px 120px #cfe3ff, 340px 40px #fff, 520px 150px #fff, 620px 80px #bcd,
+    760px 180px #fff, 880px 50px #fff, 1000px 130px #dfe, 160px 220px #fff, 320px 260px #cde,
+    560px 300px #fff, 760px 240px #fff, 1080px 90px #fff, 1200px 200px #cfe3ff, 60px 320px #fff,
+    1320px 60px #fff, 1380px 260px #fff, 180px 420px #bcd, 440px 470px #fff, 920px 360px #fff,
+    1120px 420px #dfe, 680px 430px #fff, 300px 380px #fff, 1260px 360px #cde;
+  animation: cryptTwinkle 6s ease-in-out infinite;
+}
+.crypt-stars.b { opacity: 0.5; transform: translate(50px, 34px) scale(0.8); animation-delay: -3s; }
+@keyframes cryptTwinkle { 0%,100% { opacity: 0.85; } 50% { opacity: 0.4; } }
+.crypt-fog {
+  position: absolute; left: -20%; width: 140%; height: 240px;
+  background: radial-gradient(60% 120% at 50% 50%, rgba(150, 175, 205, 0.09), transparent 70%);
+  filter: blur(7px); animation: cryptDrift 30s linear infinite;
+}
+.crypt-fog.f1 { bottom: 4%; }
+.crypt-fog.f2 { top: 30%; animation-duration: 46s; animation-direction: reverse; opacity: 0.7; }
+@keyframes cryptDrift { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .crypt-stars, .crypt-fog { animation: none !important; }
+}
