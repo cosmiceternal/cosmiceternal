@@ -3144,3 +3144,64 @@ html[data-skin="boneyard"] .auth-gate { position: relative; z-index: 1; }
 @media (prefers-reduced-motion: reduce) {
   .crypt-stars, .crypt-fog { animation: none !important; }
 }
+
+/* ---- Bones: the graveyard floor host (lobby greeter) ---- */
+.lobby-host { display: none; }
+html[data-skin="boneyard"] .lobby-host {
+  display: flex; align-items: center; gap: 18px;
+  margin-bottom: 16px; padding: 12px 20px 12px 8px;
+  background:
+    linear-gradient(180deg, rgba(124,224,192,0.06), rgba(157,132,238,0.05)),
+    linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 16px;
+  box-shadow: var(--edge-hi), 0 10px 30px -18px #000;
+}
+.lobby-host-fig { flex: 0 0 auto; width: 96px; }
+.lobby-host-say { font-size: 14px; color: var(--muted); line-height: 1.55; max-width: 62ch; }
+.lobby-host-say strong { display: block; color: var(--text); font-family: Georgia, 'Times New Roman', serif;
+  font-size: 18px; letter-spacing: .3px; margin-bottom: 2px; }
+@media (max-width: 640px) {
+  html[data-skin="boneyard"] .lobby-host { gap: 10px; padding-right: 12px; }
+  .lobby-host-fig { width: 64px; }
+  .lobby-host-say { font-size: 12.5px; }
+  .lobby-host-say strong { font-size: 15px; }
+}
+
+/* The skeleton + its motion. Scoped to .bones so it can be reused anywhere. */
+.bones { width: 100%; height: auto; display: block; cursor: default;
+  filter: drop-shadow(0 12px 16px rgba(0,0,0,0.5)); }
+.bones .b-char { animation: bFloat 4.6s ease-in-out infinite; transform-origin: 130px 150px; }
+@keyframes bFloat { 0%,100%{transform:translateY(0) rotate(0)} 50%{transform:translateY(-7px) rotate(-1deg)} }
+.bones .b-aura { fill: var(--accent); opacity: .14; animation: bPulse 4.6s ease-in-out infinite; }
+@keyframes bPulse { 0%,100%{opacity:.08} 50%{opacity:.18} }
+.bones .b-pupil { fill: var(--accent); }
+.bones .b-glow { fill: var(--accent); opacity: .85; }
+.bones .b-lid { transform-origin: center; transform-box: fill-box; animation: bBlink 4.2s ease-in-out infinite; }
+@keyframes bBlink { 0%,92%,100%{transform:scaleY(1)} 95%{transform:scaleY(.08)} }
+.bones .b-blush { fill: var(--accent); opacity: .26; }
+.bones .b-band { fill: var(--accent); }
+.bones .b-bow { fill: var(--violet); }
+.bones .b-pip { fill: #1a1030; }
+.bones .b-hat { transform-origin: 130px 78px; animation: bTip 5.6s ease-in-out infinite; }
+@keyframes bTip {
+  0%,74%,100%{transform:rotate(-7deg) translateY(0)}
+  82%{transform:rotate(-7deg) translateY(-8px)}
+  88%{transform:rotate(3deg) translateY(-10px)}
+  94%{transform:rotate(-7deg) translateY(0)}
+}
+.bones .b-cards { transform-origin: 130px 250px; animation: bFan 5s ease-in-out infinite; }
+@keyframes bFan { 0%,100%{transform:rotate(0)} 50%{transform:rotate(-2.5deg)} }
+
+/* One-shot cheer on a big win: hat leaps, eyes flare, whole guy bounces. */
+.bones.cheer .b-char { animation: bCheerBounce .9s ease; }
+.bones.cheer .b-hat { animation: bCheerHat .9s ease; }
+.bones.cheer .b-aura { animation: bCheerAura .9s ease; }
+@keyframes bCheerBounce { 30%{transform:translateY(-16px) rotate(2deg)} 60%{transform:translateY(-4px)} 100%{transform:translateY(0)} }
+@keyframes bCheerHat { 25%{transform:rotate(14deg) translateY(-20px)} 60%{transform:rotate(-10deg) translateY(-6px)} 100%{transform:rotate(-7deg)} }
+@keyframes bCheerAura { 40%{opacity:.5} 100%{opacity:.14} }
+
+@media (prefers-reduced-motion: reduce) {
+  .bones .b-char, .bones .b-aura, .bones .b-lid, .bones .b-hat, .bones .b-cards { animation: none !important; }
+  .bones.cheer .b-char, .bones.cheer .b-hat, .bones.cheer .b-aura { animation: none !important; }
+}

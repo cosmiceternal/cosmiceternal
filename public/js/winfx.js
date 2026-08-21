@@ -67,6 +67,9 @@
     // Particles ride along (WinFx owns the burst so callers don't double up).
     if (global.Confetti) Confetti.burst({ count: t.confetti, y: window.innerHeight * 0.42 });
 
+    // Let the floor host (Bones) react in the graveyard skin.
+    document.dispatchEvent(new CustomEvent('crypt:win', { detail: { tier: t.key, amount: amount, mult: mult } }));
+
     // Count the amount up for a satisfying tick (skipped under reduced-motion).
     const amtEl = el.querySelector('[data-role="amt"]');
     if (amtEl && amount > 0 && !reduce) {

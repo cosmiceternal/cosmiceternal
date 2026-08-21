@@ -27,6 +27,14 @@
 
     container.innerHTML = `
       <div class="lobby">
+        <div class="lobby-host">
+          <div class="lobby-host-fig">${global.Bones ? global.Bones.markup() : ''}</div>
+          <div class="lobby-host-say">
+            <strong>Welcome to the crypt.</strong>
+            Pull up a chair — the house is honest, I promise. Every deal is
+            <span class="accent">provably fair</span>, and the chips are just for fun.
+          </div>
+        </div>
         <div class="lobby-top">
           <h2 class="lobby-title">Casino Floor <span class="muted">· ${GAMES.length} games</span></h2>
           <input id="lobbySearch" class="lobby-search" type="search" placeholder="Search games…" autocomplete="off" />
