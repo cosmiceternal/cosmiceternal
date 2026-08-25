@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Session } from './session.js';
 import { compact } from './context.js';
 import { saveUserConfig } from './config.js';
+import { interpolate } from './custom-commands.js';
 
 const INIT_PROMPT = `Analyse this codebase and write an APOLLO.md file at the workspace root.
 
@@ -18,14 +19,26 @@ Explore first with glob, grep and read_file. Read the existing README, package m
 export const COMMANDS = {
   help: {
     summary: 'Show this help',
-    run({ ui }) {
+    run({ ui, custom }) {
+      const names = [...Object.keys(COMMANDS), ...(custom?.keys() || [])];
+      const width = Math.max(...names.map((k) => k.length)) + 2;
+
       ui.line();
       ui.line(ui.bold('  Commands'));
-      const width = Math.max(...Object.keys(COMMANDS).map((k) => k.length)) + 2;
       for (const [name, cmd] of Object.entries(COMMANDS)) {
         ui.line(`    ${ui.cyan('/' + name.padEnd(width))} ${ui.dim(cmd.summary)}`);
       }
+
+      if (custom?.size) {
+        ui.line();
+        ui.line(ui.bold('  Project commands'));
+        for (const cmd of custom.values()) {
+          ui.line(`    ${ui.cyan('/' + cmd.name.padEnd(width))} ${ui.dim(cmd.description)} ${ui.dim(`(${cmd.scope})`)}`);
+        }
+      }
+
       ui.line();
+      ui.line(ui.dim('  @path attaches a file · !cmd runs a shell command · \\ continues a line'));
       ui.line(ui.dim('  Anything else is sent to the model. Ctrl+C cancels a turn, twice exits.'));
       ui.line();
     },
@@ -282,7 +295,12 @@ export async function runCommand(input, ctx) {
   const cmd = COMMANDS[alias];
 
   if (!cmd) {
-    ctx.ui.error(`Unknown command /${name}. Try /help.`);
+    const custom = ctx.custom?.get(key);
+    if (custom) return { prompt: interpolate(custom.template, args) };
+
+    const known = [...Object.keys(COMMANDS), ...(ctx.custom?.keys() || [])];
+    const near = known.filter((n) => n.startsWith(key.slice(0, 2)));
+    ctx.ui.error(`Unknown command /${name}.${near.length ? ` Did you mean ${near.map((n) => '/' + n).join(', ')}?` : ' Try /help.'}`);
     return {};
   }
   try {

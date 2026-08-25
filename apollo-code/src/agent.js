@@ -1,7 +1,7 @@
-import { toolSchemas } from './tools/index.js';
+import { toolSchemas, buildRegistry } from './tools/index.js';
 import { parseToolCalls, hasCompleteToolCall } from './protocol/text-tools.js';
 import { needsCompaction, compact, usageReport } from './context.js';
-import { summarizeArgs } from './ui.js';
+import { summarizeArgs, NestedUI } from './ui.js';
 import { ProviderError } from './providers/index.js';
 import { CheckpointStore } from './checkpoints.js';
 import { MarkdownStream } from './markdown.js';
@@ -68,7 +68,7 @@ function longestSuffixPrefix(text, marker) {
 }
 
 export class Agent {
-  constructor({ config, provider, workspace, registry, permissions, ui, session, toolMode, rebuildSystem, checkpoints }) {
+  constructor({ config, provider, workspace, registry, permissions, ui, session, toolMode, rebuildSystem, checkpoints, depth = 0 }) {
     this.config = config;
     this.provider = provider;
     this.workspace = workspace;
@@ -80,6 +80,8 @@ export class Agent {
     this.rebuildSystem = rebuildSystem;
     this.state = { todos: session.todos || [], reads: new Map() };
     this.checkpoints = checkpoints ?? new CheckpointStore({ root: workspace.root });
+    this.depth = depth;
+    this.toolLog = [];
     this.aborted = false;
   }
 
@@ -89,7 +91,44 @@ export class Agent {
       config: this.config,
       ui: this.ui,
       state: this.state,
+      runSubAgent: (prompt, options) => this.#runSubAgent(prompt, options),
     };
+  }
+
+  /**
+   * Run a focused, read-only agent in its own context and return only its
+   * answer. The point is context economy: twenty greps to locate something cost
+   * the main conversation one paragraph instead of twenty tool results.
+   */
+  async #runSubAgent(prompt, { label = 'researching' } = {}) {
+    if (this.depth >= 1) {
+      throw new Error('a sub-agent cannot start another sub-agent — answer directly');
+    }
+
+    const ui = new NestedUI(this.ui);
+    ui.toolCall('task', label);
+
+    const sub = new Agent({
+      config: { ...this.config, maxSteps: Math.max(4, Math.floor(this.config.maxSteps / 2)) },
+      provider: this.provider,
+      workspace: this.workspace,
+      registry: buildRegistry({ readOnly: true, nested: true }),
+      permissions: this.permissions,
+      ui,
+      session: { messages: [], usage: { promptTokens: 0, completionTokens: 0, turns: 0 }, todos: [] },
+      toolMode: this.toolMode,
+      rebuildSystem: () => SUB_AGENT_PROMPT,
+      checkpoints: this.checkpoints,
+      depth: this.depth + 1,
+    });
+    sub.setSystemPrompt(`${SUB_AGENT_PROMPT}\n\n# Environment\n\nWorking directory: ${this.workspace.root}`);
+
+    const answer = await sub.run(prompt);
+
+    // The sub-agent's token spend is still the user's token spend.
+    this.session.usage.promptTokens += sub.session.usage.promptTokens;
+    this.session.usage.completionTokens += sub.session.usage.completionTokens;
+    return answer;
   }
 
   setSystemPrompt(text) {
@@ -266,6 +305,19 @@ export class Agent {
   }
 
   async #executeOne(call) {
+    const startedAt = Date.now();
+    const result = await this.#dispatch(call);
+    this.toolLog.push({
+      name: call.name,
+      args: call.args,
+      ok: !result.isError,
+      denied: Boolean(result.denied),
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  }
+
+  async #dispatch(call) {
     const tool = this.registry.get(call.name);
     if (!tool) {
       const available = [...this.registry.keys()].join(', ');
@@ -339,6 +391,16 @@ export class Agent {
     return usageReport(this.session.messages, this.config);
   }
 }
+
+const SUB_AGENT_PROMPT = `You are a research assistant working inside a codebase. You have read-only tools: read_file, list_dir, glob, grep.
+
+You have been given one self-contained question. Nobody is watching you work — only your final message is returned to the agent that asked, so it has to stand alone.
+
+- Search first, conclude second. Use grep and glob to find candidates, then read the files that matter.
+- Answer only what was asked. Do not propose changes, and do not editorialize.
+- Cite what you found as path:line so the caller can go straight there.
+- If the answer genuinely is not in the codebase, say that plainly rather than guessing.
+- Be brief. A few sentences, or a short list. No preamble.`;
 
 function summarizeResult(name, content) {
   const text = String(content);

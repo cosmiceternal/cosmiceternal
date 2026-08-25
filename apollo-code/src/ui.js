@@ -111,6 +111,54 @@ export class UI {
   }
 }
 
+/**
+ * The view a sub-agent gets: its prose is suppressed (only its final answer
+ * matters to the caller) and its tool calls appear indented under the parent's,
+ * so the user can see it working without a second conversation on screen.
+ */
+export class NestedUI {
+  constructor(parent, indent = '    ') {
+    this.parent = parent;
+    this.indent = indent;
+  }
+
+  // Colour helpers pass straight through.
+  paint(code, text) { return this.parent.paint(code, text); }
+  bold(t) { return this.parent.bold(t); }
+  dim(t) { return this.parent.dim(t); }
+  red(t) { return this.parent.red(t); }
+  green(t) { return this.parent.green(t); }
+  yellow(t) { return this.parent.yellow(t); }
+  cyan(t) { return this.parent.cyan(t); }
+  gray(t) { return this.parent.gray(t); }
+  magenta(t) { return this.parent.magenta(t); }
+
+  // The sub-agent's own narration is dropped.
+  write() {}
+  line() {}
+  flushLine() { this.parent.flushLine(); }
+  info() {}
+  success() {}
+  diff() {}
+
+  warn(text) { this.parent.line(this.parent.dim(`${this.indent}! ${text}`)); }
+  error(text) { this.parent.line(this.parent.red(`${this.indent}✗ ${text}`)); }
+
+  startSpinner(label) { this.parent.startSpinner(label); }
+  stopSpinner() { this.parent.stopSpinner(); }
+
+  toolCall(name, summary) {
+    this.parent.flushLine();
+    this.parent.line(this.parent.dim(`${this.indent}↳ ${name}${summary ? `(${summary})` : ''}`));
+  }
+
+  toolResult(text, { isError = false } = {}) {
+    if (!isError) return;   // successes stay quiet; failures are worth seeing
+    const firstLine = String(text).split('\n')[0];
+    this.parent.line(this.parent.dim(`${this.indent}  ${firstLine}`));
+  }
+}
+
 /** Collapse a tool's arguments into a short one-line summary for the header. */
 export function summarizeArgs(name, args) {
   if (!args || typeof args !== 'object') return '';

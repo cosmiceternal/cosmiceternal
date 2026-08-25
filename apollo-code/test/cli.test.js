@@ -139,3 +139,77 @@ test('doctor reports when nothing is running and exits non-zero', async () => {
   const result = await run(process.execPath, [BIN, 'doctor', '--no-color']).catch((err) => err);
   assert.match(result.stdout, /Looking for local model servers/);
 });
+
+test('--json emits one machine-readable object and nothing else', async () => {
+  const server = await startFakeOllama({
+    turns: [
+      { toolCalls: [{ name: 'list_dir', args: { path: '.' } }] },
+      { text: 'The project is empty.' },
+    ],
+  });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-json-'));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--json', '-p', 'describe this project',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+
+    const result = JSON.parse(stdout);   // must parse — no stray narration
+    assert.equal(result.ok, true);
+    assert.equal(result.error, null);
+    assert.equal(result.answer, 'The project is empty.');
+    assert.equal(result.model, 'fake-coder:7b');
+    assert.equal(result.toolMode, 'native');
+    assert.deepEqual(result.toolCalls.map((c) => c.name), ['list_dir']);
+    assert.equal(result.toolCalls[0].ok, true);
+    assert.ok(result.usage.durationMs >= 0);
+    assert.ok(result.sessionId);
+  } finally {
+    await server.close();
+  }
+});
+
+test('--json reports changed files and a denied tool call', async () => {
+  const server = await startFakeOllama({
+    turns: [
+      { toolCalls: [{ name: 'write_file', args: { path: 'made.txt', content: 'hi\n' } }] },
+      { toolCalls: [{ name: 'run_bash', args: { command: 'rm -rf /' } }] },
+      { text: 'Created the file; the command was refused.' },
+    ],
+  });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-json-'));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--yolo', '--json', '-p', 'make a file',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+
+    const result = JSON.parse(stdout);
+    assert.deepEqual(result.changedFiles, ['made.txt']);
+    const refused = result.toolCalls.find((c) => c.name === 'run_bash');
+    assert.equal(refused.ok, false, 'a refused destructive command is reported as failed');
+  } finally {
+    await server.close();
+  }
+});
+
+test('--json reports a failure as structured output with exit code 1', async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-json-'));
+  const err = await run(process.execPath, [
+    BIN, '--cwd', cwd, '--base-url', 'http://127.0.0.1:1', '--model', 'fake-coder:7b',
+    '--json', '-p', 'hello',
+  ], { env: { ...process.env, APOLLO_HOME: cwd } }).catch((e) => e);
+
+  assert.equal(err.code, 1);
+  // stdout stays pure JSON even when the backend was never reachable;
+  // the human-readable diagnostics go to stderr.
+  const result = JSON.parse(err.stdout);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /could not reach|ECONNREFUSED|fetch failed/i);
+  assert.match(err.stderr, /Cannot reach a model server/);
+});
+
+test('setup is recognised as a subcommand', () => {
+  assert.equal(parseArgs(['setup']).command, 'setup');
+  assert.equal(parseArgs(['--json', '-p', 'x']).json, true);
+});

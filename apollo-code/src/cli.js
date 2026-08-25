@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline/promises';
-import { loadConfig, userConfigDir, DEFAULTS } from './config.js';
+import { loadConfig, userConfigDir, saveUserConfig, DEFAULTS } from './config.js';
 import { Workspace } from './workspace.js';
 import { UI } from './ui.js';
 import { buildRegistry } from './tools/index.js';
@@ -14,6 +14,7 @@ import { runCommand } from './commands.js';
 import { CheckpointStore } from './checkpoints.js';
 import { expandReferences, createCompleter, History, classify } from './input.js';
 import { COMMANDS } from './commands.js';
+import { loadCustomCommands } from './custom-commands.js';
 
 const VERSION = '0.1.0';
 
@@ -25,6 +26,7 @@ Usage
   apollo doctor                 find local model servers and check they work
   apollo models                 list the models your backend has installed
   apollo init                   write an APOLLO.md for this project
+  apollo setup                  pick a backend and model, and save them
 
 Model
   --provider <ollama|openai>    backend dialect (default: ollama)
@@ -45,6 +47,7 @@ Session
   --resume <id>                 resume a specific session
   --cwd <path>                  workspace root (default: the current directory)
   --no-stream                   wait for the full reply instead of streaming
+  --json                        with -p, print one JSON object instead of prose
   --version, --help
 
 Everything is also settable in ~/.apollo/config.json, .apollo/config.json in a
@@ -57,7 +60,7 @@ const FLAG_ALIASES = {
 };
 
 export function parseArgs(argv) {
-  const out = { flags: {}, prompt: null, command: null, cwd: process.cwd(), resume: null };
+  const out = { flags: {}, prompt: null, command: null, cwd: process.cwd(), resume: null, json: false };
   const positional = [];
 
   for (let i = 0; i < argv.length; i++) {
@@ -82,6 +85,9 @@ export function parseArgs(argv) {
       out.flags.permissionMode = 'ask';
     } else if (arg === '--no-stream') {
       out.flags.stream = false;
+    } else if (arg === '--json') {
+      out.json = true;
+      out.flags.color = false;
     } else if (arg === '--no-color') {
       out.flags.color = false;
     } else if (arg === '--show-thinking') {
@@ -99,7 +105,7 @@ export function parseArgs(argv) {
 
   if (!out.command && positional.length) {
     const first = positional[0].toLowerCase();
-    if (['doctor', 'models', 'init'].includes(first)) {
+    if (['doctor', 'models', 'init', 'setup'].includes(first)) {
       out.command = first;
     } else if (!out.prompt) {
       // Bare text is a one-shot prompt: apollo "fix the failing test"
@@ -234,18 +240,129 @@ async function createAgent({ config, ui, workspace, provider, registry, session,
   return { agent, permissions, toolMode };
 }
 
-async function runHeadless({ config, ui, workspace, provider, registry, promptText, resume }) {
-  await assertBackend(config, provider, ui);
+async function runHeadless({ config, ui, workspace, provider, registry, promptText, resume, json }) {
+  // In JSON mode stdout carries the result object and nothing else, so both the
+  // agent's narration and any setup diagnostics are routed off it.
+  const agentUi = json ? new UI({ color: false, stream: nullStream() }) : ui;
+  const diagnosticUi = json ? new UI({ color: false, stream: process.stderr }) : ui;
+
+  const emit = (payload) => {
+    if (json) process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+  };
+
+  try {
+    await assertBackend(config, provider, diagnosticUi);
+  } catch (err) {
+    // A script parsing stdout must get a result object even when the backend
+    // was never reachable.
+    emit({ ok: false, error: err.message || 'model server unreachable', answer: '', model: config.model, provider: config.provider, toolCalls: [], changedFiles: [], usage: null });
+    throw err;
+  }
+
   const session = resume ? Session.load(workspace.root, resume) : new Session({ root: workspace.root });
-  const { agent } = await createAgent({ config, ui, workspace, provider, registry, session, prompt: null });
+  const { agent, toolMode } = await createAgent({
+    config, ui: agentUi, workspace, provider, registry, session, prompt: null,
+  });
 
   const controller = new AbortController();
   process.on('SIGINT', () => controller.abort());
 
-  await agent.run(promptText, { signal: controller.signal });
-  ui.flushLine();
+  const startedAt = Date.now();
+  let answer = '';
+  let error = null;
+  try {
+    answer = await agent.run(promptText, { signal: controller.signal });
+  } catch (err) {
+    if (!json) throw err;
+    error = err.message;
+  }
+
+  agentUi.flushLine();
   session.save();
+
+  if (json) {
+    emit({
+      ok: error === null,
+      error,
+      answer,
+      model: config.model,
+      provider: config.provider,
+      toolMode,
+      sessionId: session.id,
+      toolCalls: agent.toolLog,
+      changedFiles: agent.checkpoints.list(99).flatMap((entry) => entry.files),
+      usage: { ...session.usage, durationMs: Date.now() - startedAt },
+    });
+    return error === null ? 0 : 1;
+  }
   return 0;
+}
+
+function nullStream() {
+  return { isTTY: false, write: () => true };
+}
+
+/** First-run wizard: find a backend, pick a model, write the global config. */
+async function commandSetup(ui) {
+  ui.line();
+  ui.line(`  ${ui.bold(ui.yellow('APOLLO'))} ${ui.dim('setup')}`);
+  ui.line();
+  ui.startSpinner('looking for local model servers');
+  const backends = (await detectBackends()).filter((b) => b.available && b.models.length);
+  ui.stopSpinner();
+
+  if (!backends.length) {
+    ui.warn('No local model server with any models installed was found.');
+    ui.line();
+    ui.line('  Start one, then run `apollo setup` again:');
+    ui.line('    ollama serve   +   ollama pull qwen2.5-coder:7b');
+    ui.line('    llama-server -m ./model.gguf -c 16384 --port 8080');
+    ui.line();
+    return 1;
+  }
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    ui.line(`  ${ui.bold('Backends found')}`);
+    backends.forEach((b, i) => {
+      ui.line(`    ${ui.cyan(String(i + 1))}  ${b.label.padEnd(22)} ${ui.dim(`${b.models.length} model${b.models.length === 1 ? '' : 's'}`)}`);
+    });
+    ui.line();
+    const backend = backends[await pickIndex(rl, ui, 'Which backend?', backends.length)];
+
+    ui.line();
+    ui.line(`  ${ui.bold('Models')}`);
+    const models = backend.models.slice(0, 20);
+    models.forEach((m, i) => ui.line(`    ${ui.cyan(String(i + 1))}  ${m.id}`));
+    ui.line();
+    const model = models[await pickIndex(rl, ui, 'Which model?', models.length)];
+
+    const file = saveUserConfig({
+      provider: backend.provider,
+      baseUrl: backend.baseUrl,
+      model: model.id,
+    });
+
+    ui.line();
+    ui.success(`Saved to ${file}`);
+    ui.info(`  provider ${backend.provider} · ${backend.baseUrl} · ${model.id}`);
+    ui.line();
+    ui.line('  Now: cd into a project and run `apollo`.');
+    ui.line();
+    return 0;
+  } finally {
+    rl.close();
+  }
+}
+
+async function pickIndex(rl, ui, question, count) {
+  for (;;) {
+    const raw = (await rl.question(`  ${question} ${ui.dim(`[1-${count}, default 1]`)} `)).trim();
+    if (raw === '') return 0;
+    const n = Number(raw);
+    if (Number.isInteger(n) && n >= 1 && n <= count) return n - 1;
+    ui.warn(`Enter a number between 1 and ${count}.`);
+  }
 }
 
 async function runInteractive({ config, ui, workspace, provider, registry, resume }) {
@@ -255,13 +372,14 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
     ? Session.load(workspace.root, resume)
     : new Session({ root: workspace.root });
 
+  const custom = loadCustomCommands({ projectRoot: workspace.root, userDir: userConfigDir() });
   const history = new History();
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     historySize: 500,
     history: history.load(),
-    completer: createCompleter(workspace, Object.keys(COMMANDS)),
+    completer: createCompleter(workspace, [...Object.keys(COMMANDS), ...custom.keys()]),
   });
 
   const { agent, permissions, toolMode } = await createAgent({
@@ -272,6 +390,7 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
   ui.banner(config);
   if (toolMode === 'text') ui.info(`  Using the text tool protocol (${config.model} has no native tool calling).`);
   if (resume) ui.info(`  Resumed session ${session.id} — ${session.messages.length} messages.`);
+  if (custom.size) ui.info(`  ${custom.size} project command${custom.size === 1 ? '' : 's'}: ${[...custom.keys()].map((n) => '/' + n).join(' ')}`);
 
   let turnController = null;
   let interruptedOnce = false;
@@ -297,7 +416,7 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
   });
 
   const commandContext = {
-    ui, config, session, workspace, provider, registry, agent, permissions,
+    ui, config, session, workspace, provider, registry, agent, permissions, custom,
     toolMode: () => agent.toolMode,
   };
 
@@ -440,6 +559,7 @@ export async function main(argv = process.argv.slice(2)) {
 
   try {
     if (args.command === 'doctor') return await commandDoctor(ui);
+    if (args.command === 'setup') return await commandSetup(ui);
 
     if (args.command === 'models') {
       await assertBackend(config, provider, ui);
@@ -450,16 +570,16 @@ export async function main(argv = process.argv.slice(2)) {
 
     if (args.command === 'init') {
       const { prompt } = COMMANDS.init.run();
-      return await runHeadless({ ...ctx, promptText: prompt, resume: args.resume });
+      return await runHeadless({ ...ctx, promptText: prompt, resume: args.resume, json: args.json });
     }
 
     if (args.prompt) {
-      return await runHeadless({ ...ctx, promptText: args.prompt, resume: args.resume });
+      return await runHeadless({ ...ctx, promptText: args.prompt, resume: args.resume, json: args.json });
     }
 
     if (!process.stdin.isTTY) {
       const piped = fs.readFileSync(0, 'utf8').trim();
-      if (piped) return await runHeadless({ ...ctx, promptText: piped, resume: args.resume });
+      if (piped) return await runHeadless({ ...ctx, promptText: piped, resume: args.resume, json: args.json });
     }
 
     return await runInteractive({ ...ctx, resume: args.resume });

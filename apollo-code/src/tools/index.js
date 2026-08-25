@@ -7,13 +7,20 @@ import globTool from './glob.js';
 import grepTool from './grep.js';
 import runBash from './bash.js';
 import todoWrite from './todo.js';
+import taskTool from './task.js';
 
 export const ALL_TOOLS = [
-  readFile, listDir, globTool, grepTool, editFile, multiEdit, writeFile, runBash, todoWrite,
+  readFile, listDir, globTool, grepTool, editFile, multiEdit, writeFile, runBash, todoWrite, taskTool,
 ];
 
-export function buildRegistry({ readOnly = false } = {}) {
-  const tools = readOnly ? ALL_TOOLS.filter((t) => t.readOnly) : ALL_TOOLS;
+/**
+ * @param {object} options
+ * @param {boolean} options.readOnly  drop every tool that can change something
+ * @param {boolean} options.nested    drop `task`, so a sub-agent cannot spawn its own
+ */
+export function buildRegistry({ readOnly = false, nested = false } = {}) {
+  let tools = readOnly ? ALL_TOOLS.filter((t) => t.readOnly) : ALL_TOOLS;
+  if (nested) tools = tools.filter((t) => t.name !== 'task');
   return new Map(tools.map((t) => [t.name, t]));
 }
 
