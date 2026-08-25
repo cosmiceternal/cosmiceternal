@@ -168,6 +168,8 @@ export function summarizeArgs(name, args) {
     case 'grep': return `${truncate(String(args.pattern ?? ''), 40)}${args.path ? ' in ' + args.path : ''}`;
     case 'glob': return truncate(String(args.pattern ?? ''), 60);
     case 'todo_write': return `${Array.isArray(args.todos) ? args.todos.length : 0} items`;
+    case 'task': return truncate(String(args.description ?? ''), 60);
+    case 'multi_edit': return `${args.path ?? ''} (${Array.isArray(args.edits) ? args.edits.length : 0} edits)`;
     default: return truncate(String(pick('path', 'file', 'pattern', 'command') ?? ''), 60);
   }
 }

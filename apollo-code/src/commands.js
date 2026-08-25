@@ -46,7 +46,7 @@ export const COMMANDS = {
 
   model: {
     summary: 'Show or switch the active model: /model qwen2.5-coder:14b',
-    async run({ ui, config, args, provider }) {
+    async run({ ui, config, args, provider, refresh }) {
       if (!args) {
         ui.info(`Current model: ${config.model}`);
         return;
@@ -60,6 +60,9 @@ export const COMMANDS = {
         return;
       }
       config.model = args;
+      // A different model can have a different context window, and the system
+      // prompt names the model.
+      await refresh?.({ remodel: true });
       ui.success(`Model set to ${args} for this session. (/config save to persist)`);
     },
   },
@@ -84,7 +87,7 @@ export const COMMANDS = {
 
   mode: {
     summary: 'Show or set the permission mode: ask | auto-edit | yolo | read-only',
-    run({ ui, config, args, permissions }) {
+    async run({ ui, config, args, permissions, refresh }) {
       const modes = ['ask', 'auto-edit', 'yolo', 'read-only'];
       if (!args) {
         ui.info(`Permission mode: ${config.permissionMode}  (${modes.join(' | ')})`);
@@ -96,6 +99,8 @@ export const COMMANDS = {
       }
       config.permissionMode = args;
       permissions.setMode(args);
+      // The prompt states the permission rules, so the model has to be told.
+      await refresh?.();
       ui.success(`Permission mode: ${args}`);
       if (args === 'yolo') ui.warn('Apollo will now run edits and shell commands without asking.');
     },

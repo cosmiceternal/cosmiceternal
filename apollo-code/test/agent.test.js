@@ -411,3 +411,93 @@ test('streaming is still incremental by default', async () => {
     await server.close();
   }
 });
+
+test('the answer is the last turn that actually said something', async () => {
+  const server = await startFakeOllama({
+    turns: [
+      { text: 'Here is what I found.', toolCalls: [{ name: 'list_dir', args: { path: '.' } }] },
+      { toolCalls: [{ name: 'list_dir', args: { path: '.' } }] },   // no prose
+    ],
+  });
+  try {
+    const { agent, config } = harness({ baseUrl: server.baseUrl });
+    config.maxSteps = 2;
+    const answer = await agent.run('look around');
+    assert.equal(answer, 'Here is what I found.', 'an empty final turn must not erase the answer');
+  } finally {
+    await server.close();
+  }
+});
+
+test('repeatedly malformed tool blocks end the turn instead of looping', async () => {
+  const turns = Array.from({ length: 20 }, () => ({
+    text: '<apollo:tool name="read_file">{{{broken</apollo:tool>',
+  }));
+  const server = await startFakeOllama({ turns });
+  try {
+    const { agent, stream, config } = harness({ baseUrl: server.baseUrl, toolMode: 'text' });
+    config.maxSteps = 20;
+    await agent.run('read something');
+
+    // Three corrections, then a fourth turn that gives up: 4 requests, not 20.
+    assert.equal(server.requests.filter((r) => r.url === '/api/chat').length, 4);
+    assert.match(stream.text, /kept emitting malformed tool calls/);
+  } finally {
+    await server.close();
+  }
+});
+
+test('a model looping on the same call is told the result will not change', async () => {
+  const turns = Array.from({ length: 8 }, () => ({
+    toolCalls: [{ name: 'list_dir', args: { path: '.' } }],
+  }));
+  const server = await startFakeOllama({ turns });
+  try {
+    const { agent, config } = harness({ baseUrl: server.baseUrl });
+    config.maxSteps = 5;
+    await agent.run('list it');
+
+    const nudge = agent.session.messages.find(
+      (m) => m.role === 'user' && /same tool call/.test(m.content)
+    );
+    assert.ok(nudge, 'the model should be told it is repeating itself');
+    assert.match(nudge.content, /3 times/);
+  } finally {
+    await server.close();
+  }
+});
+
+test('different tool calls are not mistaken for a loop', async () => {
+  const server = await startFakeOllama({
+    turns: [
+      { toolCalls: [{ name: 'list_dir', args: { path: '.' } }] },
+      { toolCalls: [{ name: 'glob', args: { pattern: '*.js' } }] },
+      { toolCalls: [{ name: 'list_dir', args: { path: '.' } }] },
+      { text: 'Done.' },
+    ],
+  });
+  try {
+    const { agent } = harness({ baseUrl: server.baseUrl });
+    await agent.run('explore');
+    assert.equal(agent.session.messages.some((m) => /same tool call/.test(m.content || '')), false);
+  } finally {
+    await server.close();
+  }
+});
+
+test('argument key order does not hide a repeated call', async () => {
+  const turns = [
+    { toolCalls: [{ name: 'grep', args: { pattern: 'x', path: '.' } }] },
+    { toolCalls: [{ name: 'grep', args: { path: '.', pattern: 'x' } }] },
+    { toolCalls: [{ name: 'grep', args: { pattern: 'x', path: '.' } }] },
+    { text: 'Done.' },
+  ];
+  const server = await startFakeOllama({ turns });
+  try {
+    const { agent } = harness({ baseUrl: server.baseUrl });
+    await agent.run('search');
+    assert.ok(agent.session.messages.some((m) => /same tool call/.test(m.content || '')));
+  } finally {
+    await server.close();
+  }
+});

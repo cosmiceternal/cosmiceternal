@@ -276,3 +276,87 @@ test('a backend that reports no context length is left as configured', async () 
     await server.close();
   }
 });
+
+test('@references are attached in headless mode too', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'It exports answer.' }] });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-ref-'));
+  fs.writeFileSync(path.join(cwd, 'demo.js'), 'export const answer = 42;\n');
+  try {
+    await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--no-color', '-p', 'what does @demo.js export?',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+
+    const sent = server.requests.find((r) => r.url === '/api/chat').body.messages;
+    const userTurn = sent.find((m) => m.role === 'user');
+    assert.match(userTurn.content, /### demo\.js/);
+    assert.match(userTurn.content, /export const answer = 42;/);
+  } finally {
+    await server.close();
+  }
+});
+
+test('a missing @reference in headless mode does not derail the prompt', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'Cannot find it.' }] });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-ref-'));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--no-color', '-p', 'explain @nope.js',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+    assert.match(stdout, /Cannot find it\./);
+    assert.match(stdout, /no such file/);
+  } finally {
+    await server.close();
+  }
+});
+
+test('an uninstalled model is reported with what is available', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'unused' }] });   // serves fake-coder:7b
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-model-'));
+  try {
+    const err = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'llama9:400b',
+      '--no-color', '-p', 'hi',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } }).catch((e) => e);
+
+    assert.equal(err.code, 1);
+    assert.match(err.stdout, /"llama9:400b" is not installed/);
+    assert.match(err.stdout, /fake-coder:7b/);
+    assert.match(err.stdout, /ollama pull llama9:400b/);
+    assert.equal(server.requests.some((r) => r.url === '/api/chat'), false, 'must not attempt the request');
+  } finally {
+    await server.close();
+  }
+});
+
+test('an untagged model name resolves to the installed tag', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'resolved' }] });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-model-'));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder',
+      '--no-color', '-p', 'hi',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+
+    assert.match(stdout, /Using fake-coder:7b/);
+    assert.equal(server.requests.find((r) => r.url === '/api/chat').body.model, 'fake-coder:7b');
+  } finally {
+    await server.close();
+  }
+});
+
+test('an installed model starts without comment', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'fine' }] });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-model-'));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--no-color', '-p', 'hi',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+    assert.ok(!stdout.includes('not installed'));
+    assert.match(stdout, /fine/);
+  } finally {
+    await server.close();
+  }
+});

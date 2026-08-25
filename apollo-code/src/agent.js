@@ -143,6 +143,10 @@ export class Agent {
     this.session.usage.turns++;
 
     let finalText = '';
+    let parseFailures = 0;
+    let repeats = 0;
+    let lastSignature = null;
+
     for (let step = 0; step < this.config.maxSteps; step++) {
       if (signal?.aborted) break;
 
@@ -151,10 +155,12 @@ export class Agent {
       }
 
       const turn = await this.#streamTurn({ signal });
-      finalText = turn.text;
+      // Keep the last turn that actually said something: if the model spends
+      // its final steps on tool calls, an empty string is not the answer.
+      if (turn.text) finalText = turn.text;
 
       if (turn.calls.length === 0) {
-        if (turn.parseErrors.length) {
+        if (turn.parseErrors.length && ++parseFailures <= MAX_PARSE_RETRIES) {
           // The model tried to call a tool and produced malformed JSON; tell it
           // so, rather than ending the turn on a broken block.
           this.session.messages.push({
@@ -165,13 +171,33 @@ export class Agent {
           });
           continue;
         }
+        if (turn.parseErrors.length) {
+          // Repeatedly malformed: stop correcting and let the user see it.
+          this.ui.warn('The model kept emitting malformed tool calls — stopping this turn.');
+        }
         break;
       }
+      parseFailures = 0;
 
       const results = await this.#executeCalls(turn.calls, { signal });
       this.#recordToolResults(turn.calls, results);
 
       if (results.some((r) => r.interrupted)) break;
+
+      // A smaller model will sometimes loop on the same call forever. Say so
+      // rather than silently burning the step budget.
+      const signature = signatureOf(turn.calls);
+      repeats = signature === lastSignature ? repeats + 1 : 0;
+      lastSignature = signature;
+      if (repeats + 1 >= MAX_IDENTICAL_CALLS) {
+        this.session.messages.push({
+          role: 'user',
+          content:
+            `You have now made the same tool call ${repeats + 1} times and received the same result. ` +
+            'It will not change. Use what you already have to answer, or try a different approach.',
+        });
+        repeats = 0;
+      }
 
       if (step === this.config.maxSteps - 1) {
         this.ui.warn(`Stopped after ${this.config.maxSteps} steps. Ask me to continue if it needs more.`);
@@ -399,6 +425,23 @@ export class Agent {
   usage() {
     return usageReport(this.session.messages, this.config);
   }
+}
+
+/** How many malformed tool blocks to correct before giving up on the turn. */
+const MAX_PARSE_RETRIES = 3;
+
+/** How many identical tool calls in a row before nudging the model. */
+const MAX_IDENTICAL_CALLS = 3;
+
+/** A stable fingerprint of one step's tool calls, for loop detection. */
+function signatureOf(calls) {
+  return calls.map((c) => `${c.name}:${stableStringify(c.args)}`).join('|');
+}
+
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
 }
 
 const SUB_AGENT_PROMPT = `You are a research assistant working inside a codebase. You have read-only tools: read_file, list_dir, glob, grep.

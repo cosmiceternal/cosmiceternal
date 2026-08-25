@@ -164,7 +164,9 @@ async function setup({ flags, cwd, ui: providedUi }) {
 async function assertBackend(config, provider, ui) {
   try {
     await provider.health();
+    await assertModelInstalled(config, provider, ui);
   } catch (err) {
+    if (err instanceof QuietExit) throw err;
     ui.error(`Cannot reach a model server at ${config.baseUrl}.`);
     ui.line();
     const found = (await detectBackends()).filter((b) => b.available);
@@ -260,7 +262,7 @@ async function createAgent({ config, ui, workspace, provider, registry, session,
     checkpoints: new CheckpointStore({ root: workspace.root }),
   });
   agent.setSystemPrompt(rebuildSystem(toolMode));
-  return { agent, permissions, toolMode };
+  return { agent, permissions, toolMode, rebuildSystem };
 }
 
 async function runHeadless({ config, ui, workspace, provider, registry, promptText, resume, json }) {
@@ -293,8 +295,9 @@ async function runHeadless({ config, ui, workspace, provider, registry, promptTe
   const startedAt = Date.now();
   let answer = '';
   let error = null;
+  const prompt = attachReferences(promptText, workspace, agentUi);
   try {
-    answer = await agent.run(promptText, { signal: controller.signal });
+    answer = await agent.run(prompt, { signal: controller.signal });
   } catch (err) {
     if (!json) throw err;
     error = err.message;
@@ -323,6 +326,46 @@ async function runHeadless({ config, ui, workspace, provider, registry, promptTe
 
 function nullStream() {
   return { isTTY: false, write: () => true };
+}
+
+/**
+ * A reachable server with the wrong model name is the other common first-run
+ * failure, and the error it produces on its own ("model not found") does not
+ * say what is available.
+ */
+async function assertModelInstalled(config, provider, ui) {
+  let installed;
+  try {
+    installed = (await provider.listModels()).map((m) => m.id);
+  } catch {
+    return; // the server does not enumerate models; let the request speak
+  }
+  if (installed.length === 0 || installed.includes(config.model)) return;
+
+  // Ollama tags are forgiving: `qwen2.5-coder` should find `qwen2.5-coder:7b`.
+  const base = config.model.split(':')[0];
+  const near = installed.filter((id) => id.split(':')[0] === base);
+  if (near.length === 1) {
+    ui.info(`Using ${near[0]} (closest match for "${config.model}").`);
+    config.model = near[0];
+    return;
+  }
+
+  ui.error(`The model "${config.model}" is not installed on ${config.baseUrl}.`);
+  ui.line();
+  if (near.length) {
+    ui.info('  Close matches:');
+    for (const id of near) ui.line(`    ${id}`);
+  } else {
+    ui.info('  Installed:');
+    for (const id of installed.slice(0, 12)) ui.line(`    ${id}`);
+    if (installed.length > 12) ui.line(`    … ${installed.length - 12} more`);
+  }
+  ui.line();
+  ui.info(`  Pick one with --model, or run \`apollo setup\`.`);
+  if (config.provider === 'ollama') ui.info(`  Or install it: ollama pull ${config.model}`);
+  ui.line();
+  throw new QuietExit(1, `model "${config.model}" is not installed`);
 }
 
 /** First-run wizard: find a backend, pick a model, write the global config. */
@@ -405,7 +448,7 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
     completer: createCompleter(workspace, [...Object.keys(COMMANDS), ...custom.keys()]),
   });
 
-  const { agent, permissions, toolMode } = await createAgent({
+  const { agent, permissions, toolMode, rebuildSystem } = await createAgent({
     config, ui, workspace, provider, registry, session,
     prompt: createInteractivePrompt(rl, ui),
   });
@@ -441,6 +484,11 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
   const commandContext = {
     ui, config, session, workspace, provider, registry, agent, permissions, custom,
     toolMode: () => agent.toolMode,
+    // Switching model or mode mid-session has to re-derive what depends on it.
+    refresh: async ({ remodel = false } = {}) => {
+      if (remodel) await resolveContextWindow(config, provider, ui);
+      agent.setSystemPrompt(rebuildSystem(agent.toolMode));
+    },
   };
 
   for (;;) {
@@ -467,14 +515,11 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
       if (result.exit) break;
       if (!result.prompt) continue;
       input = result.prompt;
-    } else {
-      const { text, attached, errors } = expandReferences(input, workspace);
-      for (const problem of errors) ui.warn(problem);
-      for (const ref of attached) {
-        ui.info(`  attached ${ref.path}${ref.lines ? ` (${ref.lines} lines)` : '/'}`);
-      }
-      input = text;
     }
+
+    // A project command's arguments can carry @references too — "/review
+    // @src/auth.js" should attach the file exactly as typing it would.
+    input = attachReferences(input, workspace, ui);
 
     turnController = new AbortController();
     const startedAt = Date.now();
@@ -514,6 +559,16 @@ async function readInput(rl, ui) {
     }
     return (text + line).trim();
   }
+}
+
+/** Resolve @path references and tell the user what was attached. */
+function attachReferences(input, workspace, ui) {
+  const { text, attached, errors } = expandReferences(input, workspace);
+  for (const problem of errors) ui.warn(problem);
+  for (const ref of attached) {
+    ui.info(`  attached ${ref.path}${ref.lines ? ` (${ref.lines} lines)` : '/'}`);
+  }
+  return text;
 }
 
 /** `!npm test` — run a command directly, and keep the result in context. */

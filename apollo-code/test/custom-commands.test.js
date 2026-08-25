@@ -128,3 +128,46 @@ test('/help lists project commands separately', async () => {
   assert.match(stream.text, /Project commands/);
   assert.match(stream.text, /\/review\s+Review the diff/);
 });
+
+test('switching mode rebuilds the system prompt so the model is told', async () => {
+  const stream = captureStream();
+  const ui = new UI({ color: false, stream });
+  const config = { permissionMode: 'ask' };
+  let refreshed = 0;
+
+  await runCommand('/mode read-only', {
+    ui, config,
+    permissions: { setMode(mode) { this.mode = mode; } },
+    refresh: async () => { refreshed++; },
+  });
+
+  assert.equal(config.permissionMode, 'read-only');
+  assert.equal(refreshed, 1, 'the system prompt must be rebuilt');
+});
+
+test('switching model re-probes the context window', async () => {
+  const stream = captureStream();
+  const ui = new UI({ color: false, stream });
+  const config = { model: 'old:7b' };
+  const calls = [];
+
+  await runCommand('/model new:14b', {
+    ui, config,
+    provider: { async listModels() { return [{ id: 'new:14b' }]; } },
+    refresh: async (opts) => { calls.push(opts); },
+  });
+
+  assert.equal(config.model, 'new:14b');
+  assert.deepEqual(calls, [{ remodel: true }]);
+});
+
+test('an invalid mode changes nothing', async () => {
+  const config = { permissionMode: 'ask' };
+  let refreshed = 0;
+  await runCommand('/mode chaos', {
+    ui: new UI({ color: false, stream: captureStream() }),
+    config, permissions: { setMode() {} }, refresh: async () => { refreshed++; },
+  });
+  assert.equal(config.permissionMode, 'ask');
+  assert.equal(refreshed, 0);
+});
