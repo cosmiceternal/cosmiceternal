@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import { clampOutput } from '../fsutil.js';
 
 /**
@@ -18,6 +19,34 @@ export const HARD_DENY = [
   { re: /\bchmod\s+(-[a-zA-Z]+\s+)*777\s+\/(\s|$)/, why: 'makes the entire filesystem world-writable' },
   { re: /\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z|k)?sh\b/, why: 'pipes a downloaded script straight into a shell' },
 ];
+
+/**
+ * Which shell to run commands through.
+ *
+ * bash is preferred for its arithmetic, arrays and `set -o pipefail`, but it is
+ * genuinely absent on Alpine and some minimal images — where hardcoding
+ * /bin/bash turns every command into "failed to start". `true` hands the choice
+ * to Node, which uses /bin/sh (or cmd.exe on Windows).
+ */
+let cachedShell;
+export function resolveShell(platform = process.platform) {
+  if (cachedShell !== undefined) return cachedShell;
+  if (platform === 'win32') {
+    cachedShell = true;
+  } else {
+    cachedShell = ['/bin/bash', '/usr/bin/bash', '/bin/sh'].find(existsAndExecutable) ?? true;
+  }
+  return cachedShell;
+}
+
+function existsAndExecutable(file) {
+  try {
+    fs.accessSync(file, fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** @returns {{allowed: boolean, reason?: string}} */
 export function checkCommand(command, extraDeny = []) {
@@ -60,12 +89,11 @@ export default {
     }
 
     const timeout = Math.min(Number(args.timeout_ms) || ctx.config.bashTimeoutMs, 600000);
-    const shell = process.platform === 'win32' ? undefined : '/bin/bash';
 
     return await new Promise((resolve, reject) => {
       const child = spawn(command, {
         cwd: ctx.workspace.root,
-        shell: shell || true,
+        shell: resolveShell(),
         env: { ...process.env, GIT_PAGER: 'cat', PAGER: 'cat', TERM: 'dumb' },
       });
 

@@ -102,6 +102,7 @@ Type a question. Or:
 | `/model`, `/models` | show or switch the active model |
 | `/mode ask\|auto-edit\|yolo\|read-only` | change how much Apollo asks |
 | `/undo`, `/checkpoints` | revert a file change Apollo made |
+| `/retry` | send your last message again, dropping the reply you didn't like |
 | `/context` | context-window usage for this session |
 | `/compact` | summarize the conversation to free up context |
 | `/clear` | start over, keeping settings |
@@ -375,7 +376,7 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 306 tests, no network, no model required
+npm test           # 311 tests, no network, no model required
 npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 

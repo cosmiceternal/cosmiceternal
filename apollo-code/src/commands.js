@@ -154,6 +154,32 @@ export const COMMANDS = {
     },
   },
 
+  retry: {
+    summary: 'Send your last message again (drops the reply you did not like)',
+    run({ ui, session }) {
+      // Walk back to the most recent user turn, dropping it and everything the
+      // model produced after it.
+      let index = -1;
+      for (let i = session.messages.length - 1; i >= 0; i--) {
+        const message = session.messages[i];
+        // A tool-result turn in text mode is also role "user"; skip those.
+        if (message.role === 'user' && !String(message.content).startsWith('<apollo:result')) {
+          index = i;
+          break;
+        }
+      }
+      if (index === -1) {
+        ui.info('Nothing to retry yet.');
+        return;
+      }
+
+      const prompt = session.messages[index].content;
+      session.messages = session.messages.slice(0, index);
+      ui.info(`Retrying: ${prompt.split('\n')[0].slice(0, 70)}`);
+      return { prompt };
+    },
+  },
+
   clear: {
     summary: 'Start a fresh conversation (keeps your settings)',
     run({ ui, session, agent }) {

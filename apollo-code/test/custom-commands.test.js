@@ -171,3 +171,45 @@ test('an invalid mode changes nothing', async () => {
   assert.equal(config.permissionMode, 'ask');
   assert.equal(refreshed, 0);
 });
+
+test('/retry resends the last real user message and drops the reply', async () => {
+  const session = {
+    messages: [
+      { role: 'system', content: 'system' },
+      { role: 'user', content: 'first question' },
+      { role: 'assistant', content: 'a good answer' },
+      { role: 'user', content: 'second question' },
+      { role: 'assistant', content: 'a bad answer' },
+    ],
+  };
+  const stream = captureStream();
+  const result = await runCommand('/retry', { ui: new UI({ color: false, stream }), session });
+
+  assert.equal(result.prompt, 'second question');
+  assert.deepEqual(session.messages.map((m) => m.content), ['system', 'first question', 'a good answer']);
+  assert.match(stream.text, /Retrying: second question/);
+});
+
+test('/retry does not mistake a text-mode tool result for the user message', async () => {
+  const session = {
+    messages: [
+      { role: 'system', content: 'system' },
+      { role: 'user', content: 'the real question' },
+      { role: 'assistant', content: '<apollo:tool name="read_file">{}</apollo:tool>' },
+      { role: 'user', content: '<apollo:result name="read_file">\nfile contents\n</apollo:result>' },
+      { role: 'assistant', content: 'a bad answer' },
+    ],
+  };
+  const result = await runCommand('/retry', { ui: new UI({ color: false, stream: captureStream() }), session });
+
+  assert.equal(result.prompt, 'the real question');
+  assert.equal(session.messages.length, 1, 'the whole failed exchange is dropped');
+});
+
+test('/retry with nothing to retry says so', async () => {
+  const stream = captureStream();
+  const session = { messages: [{ role: 'system', content: 'system' }] };
+  const result = await runCommand('/retry', { ui: new UI({ color: false, stream }), session });
+  assert.equal(result.prompt, undefined);
+  assert.match(stream.text, /Nothing to retry/);
+});

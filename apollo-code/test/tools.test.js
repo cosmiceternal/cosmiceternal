@@ -437,3 +437,21 @@ test('every hard-deny rule is a usable regex with a stated reason', () => {
     assert.equal(rule.re.test('npm test'), false, `rule blocks ordinary commands: ${rule.re}`);
   }
 });
+
+test('the shell is resolved to something that exists on this machine', async () => {
+  const { resolveShell } = await import('../src/tools/bash.js');
+  const shell = resolveShell();
+  if (shell !== true) {
+    assert.ok(fs.existsSync(shell), `${shell} was chosen but does not exist`);
+    assert.doesNotThrow(() => fs.accessSync(shell, fs.constants.X_OK));
+  }
+  assert.equal(resolveShell(), shell, 'the result is cached');
+});
+
+test('commands still run through whichever shell was resolved', async () => {
+  const { ctx, registry } = fixture();
+  // Shell features the resolved shell must support for run_bash to be useful.
+  assert.match(await registry.get('run_bash').run({ command: 'echo a && echo b' }, ctx), /a[\s\S]*b/);
+  assert.match(await registry.get('run_bash').run({ command: 'echo hi | tr a-z A-Z' }, ctx), /HI/);
+  assert.match(await registry.get('run_bash').run({ command: 'FOO=bar; echo $FOO' }, ctx), /bar/);
+});
