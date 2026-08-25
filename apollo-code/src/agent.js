@@ -1,6 +1,6 @@
 import { toolSchemas, buildRegistry } from './tools/index.js';
 import { parseToolCalls, hasCompleteToolCall } from './protocol/text-tools.js';
-import { needsCompaction, compact, usageReport } from './context.js';
+import { needsCompaction, compact, usageReport, conversationTokens, TokenCalibration } from './context.js';
 import { summarizeArgs, NestedUI } from './ui.js';
 import { ProviderError } from './providers/index.js';
 import { CheckpointStore } from './checkpoints.js';
@@ -81,6 +81,7 @@ export class Agent {
     this.state = { todos: session.todos || [], reads: new Map() };
     this.checkpoints = checkpoints ?? new CheckpointStore({ root: workspace.root });
     this.depth = depth;
+    this.calibration = new TokenCalibration();
     this.toolLog = [];
     this.aborted = false;
   }
@@ -150,7 +151,7 @@ export class Agent {
     for (let step = 0; step < this.config.maxSteps; step++) {
       if (signal?.aborted) break;
 
-      if (needsCompaction(this.session.messages, this.config)) {
+      if (needsCompaction(this.session.messages, this.config, this.calibration)) {
         await this.#compact();
       }
 
@@ -268,6 +269,9 @@ export class Agent {
         } else if (event.type === 'usage') {
           this.session.usage.promptTokens += event.promptTokens || 0;
           this.session.usage.completionTokens += event.completionTokens || 0;
+          // The request that was just answered is the message list as it stood
+          // when this turn started — before the assistant reply is appended.
+          this.calibration.observe(event.promptTokens, conversationTokens(this.session.messages));
         }
       }
     } catch (err) {
@@ -334,14 +338,14 @@ export class Agent {
         results.push({ call, content: 'Interrupted by the user.', interrupted: true });
         continue;
       }
-      results.push(await this.#executeOne(call));
+      results.push(await this.#executeOne(call, signal));
     }
     return results;
   }
 
-  async #executeOne(call) {
+  async #executeOne(call, signal) {
     const startedAt = Date.now();
-    const result = await this.#dispatch(call);
+    const result = await this.#dispatch(call, signal);
     this.toolLog.push({
       name: call.name,
       args: call.args,
@@ -352,7 +356,7 @@ export class Agent {
     return result;
   }
 
-  async #dispatch(call) {
+  async #dispatch(call, signal) {
     const tool = this.registry.get(call.name);
     if (!tool) {
       const available = [...this.registry.keys()].join(', ');
@@ -390,7 +394,9 @@ export class Agent {
     }
 
     try {
-      const content = await tool.run(call.args, this.toolContext);
+      // The signal is per-call so Ctrl+C can kill a running command, not just
+      // stop the loop after it finishes.
+      const content = await tool.run(call.args, { ...this.toolContext, signal });
       if (snapshot) {
         this.checkpoints.commit(`${tool.name} ${call.args.path ?? ''}`.trim(), snapshot);
       }
@@ -423,7 +429,7 @@ export class Agent {
   }
 
   usage() {
-    return usageReport(this.session.messages, this.config);
+    return usageReport(this.session.messages, this.config, this.calibration);
   }
 }
 

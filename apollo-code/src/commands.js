@@ -126,7 +126,11 @@ export const COMMANDS = {
       const pct = Math.round(u.fraction * 100);
       const bar = renderBar(u.fraction);
       ui.line();
-      ui.line(`  context  ${bar} ${pct}%  ${ui.dim(`~${u.used} / ${u.budget} tokens`)}`);
+      const calibrated = agent.calibration?.ratio;
+      const note = calibrated && Math.abs(calibrated - 1) > 0.02
+        ? ui.dim(` (calibrated ×${calibrated.toFixed(2)} against this model)`)
+        : '';
+      ui.line(`  context  ${bar} ${pct}%  ${ui.dim(`~${u.used} / ${u.budget} tokens`)}${note}`);
       ui.line(`  window   ${ui.dim(`${config.contextTokens} tokens, reserving ${config.maxTokens} for the reply`)}`);
       ui.line(`  turns    ${ui.dim(String(session.usage.turns))}`);
       ui.line(`  reported ${ui.dim(`${session.usage.promptTokens} prompt + ${session.usage.completionTokens} completion tokens`)}`);
@@ -183,6 +187,30 @@ export const COMMANDS = {
       }
       ui.line();
       ui.info('  Resume with: apollo --resume <id>   (or --continue for the latest)');
+    },
+  },
+
+  resume: {
+    summary: 'Switch to a saved session: /resume <id>, or /resume for the latest',
+    run({ ui, session, workspace, agent, args }) {
+      const loaded = Session.load(workspace.root, args || 'last');
+      if (loaded.id === session.id) {
+        ui.info('That is already the current session.');
+        return;
+      }
+
+      // Adopt the saved session in place; the system prompt is rebuilt from the
+      // current environment rather than restored, so it stays accurate.
+      const system = session.messages.find((m) => m.role === 'system');
+      session.id = loaded.id;
+      session.createdAt = loaded.createdAt;
+      session.usage = loaded.usage;
+      session.todos = loaded.todos;
+      session.messages = system ? [system, ...loaded.messages] : loaded.messages;
+      agent.state.todos = loaded.todos;
+
+      ui.success(`Resumed ${loaded.id} — ${loaded.messages.length} messages.`);
+      ui.info(`  ${session.title()}`);
     },
   },
 

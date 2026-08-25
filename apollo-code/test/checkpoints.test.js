@@ -192,3 +192,44 @@ test('a failed tool leaves no checkpoint behind', async () => {
     await server.close();
   }
 });
+
+test('saved sessions are pruned so the directory does not grow forever', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-prune-'));
+  for (let i = 0; i < 8; i++) {
+    const session = new Session({ root });
+    session.messages.push({ role: 'user', content: `session ${i}` });
+    session.save({ keep: 3 });
+  }
+  assert.equal(fs.readdirSync(path.join(root, '.apollo', 'sessions')).length, 3);
+
+  // The survivors are the most recent ones.
+  const titles = Session.list(root, 99).map((s) => s.title);
+  assert.deepEqual(titles.sort(), ['session 5', 'session 6', 'session 7']);
+});
+
+test('/resume adopts a saved session in place, keeping the system prompt', async () => {
+  const { runCommand } = await import('../src/commands.js');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-resume-'));
+
+  const earlier = new Session({ root });
+  earlier.messages.push({ role: 'user', content: 'the earlier question' });
+  earlier.usage = { promptTokens: 5, completionTokens: 6, turns: 1 };
+  earlier.save();
+
+  const current = new Session({ root });
+  current.messages.push({ role: 'system', content: 'current system prompt' });
+  current.messages.push({ role: 'user', content: 'something else' });
+
+  const stream = captureStream();
+  const agent = { state: { todos: [] } };
+  await runCommand(`/resume ${earlier.id}`, {
+    ui: new UI({ color: false, stream }), session: current,
+    workspace: { root }, agent,
+  });
+
+  assert.equal(current.id, earlier.id);
+  assert.equal(current.messages[0].content, 'current system prompt', 'the live system prompt is kept');
+  assert.equal(current.messages[1].content, 'the earlier question');
+  assert.equal(current.usage.turns, 1);
+  assert.match(stream.text, /Resumed/);
+});

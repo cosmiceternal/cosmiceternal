@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline/promises';
+import { fileURLToPath } from 'node:url';
 import { loadConfig, userConfigDir, saveUserConfig, DEFAULTS } from './config.js';
 import { Workspace } from './workspace.js';
 import { UI } from './ui.js';
@@ -16,7 +17,10 @@ import { expandReferences, createCompleter, History, classify } from './input.js
 import { COMMANDS } from './commands.js';
 import { loadCustomCommands } from './custom-commands.js';
 
-const VERSION = '0.1.0';
+// Read from the manifest so the version can never drift from package.json.
+const VERSION = JSON.parse(
+  fs.readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')
+).version;
 
 const HELP = `apollo — an offline coding agent for your terminal
 

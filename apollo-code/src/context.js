@@ -22,19 +22,47 @@ export function conversationTokens(messages) {
   return messages.reduce((sum, m) => sum + messageTokens(m), 0);
 }
 
-export function usageReport(messages, config) {
-  const used = conversationTokens(messages);
+/**
+ * Self-correcting scale factor for the estimator.
+ *
+ * chars/4 is a decent guess for prose and a poor one for code, and the true
+ * ratio depends on the model's tokenizer. Once the server reports how many
+ * prompt tokens a request actually used, that measurement is worth more than
+ * the heuristic — so compare it against what we estimated for the same
+ * messages and scale future estimates by the difference.
+ */
+export class TokenCalibration {
+  constructor() {
+    this.ratio = 1;
+  }
+
+  /** @param {number} actual reported prompt tokens @param {number} estimated our estimate for the same messages */
+  observe(actual, estimated) {
+    if (!Number.isFinite(actual) || actual <= 0 || estimated <= 0) return;
+    const observed = actual / estimated;
+    // Clamp: a wildly off reading (a server that counts differently, a cached
+    // prefix) should nudge the estimate, not replace it.
+    const clamped = Math.min(3, Math.max(0.5, observed));
+    // Smooth, so one odd turn does not swing the budget.
+    this.ratio = this.ratio === 1 ? clamped : this.ratio * 0.6 + clamped * 0.4;
+  }
+}
+
+export function usageReport(messages, config, calibration) {
+  const raw = conversationTokens(messages);
+  const used = Math.round(raw * (calibration?.ratio ?? 1));
   const budget = config.contextTokens - config.maxTokens;
   return {
     used,
+    raw,
     budget,
     fraction: budget > 0 ? used / budget : 1,
     remaining: Math.max(0, budget - used),
   };
 }
 
-export function needsCompaction(messages, config) {
-  return usageReport(messages, config).fraction >= config.compactAt;
+export function needsCompaction(messages, config, calibration) {
+  return usageReport(messages, config, calibration).fraction >= config.compactAt;
 }
 
 const SUMMARY_MARKER = '[conversation summary]';

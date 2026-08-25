@@ -90,15 +90,31 @@ export default {
         child.kill('SIGKILL');
       }, timeout);
 
+      // Ctrl+C should stop the build, not wait politely for it to finish.
+      let interrupted = false;
+      const onAbort = () => {
+        interrupted = true;
+        killed = true;
+        child.kill('SIGKILL');
+      };
+      if (ctx.signal) {
+        if (ctx.signal.aborted) onAbort();
+        else ctx.signal.addEventListener('abort', onAbort, { once: true });
+      }
+
       child.on('error', (err) => {
         clearTimeout(timer);
+        ctx.signal?.removeEventListener('abort', onAbort);
         reject(new Error(`failed to start command: ${err.message}`));
       });
 
       child.on('close', (code, signal) => {
         clearTimeout(timer);
+        ctx.signal?.removeEventListener('abort', onAbort);
         const body = clampOutput(output.trimEnd(), ctx.config.maxOutputChars);
-        if (killed) {
+        if (interrupted) {
+          resolve(`${body}\n\n[interrupted by the user]`);
+        } else if (killed) {
           resolve(`${body}\n\n[command killed after ${timeout}ms or output limit]`);
         } else if (code === 0) {
           resolve(body || '(no output)');

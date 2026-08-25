@@ -20,7 +20,7 @@ export class Session {
     return path.join(this.dir, `${this.id}.json`);
   }
 
-  save() {
+  save({ keep = 50 } = {}) {
     fs.mkdirSync(this.dir, { recursive: true });
     const payload = {
       id: this.id,
@@ -33,7 +33,35 @@ export class Session {
       messages: this.messages.filter((m) => m.role !== 'system'),
     };
     fs.writeFileSync(this.file, JSON.stringify(payload, null, 2));
+    this.#prune(keep);
     return this.file;
+  }
+
+  /** Keep the session directory from growing without bound over months of use. */
+  #prune(keep) {
+    let files;
+    try {
+      files = fs.readdirSync(this.dir).filter((f) => f.endsWith('.json'));
+    } catch {
+      return;
+    }
+    if (files.length <= keep) return;
+
+    const byAge = files
+      .map((f) => {
+        const full = path.join(this.dir, f);
+        try {
+          return { full, mtime: fs.statSync(full).mtimeMs };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.mtime - a.mtime);
+
+    for (const stale of byAge.slice(keep)) {
+      try { fs.unlinkSync(stale.full); } catch { /* already gone */ }
+    }
   }
 
   title() {

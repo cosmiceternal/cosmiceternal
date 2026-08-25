@@ -501,3 +501,19 @@ test('argument key order does not hide a repeated call', async () => {
     await server.close();
   }
 });
+
+test('the estimator calibrates itself against reported prompt tokens', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'ok' }, { text: 'ok' }] });
+  try {
+    const { agent } = harness({ baseUrl: server.baseUrl });
+    assert.equal(agent.calibration.ratio, 1);
+
+    // The fake reports 11 prompt tokens for a prompt we estimate much higher,
+    // so the ratio should drop toward the clamp floor.
+    await agent.run('hello');
+    assert.ok(agent.calibration.ratio < 1, 'a smaller real count should shrink the estimate');
+    assert.ok(agent.calibration.ratio >= 0.5, 'and stay within the clamp');
+  } finally {
+    await server.close();
+  }
+});

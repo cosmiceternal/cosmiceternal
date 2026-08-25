@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { estimateTokens, conversationTokens, needsCompaction, usageReport, compact } from '../src/context.js';
+import { estimateTokens, conversationTokens, needsCompaction, usageReport, compact, TokenCalibration } from '../src/context.js';
 import { DEFAULTS } from '../src/config.js';
 
 const config = { ...DEFAULTS, contextTokens: 1000, maxTokens: 200, compactAt: 0.75 };
@@ -97,4 +97,51 @@ test('an empty summary aborts compaction rather than losing history', async () =
   const result = await compact(messages, fakeProvider('   '));
   assert.equal(result.compacted, false);
   assert.equal(result.messages.length, messages.length);
+});
+
+test('calibration scales estimates toward what the server actually reported', () => {
+  const cal = new TokenCalibration();
+  assert.equal(cal.ratio, 1);
+
+  // The server says the prompt was 1500 tokens where we guessed 1000.
+  cal.observe(1500, 1000);
+  assert.equal(cal.ratio, 1.5, 'the first measurement is taken at face value');
+
+  // A second, similar reading barely moves it.
+  cal.observe(1520, 1000);
+  assert.ok(cal.ratio > 1.4 && cal.ratio < 1.6);
+});
+
+test('calibration ignores nonsense readings and clamps extremes', () => {
+  const cal = new TokenCalibration();
+  for (const [actual, estimated] of [[0, 100], [-5, 100], [100, 0], [NaN, 100]]) {
+    cal.observe(actual, estimated);
+    assert.equal(cal.ratio, 1, `${actual}/${estimated} should be ignored`);
+  }
+  cal.observe(100000, 10);   // absurd
+  assert.equal(cal.ratio, 3, 'clamped to the upper bound');
+});
+
+test('a calibrated estimate shifts the compaction threshold', () => {
+  const messages = [{ role: 'user', content: 'x'.repeat(2000) }];   // ~500 raw tokens
+  const cfg = { ...DEFAULTS, contextTokens: 1000, maxTokens: 200, compactAt: 0.75 };
+
+  assert.equal(needsCompaction(messages, cfg), false, 'raw estimate fits');
+
+  const cal = new TokenCalibration();
+  cal.observe(1000, 500);   // this model really uses twice what we guessed
+  assert.equal(needsCompaction(messages, cfg, cal), true, 'calibrated estimate does not');
+});
+
+test('usageReport exposes both the raw and calibrated figures', () => {
+  const messages = [{ role: 'user', content: 'x'.repeat(800) }];
+  const cfg = { ...DEFAULTS, contextTokens: 1000, maxTokens: 200 };
+
+  const cal = new TokenCalibration();
+  cal.observe(300, 200);   // ratio 1.5
+
+  const report = usageReport(messages, cfg, cal);
+  assert.equal(report.raw, conversationTokens(messages), 'raw is the uncalibrated estimate');
+  assert.equal(report.used, Math.round(report.raw * 1.5));
+  assert.equal(usageReport(messages, cfg).used, report.raw, 'no calibration means no scaling');
 });

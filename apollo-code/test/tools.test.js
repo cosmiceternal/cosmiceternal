@@ -310,3 +310,41 @@ test('mutating tools declare the files they affect, for checkpointing', () => {
     assert.deepEqual(tool.affects({ path: 'src/index.js' }, ctx), [path.join(ctx.workspace.root, 'src/index.js')]);
   }
 });
+
+test('an aborted signal kills a running command instead of waiting it out', async () => {
+  const { ctx, registry } = fixture();
+  const controller = new AbortController();
+  const startedAt = Date.now();
+
+  const running = registry.get('run_bash').run(
+    { command: 'sleep 30' },
+    { ...ctx, signal: controller.signal }
+  );
+  setTimeout(() => controller.abort(), 150);
+
+  const output = await running;
+  assert.match(output, /interrupted by the user/);
+  assert.ok(Date.now() - startedAt < 5000, 'must not wait for the full sleep');
+});
+
+test('a command started with an already-aborted signal stops immediately', async () => {
+  const { ctx, registry } = fixture();
+  const controller = new AbortController();
+  controller.abort();
+  const output = await registry.get('run_bash').run(
+    { command: 'sleep 30' },
+    { ...ctx, signal: controller.signal }
+  );
+  assert.match(output, /interrupted by the user/);
+});
+
+test('a command that finishes normally is unaffected by a live signal', async () => {
+  const { ctx, registry } = fixture();
+  const controller = new AbortController();
+  const output = await registry.get('run_bash').run(
+    { command: 'echo done' },
+    { ...ctx, signal: controller.signal }
+  );
+  assert.match(output, /done/);
+  assert.ok(!output.includes('interrupted'));
+});
