@@ -27,7 +27,8 @@ const server = await startFakeOllama({
   turns: [
     { text: 'Hello — this is a fake local model.' },
     { text: 'Reading now. ', toolCalls: [{ name: 'read_file', args: { path: 'demo.js' } }] },
-    { text: 'It exports `answer`, which is 42.' },
+    { text: 'It exports **answer**, which is `42`.\n\n```js\nexport const answer = 42;\n```\n' },
+    { text: 'I can see the file you attached.' },
   ],
 });
 
@@ -47,8 +48,11 @@ const script = [
   [700, 'hello there'],
   [1400, '/tools'],
   [2100, 'what does demo.js export?'],
-  [3200, '/context'],
-  [3900, '/exit'],
+  [3400, '!echo shell-escape-works'],
+  [4100, 'explain @demo.js'],
+  [5000, '/checkpoints'],
+  [5600, '/context'],
+  [6200, '/exit'],
 ];
 for (const [delay, line] of script) setTimeout(() => child.stdin.write(line + '\n'), delay);
 
@@ -65,7 +69,14 @@ const checks = {
   'tool call rendered': /● read_file\(demo\.js\)/.test(plain),
   'tool result rendered': /⎿ 2 lines/.test(plain),
   'answered using the tool result': /42/.test(plain),
+  'markdown markers consumed, not printed': /answer, which is 42/.test(plain) && !/\*\*answer\*\*/.test(plain),
+  'code fence rendered as a block': /┌─ js/.test(plain) && /│ export const answer/.test(plain),
+  'shell escape ran the command': /shell-escape-works/.test(plain),
+  '@reference attached the file': /attached demo\.js \(2 lines\)/.test(plain),
   'protocol never leaked to the terminal': !/apollo:tool/.test(plain),
+  // The fake server answers instantly, so a sub-second turn must stay quiet
+  // rather than reporting an absurd tokens/second figure.
+  'no bogus rate on an instant turn': !/\d{3,}\.\d tok\/s/.test(plain),
   '/context reported usage': /context {2}\[/.test(plain) && /tokens/.test(plain),
   'session saved on exit': /Session saved/.test(plain),
 };

@@ -94,8 +94,8 @@ export const COMMANDS = {
       ui.line();
       ui.info(`  tool calling: ${toolMode()}`);
       for (const tool of registry.values()) {
-        const tag = tool.readOnly ? ui.dim('read') : ui.yellow('write');
-        ui.line(`  ${tool.name.padEnd(12)} ${tag}  ${ui.dim(tool.description.split('.')[0])}`);
+        const tag = tool.readOnly ? ui.dim('read ') : ui.yellow('write');
+        ui.line(`  ${tool.name.padEnd(12)} ${tag}  ${ui.dim(firstSentence(tool.description))}`);
       }
       ui.line();
     },
@@ -291,6 +291,13 @@ export async function runCommand(input, ctx) {
     ctx.ui.error(err.message);
     return {};
   }
+}
+
+/** First sentence of a description, without splitting on "e.g." or "i.e.". */
+function firstSentence(text, max = 78) {
+  const match = text.match(/^.*?[.!?](?=\s+[A-Z]|$)/s);
+  const sentence = (match ? match[0] : text).replace(/\s+/g, ' ').trim();
+  return sentence.length > max ? sentence.slice(0, max - 1) + '…' : sentence;
 }
 
 function renderBar(fraction, width = 20) {

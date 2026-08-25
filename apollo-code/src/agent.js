@@ -4,6 +4,7 @@ import { needsCompaction, compact, usageReport } from './context.js';
 import { summarizeArgs } from './ui.js';
 import { ProviderError } from './providers/index.js';
 import { CheckpointStore } from './checkpoints.js';
+import { MarkdownStream } from './markdown.js';
 
 /**
  * Holds back the tail of a stream that might be the beginning of a tool block,
@@ -156,6 +157,7 @@ export class Agent {
     const native = this.toolMode === 'native';
     const tools = native ? toolSchemas(this.registry) : null;
     const filter = new StreamFilter();
+    const markdown = new MarkdownStream(this.ui);
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     signal?.addEventListener('abort', onAbort, { once: true });
@@ -178,7 +180,7 @@ export class Agent {
           raw += event.delta;
           if (!started) { this.ui.stopSpinner(); started = true; }
           const shown = native ? event.delta : filter.feed(event.delta);
-          if (shown) { this.ui.write(shown); visible += shown; }
+          if (shown) { markdown.write(shown); visible += shown; }
 
           // In text mode the block is complete — no point generating further.
           if (!native && hasCompleteToolCall(raw)) {
@@ -207,7 +209,8 @@ export class Agent {
     }
 
     const tail = native ? '' : filter.flush();
-    if (tail) { this.ui.write(tail); visible += tail; }
+    if (tail) { markdown.write(tail); visible += tail; }
+    markdown.flush();
     this.ui.flushLine();
 
     let parseErrors = [];

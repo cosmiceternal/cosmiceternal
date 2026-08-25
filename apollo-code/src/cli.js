@@ -12,6 +12,8 @@ import { Agent } from './agent.js';
 import { Session } from './session.js';
 import { runCommand } from './commands.js';
 import { CheckpointStore } from './checkpoints.js';
+import { expandReferences, createCompleter, History, classify } from './input.js';
+import { COMMANDS } from './commands.js';
 
 const VERSION = '0.1.0';
 
@@ -253,10 +255,13 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
     ? Session.load(workspace.root, resume)
     : new Session({ root: workspace.root });
 
+  const history = new History();
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    historySize: 200,
+    historySize: 500,
+    history: history.load(),
+    completer: createCompleter(workspace, Object.keys(COMMANDS)),
   });
 
   const { agent, permissions, toolMode } = await createAgent({
@@ -299,23 +304,42 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
   for (;;) {
     let input;
     try {
-      input = (await rl.question(ui.cyan('\n› '))).trim();
+      input = await readInput(rl, ui);
     } catch {
       break; // stdin closed
     }
+    if (input === null) break;
     if (!input) continue;
     interruptedOnce = false;
+    history.append(input);
 
-    const result = await runCommand(input, commandContext);
-    if (result) {
+    const { kind, body } = classify(input);
+
+    if (kind === 'shell') {
+      await runShellEscape(body, { ui, registry, agent, session });
+      continue;
+    }
+
+    if (kind === 'command') {
+      const result = await runCommand(body, commandContext);
       if (result.exit) break;
       if (!result.prompt) continue;
       input = result.prompt;
+    } else {
+      const { text, attached, errors } = expandReferences(input, workspace);
+      for (const problem of errors) ui.warn(problem);
+      for (const ref of attached) {
+        ui.info(`  attached ${ref.path}${ref.lines ? ` (${ref.lines} lines)` : '/'}`);
+      }
+      input = text;
     }
 
     turnController = new AbortController();
+    const startedAt = Date.now();
+    const before = { ...session.usage };
     try {
       await agent.run(input, { signal: turnController.signal });
+      reportTurnCost(ui, session.usage, before, startedAt);
     } catch (err) {
       ui.flushLine();
       ui.error(err.message);
@@ -331,6 +355,61 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
   const file = session.save();
   ui.info(`Session saved: ${path.relative(workspace.root, file)}`);
   return 0;
+}
+
+/**
+ * Read one logical input. A trailing backslash continues onto the next line, so
+ * a multi-line prompt does not need a mouse or a heredoc.
+ */
+async function readInput(rl, ui) {
+  let text = '';
+  for (;;) {
+    const line = await rl.question(text ? ui.dim('  … ') : ui.cyan('\n› '));
+    const { kind, body } = classify(line);
+    if (kind === 'continued') {
+      text += body + '\n';
+      continue;
+    }
+    return (text + line).trim();
+  }
+}
+
+/** `!npm test` — run a command directly, and keep the result in context. */
+async function runShellEscape(command, { ui, registry, agent, session }) {
+  if (!command) {
+    ui.info('Usage: !<command>   e.g. !git status');
+    return;
+  }
+  const bash = registry.get('run_bash');
+  if (!bash) {
+    ui.error('Shell commands are not available in read-only mode.');
+    return;
+  }
+  ui.toolCall('shell', command);
+  let output;
+  try {
+    output = await bash.run({ command }, agent.toolContext);
+  } catch (err) {
+    output = `Error: ${err.message}`;
+  }
+  ui.line(output);
+  // The model should know what the user just ran; otherwise the next question
+  // ("why did that fail?") has no referent.
+  session.messages.push({
+    role: 'user',
+    content: `I ran this command myself:\n\n$ ${command}\n\n${output}`,
+  });
+  session.messages.push({ role: 'assistant', content: 'Noted.' });
+}
+
+/** Local models are slow enough that tokens/second is worth showing. */
+function reportTurnCost(ui, usage, before, startedAt) {
+  const seconds = (Date.now() - startedAt) / 1000;
+  const completion = usage.completionTokens - before.completionTokens;
+  if (seconds < 0.5 || completion === 0) return;   // too short to say anything useful
+  const parts = [`${seconds.toFixed(1)}s`, `${completion} tokens`];
+  if (seconds >= 1) parts.push(`${(completion / seconds).toFixed(1)} tok/s`);
+  ui.line(ui.dim('  ' + parts.join(' · ')));
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -370,7 +449,6 @@ export async function main(argv = process.argv.slice(2)) {
     }
 
     if (args.command === 'init') {
-      const { COMMANDS } = await import('./commands.js');
       const { prompt } = COMMANDS.init.run();
       return await runHeadless({ ...ctx, promptText: prompt, resume: args.resume });
     }
