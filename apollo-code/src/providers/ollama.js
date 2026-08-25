@@ -74,6 +74,9 @@ export class OllamaProvider {
       model: this.config.model,
       messages: this.#toWire(messages),
       stream: true,
+      // Hold the model in VRAM between turns. Without this Ollama unloads it
+      // after a few idle minutes and the next message pays the full reload.
+      keep_alive: this.config.keepAlive,
       options: {
         temperature: this.config.temperature,
         top_p: this.config.topP,

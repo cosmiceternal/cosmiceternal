@@ -14,6 +14,7 @@ export const DEFAULTS = {
   topP: 0.95,
   maxTokens: 4096,
   contextTokens: 16384,
+  keepAlive: '30m',                       // how long Ollama holds the model in VRAM
 
   // Agent
   toolMode: 'auto',                       // 'auto' | 'native' | 'text'

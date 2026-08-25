@@ -176,6 +176,32 @@ export const COMMANDS = {
     },
   },
 
+  undo: {
+    summary: 'Revert the last file change Apollo made (/undo <id> for an earlier one)',
+    run({ ui, agent, args }) {
+      const result = agent.checkpoints.undo(args || undefined);
+      ui.success(`Reverted: ${result.label}`);
+      for (const file of result.restored) ui.line(`  ${ui.dim('restored')} ${file}`);
+      for (const file of result.deleted) ui.line(`  ${ui.dim('deleted')}  ${file}`);
+      ui.info('The model still has the old contents in its context — tell it what you reverted.');
+    },
+  },
+
+  checkpoints: {
+    summary: 'List file changes that can be reverted with /undo',
+    run({ ui, agent }) {
+      const entries = agent.checkpoints.list();
+      if (!entries.length) { ui.info('No file changes recorded yet.'); return; }
+      ui.line();
+      for (const entry of entries) {
+        const when = new Date(entry.at).toLocaleTimeString();
+        ui.line(`  ${ui.cyan(entry.id)}  ${ui.dim(when)}  ${entry.label}  ${ui.dim(entry.files.join(', '))}`);
+      }
+      ui.line();
+      ui.info('  /undo reverts the most recent; /undo <id> reverts a specific one.');
+    },
+  },
+
   diff: {
     summary: 'Show the working-tree diff (git)',
     async run({ ui, registry, agent }) {

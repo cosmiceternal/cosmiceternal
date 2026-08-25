@@ -11,6 +11,7 @@ import { Permissions, createInteractivePrompt } from './permissions.js';
 import { Agent } from './agent.js';
 import { Session } from './session.js';
 import { runCommand } from './commands.js';
+import { CheckpointStore } from './checkpoints.js';
 
 const VERSION = '0.1.0';
 
@@ -225,6 +226,7 @@ async function createAgent({ config, ui, workspace, provider, registry, session,
 
   const agent = new Agent({
     config, provider, workspace, registry, permissions, ui, session, toolMode, rebuildSystem,
+    checkpoints: new CheckpointStore({ root: workspace.root }),
   });
   agent.setSystemPrompt(rebuildSystem(toolMode));
   return { agent, permissions, toolMode };

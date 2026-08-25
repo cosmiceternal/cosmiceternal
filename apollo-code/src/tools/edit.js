@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { readTextFile } from '../fsutil.js';
+import { assertFresh, recordWrite } from './filestate.js';
 
 /**
  * Exact string replacement. Exported so tests can exercise the matching rules
@@ -84,8 +85,12 @@ export default {
     },
     required: ['path', 'old_string', 'new_string'],
   },
+  affects(args, ctx) {
+    return [ctx.workspace.resolve(args.path)];
+  },
   preview(args, ctx) {
     const abs = ctx.workspace.resolve(args.path);
+    assertFresh(ctx.state, abs, args.path);
     const source = readTextFile(abs);
     const { result } = applyEdit(source, args.old_string, args.new_string, args.replace_all);
     return { summary: `Edit ${args.path}`, diff: diffLines(source, result) };
@@ -93,11 +98,13 @@ export default {
   async run(args, ctx) {
     const abs = ctx.workspace.resolve(args.path);
     if (!fs.existsSync(abs)) throw new Error(`${args.path} does not exist`);
+    assertFresh(ctx.state, abs, args.path);
     const source = readTextFile(abs);
     const { result, occurrences } = applyEdit(
       source, args.old_string, args.new_string, args.replace_all
     );
     fs.writeFileSync(abs, result, 'utf8');
+    recordWrite(ctx.state, abs);
     return `Edited ${args.path} (${occurrences} replacement${occurrences === 1 ? '' : 's'})`;
   },
 };

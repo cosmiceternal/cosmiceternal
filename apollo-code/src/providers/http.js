@@ -8,8 +8,33 @@ export class ProviderError extends Error {
   }
 }
 
-/** fetch with a timeout and error messages that say what to do next. */
-export async function request(url, { method = 'GET', body, headers = {}, signal, timeoutMs = 600000 } = {}) {
+/**
+ * fetch with a timeout, bounded retries, and error messages that say what to do
+ * next.
+ *
+ * Retries cover the one failure that is genuinely transient against a local
+ * server: the connection being refused or dropped while the backend is still
+ * loading a model into VRAM. An HTTP error is never retried — a 400 means the
+ * request is wrong and sending it again wastes the user's time.
+ */
+export async function request(url, options = {}) {
+  const { retries = 2, retryDelayMs = 300 } = options;
+  let lastError;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await attemptRequest(url, options);
+    } catch (err) {
+      lastError = err;
+      const retryable = err instanceof ProviderError && err.status === undefined;
+      if (!retryable || attempt === retries || options.signal?.aborted) break;
+      await new Promise((r) => setTimeout(r, retryDelayMs * 2 ** attempt));
+    }
+  }
+  throw lastError;
+}
+
+async function attemptRequest(url, { method = 'GET', body, headers = {}, signal, timeoutMs = 600000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error('request timed out')), timeoutMs);
   const onAbort = () => controller.abort(signal.reason);

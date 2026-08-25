@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { readTextFile, clampOutput } from '../fsutil.js';
+import { recordRead } from './filestate.js';
 
 const MAX_LINE = 2000;
 
@@ -24,6 +25,7 @@ export default {
     if (stat.isDirectory()) throw new Error(`${args.path} is a directory — use list_dir`);
 
     const text = readTextFile(abs);
+    recordRead(ctx.state, abs);
     const all = text.split('\n');
     const offset = Math.max(1, Number(args.offset) || 1);
     const limit = Math.min(Number(args.limit) || 2000, 5000);

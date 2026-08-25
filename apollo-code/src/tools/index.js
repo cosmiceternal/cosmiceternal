@@ -1,6 +1,7 @@
 import readFile from './read.js';
 import writeFile from './write.js';
 import editFile from './edit.js';
+import multiEdit from './multi-edit.js';
 import listDir from './ls.js';
 import globTool from './glob.js';
 import grepTool from './grep.js';
@@ -8,7 +9,7 @@ import runBash from './bash.js';
 import todoWrite from './todo.js';
 
 export const ALL_TOOLS = [
-  readFile, listDir, globTool, grepTool, editFile, writeFile, runBash, todoWrite,
+  readFile, listDir, globTool, grepTool, editFile, multiEdit, writeFile, runBash, todoWrite,
 ];
 
 export function buildRegistry({ readOnly = false } = {}) {

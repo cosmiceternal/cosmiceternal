@@ -142,6 +142,7 @@ test('openai-compatible provider: split tool-call argument frames are reassemble
 test('a denied tool call is reported back to the model, not executed', async () => {
   const server = await startFakeOllama({
     turns: [
+      { toolCalls: [{ name: 'read_file', args: { path: 'index.js' } }] },
       { toolCalls: [{ name: 'write_file', args: { path: 'index.js', content: 'wiped' } }] },
       { text: 'Understood, leaving it alone.' },
     ],
@@ -165,6 +166,7 @@ test('a denied tool call is reported back to the model, not executed', async () 
 test('an approved edit is applied to disk', async () => {
   const server = await startFakeOllama({
     turns: [
+      { toolCalls: [{ name: 'read_file', args: { path: 'index.js' } }] },
       { toolCalls: [{ name: 'edit_file', args: { path: 'index.js', old_string: '1.0.0', new_string: '2.0.0' } }] },
       { text: 'Bumped to 2.0.0.' },
     ],
@@ -210,6 +212,23 @@ test('an unknown tool name is reported with the list of real tools', async () =>
     const result = session.messages.find((m) => m.role === 'tool');
     assert.match(result.content, /no tool named "delete_everything"/);
     assert.match(result.content, /read_file/);
+  } finally {
+    await server.close();
+  }
+});
+
+test('the model is told to read a file before overwriting it', async () => {
+  const server = await startFakeOllama({
+    turns: [
+      { toolCalls: [{ name: 'write_file', args: { path: 'index.js', content: 'wiped' } }] },
+      { text: 'Right, I should read it first.' },
+    ],
+  });
+  try {
+    const { agent, session, root } = harness({ baseUrl: server.baseUrl });
+    await agent.run('rewrite index.js');
+    assert.match(fs.readFileSync(path.join(root, 'index.js'), 'utf8'), /1\.0\.0/, 'blind overwrite must not happen');
+    assert.match(session.messages.find((m) => m.role === 'tool').content, /have not read it in this session/);
   } finally {
     await server.close();
   }
@@ -300,4 +319,57 @@ test('an unreachable server produces an actionable error', async () => {
     assert.match(err.hint, /apollo doctor/);
     return true;
   });
+});
+
+test('a connection dropped while the model loads is retried', async () => {
+  // First connection attempt is refused, then the server comes up.
+  const { createServer } = await import('node:http');
+  const flaky = createServer();
+  let attempts = 0;
+  flaky.on('request', (req, res) => {
+    attempts++;
+    if (attempts === 1) { req.socket.destroy(); return; }
+    res.writeHead(200, { 'content-type': 'application/x-ndjson' });
+    res.end(JSON.stringify({ message: { role: 'assistant', content: 'up now' }, done: true }) + '\n');
+  });
+  await new Promise((r) => flaky.listen(0, '127.0.0.1', r));
+
+  try {
+    const { agent } = harness({ baseUrl: `http://127.0.0.1:${flaky.address().port}` });
+    const answer = await agent.run('hello');
+    assert.equal(answer, 'up now');
+    assert.equal(attempts, 2, 'should have retried exactly once');
+  } finally {
+    await new Promise((r) => flaky.close(r));
+  }
+});
+
+test('an HTTP error is surfaced immediately rather than retried', async () => {
+  const { createServer } = await import('node:http');
+  let attempts = 0;
+  const server = createServer((req, res) => {
+    attempts++;
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: 'model does not support tools' }));
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+
+  try {
+    const { agent } = harness({ baseUrl: `http://127.0.0.1:${server.address().port}` });
+    await assert.rejects(agent.run('hi'), /400/);
+    assert.equal(attempts, 1, 'a 400 is a bug in the request, not a flake');
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
+
+test('ollama is asked to keep the model resident between turns', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'hi' }] });
+  try {
+    const { agent } = harness({ baseUrl: server.baseUrl });
+    await agent.run('hello');
+    assert.equal(server.requests.find((r) => r.url === '/api/chat').body.keep_alive, '30m');
+  } finally {
+    await server.close();
+  }
 });

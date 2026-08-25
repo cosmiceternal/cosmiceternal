@@ -55,6 +55,7 @@ test('write_file creates parent directories and reports create vs update', async
   const write = registry.get('write_file');
   assert.match(await write.run({ path: 'a/b/c.js', content: 'x\n' }, ctx), /^Created/);
   assert.equal(fs.readFileSync(path.join(root, 'a/b/c.js'), 'utf8'), 'x\n');
+  // Writing it a second time is allowed: this session wrote it, so it is not stale.
   assert.match(await write.run({ path: 'a/b/c.js', content: 'y\n' }, ctx), /^Updated/);
 });
 
@@ -66,6 +67,7 @@ test('write_file rejects a non-string body', async () => {
 test('edit_file applies to disk and preview produces a diff without writing', async () => {
   const { ctx, root, registry } = fixture();
   const edit = registry.get('edit_file');
+  await registry.get('read_file').run({ path: 'src/index.js' }, ctx);   // read-before-write
   const preview = edit.preview({ path: 'src/index.js', old_string: '42', new_string: '43' }, ctx);
   assert.ok(preview.diff.some((l) => l.startsWith('+')));
   assert.match(fs.readFileSync(path.join(root, 'src/index.js'), 'utf8'), /42/, 'preview must not write');
@@ -208,4 +210,103 @@ test('clampOutput keeps the head and tail of huge output', () => {
   assert.match(clamped, /characters truncated/);
   assert.ok(clamped.startsWith('A'));
   assert.ok(clamped.endsWith('Z'));
+});
+
+test('edit_file refuses a file this session has never read', async () => {
+  const { ctx, registry } = fixture();
+  await assert.rejects(
+    registry.get('edit_file').run({ path: 'src/index.js', old_string: '42', new_string: '43' }, ctx),
+    /have not read it in this session/
+  );
+});
+
+test('write_file refuses to blind-overwrite an existing unread file', async () => {
+  const { ctx, root, registry } = fixture();
+  await assert.rejects(
+    registry.get('write_file').run({ path: 'README.md', content: 'wiped' }, ctx),
+    /have not read it in this session/
+  );
+  assert.match(fs.readFileSync(path.join(root, 'README.md'), 'utf8'), /# Fixture/);
+});
+
+test('write_file still creates a brand new file without a prior read', async () => {
+  const { ctx, registry } = fixture();
+  assert.match(await registry.get('write_file').run({ path: 'brand-new.js', content: 'x\n' }, ctx), /^Created/);
+});
+
+test('editing a file that changed on disk after the read is refused', async () => {
+  const { ctx, root, registry } = fixture();
+  await registry.get('read_file').run({ path: 'src/index.js' }, ctx);
+
+  // Someone else — the user, a formatter, a git checkout — touches the file.
+  await new Promise((r) => setTimeout(r, 10));
+  fs.writeFileSync(path.join(root, 'src/index.js'), 'export const answer = 99;\n// edited elsewhere\n');
+
+  await assert.rejects(
+    registry.get('edit_file').run({ path: 'src/index.js', old_string: '99', new_string: '100' }, ctx),
+    /changed on disk since you read it/
+  );
+  assert.match(fs.readFileSync(path.join(root, 'src/index.js'), 'utf8'), /edited elsewhere/);
+});
+
+test('consecutive edits to the same file are allowed after one read', async () => {
+  const { ctx, root, registry } = fixture();
+  const edit = registry.get('edit_file');
+  await registry.get('read_file').run({ path: 'src/index.js' }, ctx);
+  await edit.run({ path: 'src/index.js', old_string: '42', new_string: '43' }, ctx);
+  await edit.run({ path: 'src/index.js', old_string: '43', new_string: '44' }, ctx);
+  assert.match(fs.readFileSync(path.join(root, 'src/index.js'), 'utf8'), /44/);
+});
+
+test('multi_edit applies every change in order', async () => {
+  const { ctx, root, registry } = fixture();
+  await registry.get('read_file').run({ path: 'src/deep/util.js' }, ctx);
+  await registry.get('multi_edit').run({
+    path: 'src/deep/util.js',
+    edits: [
+      { old_string: 'export function util()', new_string: 'export function helper()' },
+      { old_string: 'return 1;', new_string: 'return 2;' },
+    ],
+  }, ctx);
+  const after = fs.readFileSync(path.join(root, 'src/deep/util.js'), 'utf8');
+  assert.match(after, /export function helper\(\)/);
+  assert.match(after, /return 2;/);
+});
+
+test('multi_edit writes nothing if any single edit fails', async () => {
+  const { ctx, root, registry } = fixture();
+  await registry.get('read_file').run({ path: 'src/deep/util.js' }, ctx);
+  const before = fs.readFileSync(path.join(root, 'src/deep/util.js'), 'utf8');
+
+  await assert.rejects(registry.get('multi_edit').run({
+    path: 'src/deep/util.js',
+    edits: [
+      { old_string: 'return 1;', new_string: 'return 2;' },
+      { old_string: 'NOT PRESENT', new_string: 'x' },
+    ],
+  }, ctx), /edits\[1\] failed[\s\S]*no changes were written/);
+
+  assert.equal(fs.readFileSync(path.join(root, 'src/deep/util.js'), 'utf8'), before);
+});
+
+test('multi_edit sees the result of its own earlier edits', async () => {
+  const { ctx, root, registry } = fixture();
+  await registry.get('read_file').run({ path: 'src/index.js' }, ctx);
+  await registry.get('multi_edit').run({
+    path: 'src/index.js',
+    edits: [
+      { old_string: '42', new_string: 'SENTINEL' },
+      { old_string: 'SENTINEL', new_string: '7' },
+    ],
+  }, ctx);
+  assert.match(fs.readFileSync(path.join(root, 'src/index.js'), 'utf8'), /answer = 7;/);
+});
+
+test('mutating tools declare the files they affect, for checkpointing', () => {
+  const { ctx, registry } = fixture();
+  for (const name of ['write_file', 'edit_file', 'multi_edit']) {
+    const tool = registry.get(name);
+    assert.equal(typeof tool.affects, 'function', `${name} must declare affects()`);
+    assert.deepEqual(tool.affects({ path: 'src/index.js' }, ctx), [path.join(ctx.workspace.root, 'src/index.js')]);
+  }
 });

@@ -3,6 +3,7 @@ import { parseToolCalls, hasCompleteToolCall } from './protocol/text-tools.js';
 import { needsCompaction, compact, usageReport } from './context.js';
 import { summarizeArgs } from './ui.js';
 import { ProviderError } from './providers/index.js';
+import { CheckpointStore } from './checkpoints.js';
 
 /**
  * Holds back the tail of a stream that might be the beginning of a tool block,
@@ -66,7 +67,7 @@ function longestSuffixPrefix(text, marker) {
 }
 
 export class Agent {
-  constructor({ config, provider, workspace, registry, permissions, ui, session, toolMode, rebuildSystem }) {
+  constructor({ config, provider, workspace, registry, permissions, ui, session, toolMode, rebuildSystem, checkpoints }) {
     this.config = config;
     this.provider = provider;
     this.workspace = workspace;
@@ -76,7 +77,8 @@ export class Agent {
     this.session = session;
     this.toolMode = toolMode;
     this.rebuildSystem = rebuildSystem;
-    this.state = { todos: session.todos || [] };
+    this.state = { todos: session.todos || [], reads: new Map() };
+    this.checkpoints = checkpoints ?? new CheckpointStore({ root: workspace.root });
     this.aborted = false;
   }
 
@@ -289,8 +291,19 @@ export class Agent {
       return { call, content: `Denied: ${decision.reason}`, isError: true, denied: true };
     }
 
+    // Snapshot before the change, not after, so /undo can always get back.
+    let snapshot = null;
+    if (tool.affects) {
+      try {
+        snapshot = this.checkpoints.capture(tool.affects(call.args, this.toolContext));
+      } catch { /* an unresolvable path fails in run() with a better message */ }
+    }
+
     try {
       const content = await tool.run(call.args, this.toolContext);
+      if (snapshot) {
+        this.checkpoints.commit(`${tool.name} ${call.args.path ?? ''}`.trim(), snapshot);
+      }
       this.ui.toolResult(summarizeResult(tool.name, content));
       return { call, content: String(content) };
     } catch (err) {
