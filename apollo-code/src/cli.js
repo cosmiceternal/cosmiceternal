@@ -16,6 +16,7 @@ import { CheckpointStore } from './checkpoints.js';
 import { expandReferences, createCompleter, History, classify } from './input.js';
 import { COMMANDS } from './commands.js';
 import { loadCustomCommands } from './custom-commands.js';
+import { runSelftest, SCENARIO_IDS } from './selftest.js';
 
 // Read from the manifest so the version can never drift from package.json.
 const VERSION = JSON.parse(
@@ -31,6 +32,7 @@ Usage
   apollo models                 list the models your backend has installed
   apollo init                   write an APOLLO.md for this project
   apollo setup                  pick a backend and model, and save them
+  apollo selftest               check whether your model can actually drive Apollo
 
 Model
   --provider <ollama|openai>    backend dialect (default: ollama)
@@ -54,6 +56,13 @@ Session
   --json                        with -p, print one JSON object instead of prose
   --version, --help
 
+In a session
+  @path                         attach a file or directory listing to your message
+  !command                      run a shell command yourself; output stays in context
+  \\ at end of line              continue onto the next line
+  Tab                           complete slash commands and @paths
+  /help                         list commands, including this project's own
+
 Everything is also settable in ~/.apollo/config.json, .apollo/config.json in a
 project, or via APOLLO_* environment variables.`;
 
@@ -64,7 +73,7 @@ const FLAG_ALIASES = {
 };
 
 export function parseArgs(argv) {
-  const out = { flags: {}, prompt: null, command: null, cwd: process.cwd(), resume: null, json: false };
+  const out = { flags: {}, prompt: null, command: null, cwd: process.cwd(), resume: null, json: false, only: null };
   const positional = [];
 
   for (let i = 0; i < argv.length; i++) {
@@ -77,6 +86,8 @@ export function parseArgs(argv) {
       out.cwd = argv[++i];
     } else if (arg === '--resume') {
       out.resume = argv[++i];
+    } else if (arg === '--only') {
+      out.only = argv[++i];
     } else if (arg === '-c' || arg === '--continue') {
       out.resume = 'last';
     } else if (arg === '--yolo') {
@@ -109,7 +120,7 @@ export function parseArgs(argv) {
 
   if (!out.command && positional.length) {
     const first = positional[0].toLowerCase();
-    if (['doctor', 'models', 'init', 'setup'].includes(first)) {
+    if (['doctor', 'models', 'init', 'setup', 'selftest'].includes(first)) {
       out.command = first;
     } else if (!out.prompt) {
       // Bare text is a one-shot prompt: apollo "fix the failing test"
@@ -643,6 +654,19 @@ export async function main(argv = process.argv.slice(2)) {
     if (args.command === 'doctor') return await commandDoctor(ui);
     if (args.command === 'setup') return await commandSetup(ui);
 
+    if (args.command === 'selftest') {
+      await assertBackend(config, provider, ui);
+      const toolMode = await resolveToolMode(config, provider, ui);
+      await resolveContextWindow(config, provider, ui);
+      const { code, results } = await runSelftest({
+        config, provider, toolMode, userDir: userConfigDir(), ui, only: args.only,
+      });
+      if (args.json) {
+        process.stdout.write(JSON.stringify({ model: config.model, toolMode, results }, null, 2) + '\n');
+      }
+      return code;
+    }
+
     if (args.command === 'models') {
       await assertBackend(config, provider, ui);
       const models = await provider.listModels();
@@ -651,6 +675,12 @@ export async function main(argv = process.argv.slice(2)) {
     }
 
     if (args.command === 'init') {
+      // `apollo init` exists to write one file. Refusing to write it because
+      // nobody is at the terminal to approve would make the command useless.
+      if (!args.flags.permissionMode) {
+        config.permissionMode = 'auto-edit';
+        ui.info('Writing APOLLO.md without prompting (apollo init implies --auto-edit).');
+      }
       const { prompt } = COMMANDS.init.run();
       return await runHeadless({ ...ctx, promptText: prompt, resume: args.resume, json: args.json });
     }

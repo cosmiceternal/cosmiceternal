@@ -360,3 +360,43 @@ test('an installed model starts without comment', async () => {
     await server.close();
   }
 });
+
+test('apollo init can actually write the file it exists to write', async () => {
+  const server = await startFakeOllama({
+    turns: [
+      { toolCalls: [{ name: 'write_file', args: { path: 'APOLLO.md', content: '# Project\n' } }] },
+      { text: 'Wrote APOLLO.md.' },
+    ],
+  });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-init-'));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, 'init', '--cwd', cwd, '--base-url', server.baseUrl,
+      '--model', 'fake-coder:7b', '--no-color',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+
+    assert.equal(fs.readFileSync(path.join(cwd, 'APOLLO.md'), 'utf8'), '# Project\n');
+    assert.match(stdout, /implies --auto-edit/);
+  } finally {
+    await server.close();
+  }
+});
+
+test('an explicit permission flag still wins over init default', async () => {
+  const server = await startFakeOllama({
+    turns: [
+      { toolCalls: [{ name: 'write_file', args: { path: 'APOLLO.md', content: 'x' } }] },
+      { text: 'Refused.' },
+    ],
+  });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-init-'));
+  try {
+    await run(process.execPath, [
+      BIN, 'init', '--read-only', '--cwd', cwd, '--base-url', server.baseUrl,
+      '--model', 'fake-coder:7b', '--no-color',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+    assert.equal(fs.existsSync(path.join(cwd, 'APOLLO.md')), false);
+  } finally {
+    await server.close();
+  }
+});

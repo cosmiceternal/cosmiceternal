@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { assertFresh, recordWrite } from './filestate.js';
+import { diffLines } from './edit.js';
+import { readTextFile } from '../fsutil.js';
 
 export default {
   name: 'write_file',
@@ -22,9 +24,18 @@ export default {
   preview(args, ctx) {
     const abs = ctx.workspace.resolve(args.path);
     assertFresh(ctx.state, abs, args.path);
-    const exists = fs.existsSync(abs);
-    const lines = String(args.content ?? '').split('\n').length;
-    return `${exists ? 'Overwrite' : 'Create'} ${args.path} (${lines} lines)`;
+    const content = String(args.content ?? '');
+    const lines = content.split('\n').length;
+
+    if (!fs.existsSync(abs)) {
+      return { summary: `Create ${args.path} (${lines} lines)`, diff: previewOfNewFile(content) };
+    }
+    // Overwriting is the dangerous case: show what is actually changing rather
+    // than a line count the user has to take on trust.
+    return {
+      summary: `Overwrite ${args.path} (${lines} lines)`,
+      diff: diffLines(readTextFile(abs), content, 2),
+    };
   },
   async run(args, ctx) {
     if (typeof args.content !== 'string') throw new Error('content must be a string');
@@ -38,3 +49,11 @@ export default {
     return `${existed ? 'Updated' : 'Created'} ${args.path} (${lines} lines, ${Buffer.byteLength(args.content)} bytes)`;
   },
 };
+
+/** For a new file, show the first few lines rather than an empty diff. */
+function previewOfNewFile(content) {
+  const lines = content.split('\n');
+  const shown = lines.slice(0, 8).map((l) => '+ ' + l);
+  if (lines.length > shown.length) shown.push(`  … ${lines.length - shown.length} more lines`);
+  return shown;
+}

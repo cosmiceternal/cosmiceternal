@@ -348,3 +348,58 @@ test('a command that finishes normally is unaffected by a live signal', async ()
   assert.match(output, /done/);
   assert.ok(!output.includes('interrupted'));
 });
+
+test('grep skips files too large to be source and says so', async () => {
+  const { ctx, root, registry } = fixture();
+  fs.writeFileSync(path.join(root, 'bundle.js'), 'NEEDLE\n' + 'x'.repeat(3 * 1024 * 1024));
+  fs.writeFileSync(path.join(root, 'small.js'), 'NEEDLE here\n');
+
+  const out = await registry.get('grep').run({ pattern: 'NEEDLE' }, ctx);
+  assert.match(out, /small\.js:1:/);
+  assert.ok(!out.includes('bundle.js:'), 'the oversized file must not be searched');
+  assert.match(out, /1 file\(s\) over 2MB were skipped/);
+});
+
+test('a search that matches nothing still reports what it skipped', async () => {
+  const { ctx, root, registry } = fixture();
+  fs.writeFileSync(path.join(root, 'bundle.js'), 'x'.repeat(3 * 1024 * 1024));
+  const out = await registry.get('grep').run({ pattern: 'ZZZNOTHING' }, ctx);
+  assert.match(out, /No matches/);
+  assert.match(out, /skipped/);
+});
+
+test('write_file previews a diff when overwriting, not just a line count', async () => {
+  const { ctx, registry } = fixture();
+  const write = registry.get('write_file');
+  await registry.get('read_file').run({ path: 'src/index.js' }, ctx);
+
+  const preview = write.preview({ path: 'src/index.js', content: 'export const answer = 7;\n' }, ctx);
+  assert.match(preview.summary, /^Overwrite src\/index\.js/);
+  assert.ok(preview.diff.some((l) => l.startsWith('- ') && l.includes('42')));
+  assert.ok(preview.diff.some((l) => l.startsWith('+ ') && l.includes('7')));
+});
+
+test('write_file previews the head of a new file', () => {
+  const { ctx, registry } = fixture();
+  const preview = registry.get('write_file').preview(
+    { path: 'brand-new.js', content: 'line1\nline2\n' }, ctx
+  );
+  assert.match(preview.summary, /^Create brand-new\.js/);
+  assert.deepEqual(preview.diff.slice(0, 2), ['+ line1', '+ line2']);
+});
+
+test('a long new file preview is truncated', () => {
+  const { ctx, registry } = fixture();
+  const content = Array.from({ length: 40 }, (_, i) => `line ${i}`).join('\n');
+  const preview = registry.get('write_file').preview({ path: 'long.js', content }, ctx);
+  assert.equal(preview.diff.length, 9);
+  assert.match(preview.diff.at(-1), /32 more lines/);
+});
+
+test('previewing an overwrite still refuses an unread file', () => {
+  const { ctx, registry } = fixture();
+  assert.throws(
+    () => registry.get('write_file').preview({ path: 'README.md', content: 'x' }, ctx),
+    /have not read it in this session/
+  );
+});

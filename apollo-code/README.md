@@ -66,6 +66,7 @@ And point Apollo at it:
 ```bash
 apollo setup      # finds your backends, lists their models, saves your choice
 apollo doctor     # or just check what's reachable and which models support tools
+apollo selftest   # and check the model can actually drive an agent
 ```
 
 ## Use
@@ -97,6 +98,7 @@ Type a question. Or:
 | | |
 |---|---|
 | `/help` | list commands, including this project's own |
+| `/resume` | switch to another saved session |
 | `/model`, `/models` | show or switch the active model |
 | `/mode ask\|auto-edit\|yolo\|read-only` | change how much Apollo asks |
 | `/undo`, `/checkpoints` | revert a file change Apollo made |
@@ -106,6 +108,32 @@ Type a question. Or:
 | `/init` | have Apollo write an `APOLLO.md` for the project |
 | `/diff` | show the working-tree diff |
 | `/tools`, `/todos`, `/config`, `/sessions`, `/save`, `/memory`, `/exit` | |
+
+## Is my model good enough?
+
+Local models vary enormously at *tool use* — far more than at writing code — and
+the only way to know is to try. `apollo selftest` runs six small tasks in a
+throwaway workspace and checks the **files afterwards**, not what the model
+claimed:
+
+```
+  Apollo self-test · qwen2.5-coder:7b · native tool calling
+
+  ✓ Read a file and answer from it          4.1s · 1 tool call
+  ✓ Find which file defines a symbol        3.8s · 1 tool call
+  ✓ Make a precise edit to an existing file 9.2s · 2 tool calls
+  ✓ Create a new file                       6.0s · 1 tool call
+  ✓ Run a command and use its output        5.4s · 1 tool call
+  ✗ Two related changes in one turn        14.7s · 2 tool calls
+      README.md was not updated
+
+  5/6 passed in 43s
+  Usable, with supervision. Keep permission mode at "ask" and give it narrower instructions.
+```
+
+A model that says it made an edit and didn't fails here, which is exactly the
+failure you want to find before you trust it with your repository. `--only <id>`
+reruns one scenario; `--json` gives the results as data.
 
 ## Permission modes
 
@@ -301,6 +329,7 @@ src/markdown.js       streaming markdown rendering
 src/input.js          @references, tab completion, history
 src/ignore.js         .gitignore matching for the search tools
 src/session.js        save and resume
+src/selftest.js       the scenarios behind `apollo selftest`
 ```
 
 The agent loop is the whole idea and it is about 200 lines: send the conversation,
@@ -310,7 +339,7 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 205 tests, no network, no model required
+npm test           # 248 tests, no network, no model required
 npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 
