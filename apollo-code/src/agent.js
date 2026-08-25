@@ -3,6 +3,7 @@ import { parseToolCalls, hasCompleteToolCall } from './protocol/text-tools.js';
 import { ReasoningFilter } from './protocol/reasoning.js';
 import { needsCompaction, compact, usageReport, conversationTokens, TokenCalibration } from './context.js';
 import { summarizeArgs, NestedUI } from './ui.js';
+import { normalizeArgs } from './tools/normalize.js';
 import { ProviderError } from './providers/index.js';
 import { CheckpointStore } from './checkpoints.js';
 import { MarkdownStream } from './markdown.js';
@@ -381,7 +382,17 @@ export class Agent {
       return { call, content: `Error: no tool named "${call.name}". Available tools: ${available}.`, isError: true };
     }
 
+    // Small models get parameter names wrong constantly; rename what we can
+    // recognise rather than spending a turn on the correction.
+    const { args, renamed } = normalizeArgs(tool, call.args);
+    call.args = args;
+
     this.ui.toolCall(tool.name, summarizeArgs(tool.name, call.args));
+    if (renamed.length) {
+      this.ui.toolResult(
+        `read ${renamed.map(([from, to]) => `${from} as ${to}`).join(', ')}`
+      );
+    }
 
     // Build the approval preview first: it also validates the arguments, so a
     // bad edit fails before the user is asked about it.

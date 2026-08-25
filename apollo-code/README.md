@@ -204,6 +204,15 @@ Apollo handles both cases:
 `--tool-mode auto` (the default) asks the backend which the model supports, and
 falls back from `native` to `text` if a request is rejected over tools.
 
+### Forgiving parameter names
+
+A small model that has understood the task perfectly will still call
+`read_file({file_path: …})` because that is what it saw in training — and then
+spend a turn apologising for the schema error. Apollo renames what it
+recognises (`file_path`, `filePath`, `cmd`, `query`, `old`/`new`, and a few
+dozen more) onto the parameter the tool actually declares, but only when the
+real one is absent, so a correct call is never touched.
+
 ### Reasoning models
 
 `deepseek-r1`, `qwen3` and similar emit their scratchpad inline as
@@ -346,7 +355,7 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 266 tests, no network, no model required
+npm test           # 283 tests, no network, no model required
 npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 
