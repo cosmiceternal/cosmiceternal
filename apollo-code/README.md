@@ -204,6 +204,10 @@ Apollo handles both cases:
 `--tool-mode auto` (the default) asks the backend which the model supports, and
 falls back from `native` to `text` if a request is rejected over tools.
 
+Models that ignore the tagged format entirely and emit an OpenAI-style
+`{"name": …, "arguments": …}` JSON call are also accepted — strictly, so a
+`package.json` example in a fenced block is never mistaken for a tool call.
+
 ### Forgiving parameter names
 
 A small model that has understood the task perfectly will still call
@@ -257,9 +261,11 @@ frustrating one. Roughly:
 | any | `llama3.1:8b` | fine generalist, weaker at code |
 
 You don't have to get `contextTokens` right: Apollo asks the backend what the
-model actually supports and clamps down to it, rather than silently overflowing.
-Apollo also tracks usage against that window and compacts the conversation before
-it runs out.
+model actually supports and clamps down to it, tracks usage against that window
+with an estimator that calibrates itself against the token counts the server
+reports, and compacts the conversation before it runs out. If the server rejects
+a request as too long anyway, Apollo compacts and retries rather than losing the
+session.
 
 ## APOLLO.md
 
@@ -355,7 +361,7 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 283 tests, no network, no model required
+npm test           # 294 tests, no network, no model required
 npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 

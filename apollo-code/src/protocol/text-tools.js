@@ -114,6 +114,92 @@ export function parseToolCalls(output) {
   return { text: text.trim(), calls, errors };
 }
 
+const NAME_KEYS = ['name', 'tool', 'tool_name', 'function', 'action'];
+const ARG_KEYS = ['arguments', 'parameters', 'args', 'params', 'input', 'tool_input'];
+
+/**
+ * Last-resort parser for models that ignore the tagged format and emit an
+ * OpenAI-style call as JSON instead — either fenced or as the whole reply:
+ *
+ *   {"name": "read_file", "arguments": {"path": "src/index.js"}}
+ *
+ * Deliberately strict, because a model writing JSON in a genuine answer must
+ * not be mistaken for a tool call: the object has to name a tool that actually
+ * exists, carry nothing but a name and an arguments object, and be the entire
+ * candidate rather than a fragment of prose.
+ *
+ * @param {string} output
+ * @param {Set<string>|string[]} knownTools
+ */
+export function parseLooseToolCalls(output, knownTools) {
+  const known = knownTools instanceof Set ? knownTools : new Set(knownTools);
+  const calls = [];
+  let seq = 0;
+
+  for (const { body, start, end } of jsonCandidates(String(output ?? ''))) {
+    let parsed;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      try {
+        parsed = JSON.parse(body.replace(/,(\s*[}\]])/g, '$1'));
+      } catch { continue; }
+    }
+
+    const entries = Array.isArray(parsed) ? parsed : [parsed];
+    const accepted = [];
+    for (const entry of entries) {
+      const call = asToolCall(entry, known);
+      if (!call) { accepted.length = 0; break; }   // all or nothing per candidate
+      accepted.push(call);
+    }
+    if (!accepted.length) continue;
+
+    for (const call of accepted) {
+      calls.push({ id: `loose_${++seq}_${call.name}`, ...call });
+    }
+    // Remove the consumed JSON from the prose.
+    output = output.slice(0, start) + output.slice(end);
+  }
+
+  return { text: String(output).trim(), calls };
+}
+
+function asToolCall(entry, known) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+
+  const nameKey = NAME_KEYS.find((k) => typeof entry[k] === 'string');
+  if (!nameKey) return null;
+  const name = entry[nameKey];
+  if (!known.has(name)) return null;
+
+  const argKey = ARG_KEYS.find((k) => entry[k] && typeof entry[k] === 'object' && !Array.isArray(entry[k]));
+  const args = argKey ? entry[argKey] : {};
+
+  // Anything beyond the name and its arguments means this is data, not a call.
+  const extra = Object.keys(entry).filter((k) => k !== nameKey && k !== argKey && k !== 'type');
+  if (extra.length) return null;
+
+  return { name, args };
+}
+
+/** Fenced JSON blocks first, then the whole message if it is one JSON value. */
+function* jsonCandidates(text) {
+  const fence = /```(?:json)?\s*\n([\s\S]*?)```/g;
+  let match;
+  let sawFence = false;
+  while ((match = fence.exec(text)) !== null) {
+    sawFence = true;
+    yield { body: match[1].trim(), start: match.index, end: match.index + match[0].length };
+  }
+  if (sawFence) return;
+
+  const trimmed = text.trim();
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    yield { body: trimmed, start: 0, end: text.length };
+  }
+}
+
 /** True once the buffer holds a complete tool block — lets streaming stop early. */
 export function hasCompleteToolCall(buffer) {
   OPEN.lastIndex = 0;

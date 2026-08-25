@@ -1,5 +1,5 @@
 import { toolSchemas, buildRegistry } from './tools/index.js';
-import { parseToolCalls, hasCompleteToolCall } from './protocol/text-tools.js';
+import { parseToolCalls, parseLooseToolCalls, hasCompleteToolCall } from './protocol/text-tools.js';
 import { ReasoningFilter } from './protocol/reasoning.js';
 import { needsCompaction, compact, usageReport, conversationTokens, TokenCalibration } from './context.js';
 import { summarizeArgs, NestedUI } from './ui.js';
@@ -84,6 +84,7 @@ export class Agent {
     this.checkpoints = checkpoints ?? new CheckpointStore({ root: workspace.root });
     this.depth = depth;
     this.calibration = new TokenCalibration();
+    this.overflowRecovered = false;
     this.toolLog = [];
     this.aborted = false;
   }
@@ -144,6 +145,7 @@ export class Agent {
   async run(userInput, { signal } = {}) {
     this.session.messages.push({ role: 'user', content: userInput });
     this.session.usage.turns++;
+    this.overflowRecovered = false;
 
     let finalText = '';
     let parseFailures = 0;
@@ -285,8 +287,8 @@ export class Agent {
       }
     } catch (err) {
       if (err?.name !== 'AbortError') {
-        const recovered = await this.#maybeFallbackToText(err);
-        if (recovered) return this.#streamTurn({ signal });
+        if (await this.#maybeFallbackToText(err)) return this.#streamTurn({ signal });
+        if (await this.#maybeRecoverFromOverflow(err)) return this.#streamTurn({ signal });
         throw err;
       }
     } finally {
@@ -313,6 +315,16 @@ export class Agent {
       const parsed = parseToolCalls(raw);
       calls.push(...parsed.calls);
       parseErrors = parsed.errors;
+
+      // Some models ignore the tagged format and emit an OpenAI-style JSON call
+      // instead. Accepting that costs nothing and saves a wasted turn.
+      if (calls.length === 0 && parseErrors.length === 0) {
+        const loose = parseLooseToolCalls(raw, new Set(this.registry.keys()));
+        if (loose.calls.length) {
+          calls.push(...loose.calls);
+          visible = loose.text;
+        }
+      }
     }
 
     // Record the assistant turn exactly as the model produced it, so it sees a
@@ -345,6 +357,31 @@ export class Agent {
     this.toolMode = 'text';
     this.setSystemPrompt(this.rebuildSystem('text'));
     // The failed request left no assistant turn behind, so history is intact.
+    return true;
+  }
+
+  /**
+   * The server rejected the request as too long for the context window. That is
+   * recoverable exactly once: compact the conversation and send it again.
+   * Failing outright here would lose the session over an off-by-a-bit estimate.
+   */
+  async #maybeRecoverFromOverflow(err) {
+    const message = String(err?.message || '') + String(err?.hint || '');
+    const looksLikeOverflow = /context|too long|exceeds|n_ctx|token limit|prompt is too|maximum.*length/i.test(message);
+    if (!looksLikeOverflow || this.overflowRecovered) return false;
+
+    this.overflowRecovered = true;
+    this.ui.warn('The server says the conversation is too long — compacting and retrying.');
+
+    const result = await compact(this.session.messages, this.provider, { keepRecent: 4 });
+    if (!result.compacted) {
+      this.ui.warn('There was nothing left to compact.');
+      return false;
+    }
+    this.session.messages = result.messages;
+    // The estimate was wrong by at least this much; make it more pessimistic so
+    // automatic compaction fires earlier from here on.
+    this.calibration.observe(this.config.contextTokens, conversationTokens(result.messages));
     return true;
   }
 

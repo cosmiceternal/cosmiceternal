@@ -542,3 +542,73 @@ test('a warm-up against an unreachable server fails quietly', async () => {
   const { config } = harness({ baseUrl: 'http://127.0.0.1:1' });
   assert.equal(await createProvider(config).warmUp(), false);
 });
+
+test('a context-overflow error is recovered by compacting and retrying', async () => {
+  const { createServer } = await import('node:http');
+  let chatCalls = 0;
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      if (req.url === '/api/version') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end('{"version":"x"}'); }
+
+      chatCalls++;
+      res.writeHead(200, { 'content-type': 'application/x-ndjson' });
+      if (chatCalls === 1) {
+        // The summarizer call and the retry both need to succeed; only the very
+        // first request reports the overflow.
+        return res.end(JSON.stringify({ error: 'the request exceeds the available context size' }) + '\n');
+      }
+      res.end(
+        JSON.stringify({ message: { role: 'assistant', content: chatCalls === 2 ? 'A summary of earlier work.' : 'Recovered.' }, done: true, prompt_eval_count: 5, eval_count: 3 }) + '\n'
+      );
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+
+  try {
+    const { agent, stream } = harness({ baseUrl: `http://127.0.0.1:${server.address().port}` });
+    // Enough history that compaction has something to work with.
+    for (let i = 0; i < 12; i++) {
+      agent.session.messages.push({ role: i % 2 ? 'assistant' : 'user', content: `turn ${i}` });
+    }
+
+    const answer = await agent.run('carry on');
+    assert.equal(answer, 'Recovered.');
+    assert.match(stream.text, /too long — compacting and retrying/);
+    assert.ok(agent.session.messages.some((m) => /conversation summary/.test(m.content || '')));
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
+
+test('overflow recovery is attempted only once per turn', async () => {
+  const { createServer } = await import('node:http');
+  let chatCalls = 0;
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      if (req.url === '/api/version') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end('{"version":"x"}'); }
+      chatCalls++;
+      res.writeHead(200, { 'content-type': 'application/x-ndjson' });
+      // Always overflow, except for the summarizer call which must produce text.
+      if (chatCalls === 2) {
+        return res.end(JSON.stringify({ message: { role: 'assistant', content: 'summary' }, done: true }) + '\n');
+      }
+      res.end(JSON.stringify({ error: 'context length exceeded' }) + '\n');
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+
+  try {
+    const { agent } = harness({ baseUrl: `http://127.0.0.1:${server.address().port}` });
+    for (let i = 0; i < 12; i++) {
+      agent.session.messages.push({ role: i % 2 ? 'assistant' : 'user', content: `turn ${i}` });
+    }
+    await assert.rejects(agent.run('carry on'), /context length exceeded/);
+    assert.equal(chatCalls, 3, 'first attempt, summarizer, one retry — then it gives up');
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
