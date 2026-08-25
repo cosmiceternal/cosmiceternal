@@ -379,13 +379,19 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 317 tests, no network, no model required
+npm test           # 319 tests, no network, no model required
 npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 
 The suite runs the real agent against a scripted fake model server, so tool
 calling, both wire formats, permissions, the text protocol, compaction, undo and
 the CLI are all covered end to end.
+
+`test/scrappy-model.test.js` is the one worth reading: it scripts a model that
+leaks its reasoning, fences its tool blocks, writes invalid JSON, gives up on the
+format and emits bare JSON instead, gets every parameter name wrong, loops on the
+same call, and truncates its last tag — all in one turn — and asserts that the
+edit still lands, the terminal stays clean, and the change is still undoable.
 
 ## License
 
