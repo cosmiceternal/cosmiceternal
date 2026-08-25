@@ -170,6 +170,7 @@ async function resolveToolMode(config, provider, ui) {
 async function setup({ flags, cwd, ui: providedUi }) {
   const config = loadConfig({ cwd, flags });
   const ui = providedUi || new UI({ color: config.color });
+  for (const warning of config.warnings || []) ui.warn(warning);
   const workspace = new Workspace(cwd);
   const provider = createProvider(config);
   const registry = buildRegistry({ readOnly: config.permissionMode === 'read-only' });
@@ -257,7 +258,8 @@ async function commandDoctor(ui) {
   const best = backends.find((b) => b.available && b.models.length);
   if (best) {
     ui.success(`Ready. Try: apollo --provider ${best.provider} --base-url ${best.baseUrl} --model ${best.models[0].id}`);
-    ui.info(`  Persist it with /config save inside a session, or edit ${path.join(userConfigDir(), 'config.json')}`);
+    ui.info(`  Save it with \`apollo setup\`, or edit ${path.join(userConfigDir(), 'config.json')}`);
+    ui.info('  Then run `apollo selftest` to check the model can actually drive an agent.');
   }
   ui.line();
   return 0;
@@ -467,6 +469,11 @@ async function runInteractive({ config, ui, workspace, provider, registry, resum
     config, ui, workspace, provider, registry, session,
     prompt: createInteractivePrompt(rl, ui),
   });
+
+  // Loading a model into VRAM takes seconds. Start it now, in the background,
+  // while the user is still typing their first message. Deliberately not
+  // awaited, and failures are ignored — the real request reports any problem.
+  provider.warmUp?.().catch(() => {});
 
   ui.banner(config);
   if (toolMode === 'text') ui.info(`  Using the text tool protocol (${config.model} has no native tool calling).`);

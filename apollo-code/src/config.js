@@ -85,6 +85,46 @@ export function coerce(raw) {
   return out;
 }
 
+/**
+ * A misspelled key in config.json is otherwise completely silent — the setting
+ * simply never takes effect, and the user concludes Apollo ignores its own
+ * configuration. Warn instead, and suggest the key they probably meant.
+ */
+export function unknownKeys(source) {
+  const known = Object.keys(DEFAULTS);
+  return Object.keys(source)
+    .filter((key) => !known.includes(key))
+    .map((key) => ({ key, suggestion: closest(key, known) }));
+}
+
+function closest(key, candidates) {
+  const lower = key.toLowerCase();
+  let best = null;
+  for (const candidate of candidates) {
+    const distance = editDistance(lower, candidate.toLowerCase());
+    if (distance <= Math.max(2, Math.floor(candidate.length / 3)) && (!best || distance < best.distance)) {
+      best = { candidate, distance };
+    }
+  }
+  return best?.candidate ?? null;
+}
+
+function editDistance(a, b) {
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j++) {
+      current[j] = Math.min(
+        previous[j] + 1,
+        current[j - 1] + 1,
+        previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    previous = current;
+  }
+  return previous[b.length];
+}
+
 export function validate(cfg) {
   const errors = [];
   if (!['ollama', 'openai'].includes(cfg.provider)) {
@@ -118,6 +158,14 @@ export function loadConfig({ cwd = process.cwd(), flags = {}, env = process.env 
   sources.push(envOverrides(env));
   sources.push(flags);
 
+  const warnings = [];
+  for (const [label, src] of [['~/.apollo/config.json', global], ['.apollo/config.json', project], ['.apollo/config.local.json', local]]) {
+    if (!src) continue;
+    for (const { key, suggestion } of unknownKeys(src)) {
+      warnings.push(`${label}: unknown setting "${key}"${suggestion ? ` — did you mean "${suggestion}"?` : ''}`);
+    }
+  }
+
   let cfg = { ...DEFAULTS };
   let baseUrlWasSet = false;
   for (const src of sources) {
@@ -135,7 +183,10 @@ export function loadConfig({ cwd = process.cwd(), flags = {}, env = process.env 
   }
   cfg.baseUrl = String(cfg.baseUrl).replace(/\/+$/, '');
 
-  return validate(cfg);
+  validate(cfg);
+  // Non-fatal: attached so the caller can surface them once, at startup.
+  Object.defineProperty(cfg, 'warnings', { value: warnings, enumerable: false });
+  return cfg;
 }
 
 export function saveUserConfig(patch) {

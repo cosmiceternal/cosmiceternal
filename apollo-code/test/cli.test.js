@@ -415,3 +415,20 @@ test('the backend probe list covers the ports these servers actually use', async
     assert.match(backend.baseUrl, /^http:\/\/127\.0\.0\.1:/, 'probes must stay on loopback');
   }
 });
+
+test('a config typo is surfaced at startup rather than silently ignored', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'ok' }] });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-warn-'));
+  fs.mkdirSync(path.join(cwd, '.apollo'), { recursive: true });
+  fs.writeFileSync(path.join(cwd, '.apollo/config.json'), JSON.stringify({ modle: 'oops' }));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--no-color', '-p', 'hi',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+    assert.match(stdout, /unknown setting "modle" — did you mean "model"\?/);
+    assert.match(stdout, /ok/, 'and the session still runs');
+  } finally {
+    await server.close();
+  }
+});

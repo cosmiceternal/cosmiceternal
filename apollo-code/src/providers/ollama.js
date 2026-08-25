@@ -34,6 +34,26 @@ export class OllamaProvider {
   }
 
   /**
+   * Load the model into VRAM without generating anything: /api/generate with no
+   * prompt is Ollama's documented preload. Costs no tokens, and means the first
+   * real message does not pay the load time.
+   */
+  async warmUp() {
+    try {
+      await request(`${this.config.baseUrl}/api/generate`, {
+        method: 'POST',
+        body: { model: this.config.model, keep_alive: this.config.keepAlive },
+        headers: this.headers,
+        timeoutMs: 120000,
+        retries: 0,
+      });
+      return true;
+    } catch {
+      return false;   // an optimisation; the real request will report any problem
+    }
+  }
+
+  /**
    * The model's real maximum context, from its GGUF metadata. Asking for a
    * larger num_ctx than the model was trained for either errors or silently
    * degrades, and getting this wrong is the most common local-setup mistake.

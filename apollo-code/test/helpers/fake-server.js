@@ -28,6 +28,8 @@ export function startFakeOllama({ turns = [], capabilities = ['tools'], contextL
         });
       }
 
+      if (req.url === '/api/generate') return json(res, { model: parsed.model, done: true });
+
       if (req.url === '/api/chat') {
         const turn = queue.shift() || { text: 'done' };
         res.writeHead(200, { 'content-type': 'application/x-ndjson' });

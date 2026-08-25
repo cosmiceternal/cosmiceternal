@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { loadConfig, coerce, envOverrides, validate, DEFAULTS } from '../src/config.js';
+import { loadConfig, coerce, envOverrides, validate, unknownKeys, DEFAULTS } from '../src/config.js';
 
 function project(config) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-cfg-'));
@@ -88,4 +88,46 @@ test('a malformed config file names the file it could not parse', () => {
   fs.mkdirSync(path.join(root, '.apollo'), { recursive: true });
   fs.writeFileSync(path.join(root, '.apollo/config.json'), '{ not json');
   assert.throws(() => loadConfig({ cwd: root, env: isolatedHome }), /could not parse .*config\.json/);
+});
+
+test('an unknown setting is reported with the key it probably meant', () => {
+  const cwd = project({ modle: 'typo:7b', temprature: 0.5, contextTokens: 8192 });
+  const cfg = loadConfig({ cwd, env: isolatedHome });
+
+  const warnings = cfg.warnings.join('\n');
+  assert.match(warnings, /unknown setting "modle" — did you mean "model"\?/);
+  assert.match(warnings, /unknown setting "temprature" — did you mean "temperature"\?/);
+  assert.ok(!warnings.includes('contextTokens'), 'valid keys are not warned about');
+  assert.equal(cfg.contextTokens, 8192, 'the valid settings still apply');
+});
+
+test('a key with no plausible match is reported without a suggestion', () => {
+  const cwd = project({ zzzzqqq: 1 });
+  const warnings = loadConfig({ cwd, env: isolatedHome }).warnings;
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /unknown setting "zzzzqqq"$/);
+});
+
+test('the warning names which file the bad key came from', () => {
+  const cwd = project({ modle: 'x' });
+  fs.writeFileSync(path.join(cwd, '.apollo/config.local.json'), JSON.stringify({ bassUrl: 'y' }));
+  const warnings = loadConfig({ cwd, env: isolatedHome }).warnings.join('\n');
+  assert.match(warnings, /\.apollo\/config\.json: unknown setting "modle"/);
+  assert.match(warnings, /\.apollo\/config\.local\.json: unknown setting "bassUrl" — did you mean "baseUrl"\?/);
+});
+
+test('a clean config produces no warnings', () => {
+  const cfg = loadConfig({ cwd: project({ model: 'x', temperature: 0.3 }), env: isolatedHome });
+  assert.deepEqual(cfg.warnings, []);
+});
+
+test('warnings are non-enumerable so they never leak into a saved config', () => {
+  const cfg = loadConfig({ cwd: project({ nonsense: 1 }), env: isolatedHome });
+  assert.ok(!Object.keys(cfg).includes('warnings'));
+  assert.ok(!JSON.stringify(cfg).includes('warnings'));
+});
+
+test('unknownKeys is exact about what it flags', () => {
+  assert.deepEqual(unknownKeys({ model: 'x', provider: 'ollama' }), []);
+  assert.deepEqual(unknownKeys({ modl: 'x' }), [{ key: 'modl', suggestion: 'model' }]);
 });

@@ -517,3 +517,28 @@ test('the estimator calibrates itself against reported prompt tokens', async () 
     await server.close();
   }
 });
+
+test('warm-up preloads the model without spending a generation', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'first real answer' }] });
+  try {
+    const { agent, config } = harness({ baseUrl: server.baseUrl });
+    const provider = createProvider(config);
+
+    assert.equal(await provider.warmUp(), true);
+    const preload = server.requests.find((r) => r.url === '/api/generate');
+    assert.ok(preload, 'should use the preload endpoint');
+    assert.equal(preload.body.model, 'fake-coder:7b');
+    assert.equal(preload.body.keep_alive, '30m');
+    assert.equal(preload.body.prompt, undefined, 'no prompt means no tokens generated');
+
+    // The scripted turn is untouched, because warm-up never called /api/chat.
+    assert.equal(await agent.run('hello'), 'first real answer');
+  } finally {
+    await server.close();
+  }
+});
+
+test('a warm-up against an unreachable server fails quietly', async () => {
+  const { config } = harness({ baseUrl: 'http://127.0.0.1:1' });
+  assert.equal(await createProvider(config).warmUp(), false);
+});
