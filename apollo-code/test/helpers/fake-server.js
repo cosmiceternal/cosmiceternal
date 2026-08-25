@@ -5,7 +5,7 @@ import http from 'node:http';
  * assistant reply: { text?: string, toolCalls?: [{name, args}] }. Handlers pop
  * turns in order so a test can drive a multi-step agent loop deterministically.
  */
-export function startFakeOllama({ turns = [], capabilities = ['tools'] } = {}) {
+export function startFakeOllama({ turns = [], capabilities = ['tools'], contextLength = null } = {}) {
   const requests = [];
   const queue = [...turns];
 
@@ -20,7 +20,13 @@ export function startFakeOllama({ turns = [], capabilities = ['tools'] } = {}) {
       if (req.url === '/api/tags') {
         return json(res, { models: [{ name: 'fake-coder:7b', size: 1e9, details: { family: 'qwen2' } }] });
       }
-      if (req.url === '/api/show') return json(res, { capabilities, template: '{{ .Prompt }}' });
+      if (req.url === '/api/show') {
+        return json(res, {
+          capabilities,
+          template: '{{ .Prompt }}',
+          model_info: contextLength ? { 'qwen2.context_length': contextLength } : {},
+        });
+      }
 
       if (req.url === '/api/chat') {
         const turn = queue.shift() || { text: 'done' };

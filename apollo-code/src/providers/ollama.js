@@ -33,6 +33,26 @@ export class OllamaProvider {
     }));
   }
 
+  /**
+   * The model's real maximum context, from its GGUF metadata. Asking for a
+   * larger num_ctx than the model was trained for either errors or silently
+   * degrades, and getting this wrong is the most common local-setup mistake.
+   */
+  async contextLength(model = this.config.model) {
+    try {
+      const res = await request(`${this.config.baseUrl}/api/show`, {
+        method: 'POST', body: { model }, headers: this.headers, timeoutMs: 15000,
+      });
+      const info = (await res.json()).model_info || {};
+      // The key is architecture-prefixed: llama.context_length, qwen2.context_length…
+      const key = Object.keys(info).find((k) => k.endsWith('.context_length'));
+      const value = key ? Number(info[key]) : NaN;
+      return Number.isFinite(value) && value > 0 ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Ask Ollama for the model's declared capabilities; "tools" means native calling. */
   async supportsTools(model = this.config.model) {
     try {

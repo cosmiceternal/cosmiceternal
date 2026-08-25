@@ -373,3 +373,41 @@ test('ollama is asked to keep the model resident between turns', async () => {
     await server.close();
   }
 });
+
+test('--no-stream holds rendering until the reply is complete', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'One. Two. Three. Four.' }] });
+  try {
+    const { agent, stream, config } = harness({ baseUrl: server.baseUrl });
+    config.stream = false;
+
+    // Nothing should appear while the tokens are arriving...
+    const seenDuring = [];
+    const originalWrite = stream.write;
+    stream.write = (chunk) => { seenDuring.push(chunk); return originalWrite(chunk); };
+
+    const answer = await agent.run('count');
+    assert.equal(answer, 'One. Two. Three. Four.');
+
+    // ...and the whole reply arrives in one render, not eight token-sized ones.
+    const textWrites = seenDuring.filter((c) => c.includes('One') || c.includes('Four'));
+    assert.equal(textWrites.length, 1, 'the reply should be rendered once, whole');
+    assert.match(stream.text, /One\. Two\. Three\. Four\./);
+  } finally {
+    await server.close();
+  }
+});
+
+test('streaming is still incremental by default', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'One. Two. Three. Four.' }] });
+  try {
+    const { agent, stream } = harness({ baseUrl: server.baseUrl });
+    const writes = [];
+    const originalWrite = stream.write;
+    stream.write = (chunk) => { writes.push(chunk); return originalWrite(chunk); };
+
+    await agent.run('count');
+    assert.ok(writes.length > 2, 'default mode should emit progressively');
+  } finally {
+    await server.close();
+  }
+});

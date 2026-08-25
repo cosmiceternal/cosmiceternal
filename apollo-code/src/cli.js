@@ -46,7 +46,7 @@ Session
   -c, --continue                resume the most recent session in this project
   --resume <id>                 resume a specific session
   --cwd <path>                  workspace root (default: the current directory)
-  --no-stream                   wait for the full reply instead of streaming
+  --no-stream                   render the reply when complete, not as it arrives
   --json                        with -p, print one JSON object instead of prose
   --version, --help
 
@@ -113,6 +113,28 @@ export function parseArgs(argv) {
     }
   }
   return out;
+}
+
+/**
+ * Clamp the configured window to what the model can actually do. Only ever
+ * downward: the reported maximum is a ceiling, not a recommendation, and
+ * raising num_ctx to a 128k ceiling would exhaust VRAM.
+ */
+async function resolveContextWindow(config, provider, ui) {
+  let reported;
+  try {
+    reported = await provider.contextLength?.(config.model);
+  } catch {
+    return;
+  }
+  if (!reported || reported >= config.contextTokens) return;
+
+  ui.warn(`${config.model} supports ${reported} tokens of context, not ${config.contextTokens} — using ${reported}.`);
+  config.contextTokens = reported;
+  if (config.maxTokens >= reported / 2) {
+    config.maxTokens = Math.max(512, Math.floor(reported / 4));
+    ui.info(`  Reply budget reduced to ${config.maxTokens} tokens to leave room for the conversation.`);
+  }
 }
 
 /** Decide native vs text tool calling, probing the model when set to auto. */
@@ -226,6 +248,7 @@ async function commandDoctor(ui) {
 
 /** Build the pieces a turn needs; shared by interactive and headless runs. */
 async function createAgent({ config, ui, workspace, provider, registry, session, prompt }) {
+  await resolveContextWindow(config, provider, ui);
   const toolMode = await resolveToolMode(config, provider, ui);
   const permissions = new Permissions({ mode: config.permissionMode, config, ui, prompt });
 

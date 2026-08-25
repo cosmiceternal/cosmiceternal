@@ -26,6 +26,7 @@ leaves the machine.
   ⎿ 14 passing
 
 Fixed at src/runtime/crash.js:88 — the empty catch now logs. Tests pass.
+  8.4s · 412 tokens · 49.1 tok/s
 ```
 
 ## Why
@@ -60,14 +61,12 @@ ollama pull qwen2.5-coder:7b
 ollama serve
 ```
 
-Check that Apollo can see it:
+And point Apollo at it:
 
 ```bash
-apollo doctor
+apollo setup      # finds your backends, lists their models, saves your choice
+apollo doctor     # or just check what's reachable and which models support tools
 ```
-
-`doctor` probes every port a local model server usually listens on, lists the
-models each one has, and tells you which of them support native tool calling.
 
 ## Use
 
@@ -77,23 +76,36 @@ apollo                                  # interactive session
 apollo "why does the build fail?"       # one-shot, prints and exits
 apollo -p "add a test for parseArgs" --auto-edit
 git diff | apollo -p "review this"      # reads a piped prompt
+apollo -p "list the dead exports" --json | jq -r .answer
 ```
 
-Inside a session, anything starting with `/` is a command:
+### In a session
+
+Type a question. Or:
+
+- **`@path`** attaches a file (or a directory listing) to your message, so the
+  model doesn't spend a turn discovering it: `why does @src/auth.js reject this?`
+- **`!command`** runs a shell command yourself; the output stays in the
+  conversation, so "why did that fail?" has something to refer to.
+- **`\`** at the end of a line continues onto the next.
+- **Tab** completes slash commands and `@paths`; **↑** walks your history across
+  sessions.
+- **Ctrl+C** cancels the current turn, twice exits.
+
+### Commands
 
 | | |
 |---|---|
-| `/help` | list commands |
+| `/help` | list commands, including this project's own |
 | `/model`, `/models` | show or switch the active model |
 | `/mode ask\|auto-edit\|yolo\|read-only` | change how much Apollo asks |
+| `/undo`, `/checkpoints` | revert a file change Apollo made |
 | `/context` | context-window usage for this session |
 | `/compact` | summarize the conversation to free up context |
 | `/clear` | start over, keeping settings |
 | `/init` | have Apollo write an `APOLLO.md` for the project |
 | `/diff` | show the working-tree diff |
-| `/tools`, `/todos`, `/config`, `/sessions`, `/save`, `/exit` | |
-
-Ctrl+C cancels the current turn; twice exits.
+| `/tools`, `/todos`, `/config`, `/sessions`, `/save`, `/memory`, `/exit` | |
 
 ## Permission modes
 
@@ -111,15 +123,36 @@ At an approval prompt: `y` allows once, `a` allows that tool for the rest of the
 session, `n` declines — and anything else you type is sent back to the model as
 the reason, so "n, use the existing helper instead" both declines and redirects.
 
-Two boundaries hold in every mode, including `yolo`:
+Three things hold in every mode, including `yolo`:
 
 - **The workspace is a jail.** Every path a tool touches is resolved against the
   working directory and rejected if it lands outside — including via `..`, an
   absolute path, or a symlink pointing out of the tree.
+- **Nothing is overwritten blind.** Editing or replacing a file the session
+  hasn't read is refused, and so is editing one that changed on disk since it was
+  read. A background formatter or your own edits can't be silently reverted.
 - **A short list of unrecoverable commands is always refused** (`rm -rf /`,
-  `mkfs`, `dd of=/dev/…`, fork bombs, piping a download into a shell). This is
-  guardrail, not sandbox: a shell is a shell. Run `yolo` in a container or a
+  `mkfs`, `dd of=/dev/…`, fork bombs, piping a download into a shell). This is a
+  guardrail, not a sandbox: a shell is a shell. Run `yolo` in a container or a
   throwaway checkout.
+
+And if something does go wrong, `/undo` puts it back — every file a tool changes
+is snapshotted first.
+
+## Tools
+
+| | |
+|---|---|
+| `read_file` `list_dir` `glob` `grep` | look around; `.gitignore` is respected |
+| `edit_file` `multi_edit` `write_file` | change code; exact-match, all-or-nothing |
+| `run_bash` | build, test, lint, git |
+| `todo_write` | track multi-step work |
+| `task` | hand a research question to a read-only sub-agent |
+
+`task` is the one worth explaining: it runs a second agent with its own context
+and returns only its answer. Twenty greps to find where something lives cost the
+main conversation one paragraph instead of twenty tool results — which matters
+most exactly when context is scarce.
 
 ## Tool calling on small models
 
@@ -179,9 +212,10 @@ frustrating one. Roughly:
 | 24 GB+ | `qwen2.5-coder:32b`, `devstral` | strongest local option |
 | any | `llama3.1:8b` | fine generalist, weaker at code |
 
-Set `contextTokens` to match what you actually launched the server with. Apollo
-budgets against that number and compacts the conversation before it overflows —
-if it's wrong, you get silent truncation instead.
+You don't have to get `contextTokens` right: Apollo asks the backend what the
+model actually supports and clamps down to it, rather than silently overflowing.
+Apollo also tracks usage against that window and compacts the conversation before
+it runs out.
 
 ## APOLLO.md
 
@@ -189,6 +223,25 @@ If the project root has an `APOLLO.md` (or `AGENTS.md`, or `CLAUDE.md`), it's
 loaded into the system prompt every session. Put the things you'd otherwise repeat
 in it — how to run one test, which directories are generated, conventions the
 codebase actually follows. `/init` writes a first draft by exploring the repo.
+
+## Project commands
+
+A markdown file in `.apollo/commands/` becomes a slash command:
+
+```markdown
+---
+description: Review the working tree the way we review PRs
+---
+Review the current `git diff` against our conventions in APOLLO.md.
+Focus on $ARGUMENTS. Report findings as path:line with a one-line fix each.
+```
+
+Saved as `.apollo/commands/review.md`, that's `/review error handling`.
+`$ARGUMENTS` is everything after the command name; `$1`–`$9` are individual words.
+Files in `~/.apollo/commands/` are available in every project; a project file of
+the same name wins.
+
+Because they live in the repo, everyone who clones it gets them.
 
 ## Sessions
 
@@ -200,19 +253,54 @@ apollo --continue          # resume the most recent
 apollo --resume <id>       # resume a specific one
 ```
 
+## Scripting
+
+`--json` with `-p` puts exactly one object on stdout — nothing else, including
+when the backend was unreachable (diagnostics go to stderr, and the exit code
+tells you what happened).
+
+```bash
+apollo -p "which exports are unused?" --json --read-only
+```
+
+```json
+{
+  "ok": true,
+  "answer": "Three exports are unused: …",
+  "model": "qwen2.5-coder:7b",
+  "toolMode": "native",
+  "toolCalls": [{ "name": "grep", "ok": true, "durationMs": 34 }],
+  "changedFiles": [],
+  "usage": { "promptTokens": 4210, "completionTokens": 380, "durationMs": 9120 }
+}
+```
+
+## Shell completion
+
+```bash
+source completions/apollo.bash                    # bash
+cp completions/_apollo ~/.zsh/completions/        # zsh (then compinit)
+```
+
+Completing `--model` asks your running backend what it actually has installed.
+
 ## How it works
 
 ```
-bin/apollo.js      entry point
-src/cli.js         flags, subcommands, the REPL
-src/agent.js       the loop: stream → tool calls → execute → feed back → repeat
-src/providers/     ollama (native API) and openai-compatible dialects
-src/tools/         read, write, edit, list, glob, grep, bash, todo
-src/protocol/      the text tool-calling protocol for models without native tools
-src/permissions.js what needs approval, and what is never allowed
-src/workspace.js   the path jail — every filesystem access goes through it
-src/context.js     token budgeting and conversation compaction
-src/session.js     save and resume
+bin/apollo.js         entry point
+src/cli.js            flags, subcommands, the REPL
+src/agent.js          the loop: stream → tool calls → execute → feed back → repeat
+src/providers/        ollama (native API) and openai-compatible dialects
+src/tools/            read, write, edit, multi-edit, list, glob, grep, bash, todo, task
+src/protocol/         the text tool-calling protocol for models without native tools
+src/permissions.js    what needs approval, and what is never allowed
+src/workspace.js      the path jail — every filesystem access goes through it
+src/checkpoints.js    snapshots behind /undo
+src/context.js        token budgeting and conversation compaction
+src/markdown.js       streaming markdown rendering
+src/input.js          @references, tab completion, history
+src/ignore.js         .gitignore matching for the search tools
+src/session.js        save and resume
 ```
 
 The agent loop is the whole idea and it is about 200 lines: send the conversation,
@@ -222,12 +310,13 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 105 tests, no network, no model required
+npm test           # 205 tests, no network, no model required
+npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 
 The suite runs the real agent against a scripted fake model server, so tool
-calling, permissions, the text protocol, compaction and the CLI are all covered
-end to end.
+calling, both wire formats, permissions, the text protocol, compaction, undo and
+the CLI are all covered end to end.
 
 ## License
 

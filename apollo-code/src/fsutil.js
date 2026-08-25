@@ -60,9 +60,10 @@ export function matchesGlob(relPath, glob) {
 
 /**
  * Walk a directory yielding file paths relative to `root`.
- * Skips DEFAULT_IGNORES, dotfiles (unless includeHidden), and stops at `limit`.
+ * Skips DEFAULT_IGNORES, anything the project's .gitignore excludes, dotfiles
+ * (unless includeHidden), and stops at `limit`.
  */
-export function* walk(root, { dir = root, includeHidden = false, limit = 20000 } = {}) {
+export function* walk(root, { dir = root, includeHidden = false, limit = 20000, ignore = null } = {}) {
   const stack = [dir];
   let count = 0;
   while (stack.length) {
@@ -77,12 +78,17 @@ export function* walk(root, { dir = root, includeHidden = false, limit = 20000 }
     for (const entry of entries) {
       if (DEFAULT_IGNORES.has(entry.name)) continue;
       if (!includeHidden && entry.name.startsWith('.') && entry.name !== '.') continue;
+
       const abs = path.join(current, entry.name);
-      if (entry.isDirectory()) {
+      const rel = path.relative(root, abs).split(path.sep).join('/');
+      const isDir = entry.isDirectory();
+      if (ignore?.ignores(rel, isDir)) continue;
+
+      if (isDir) {
         stack.push(abs);
       } else if (entry.isFile()) {
         if (++count > limit) return;
-        yield path.relative(root, abs);
+        yield rel;
       }
     }
   }

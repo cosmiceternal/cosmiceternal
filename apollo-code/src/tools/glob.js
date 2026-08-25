@@ -23,7 +23,7 @@ export default {
     const includeHidden = args.pattern.includes('/.') || args.pattern.startsWith('.');
 
     const hits = [];
-    for (const rel of walk(ctx.workspace.root, { dir: base, includeHidden })) {
+    for (const rel of walk(ctx.workspace.root, { dir: base, includeHidden, ignore: ctx.workspace.ignore })) {
       if (!matchesGlob(rel, args.pattern)) continue;
       try {
         hits.push({ rel, mtime: fs.statSync(path.join(ctx.workspace.root, rel)).mtimeMs });

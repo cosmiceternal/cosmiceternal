@@ -213,3 +213,66 @@ test('setup is recognised as a subcommand', () => {
   assert.equal(parseArgs(['setup']).command, 'setup');
   assert.equal(parseArgs(['--json', '-p', 'x']).json, true);
 });
+
+test('the context window is clamped down to what the model supports', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'ok' }], contextLength: 8192 });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-ctx-'));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--context', '32768', '--no-color', '-p', 'hi',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+
+    assert.match(stdout, /supports 8192 tokens of context, not 32768/);
+    const chat = server.requests.find((r) => r.url === '/api/chat');
+    assert.equal(chat.body.options.num_ctx, 8192, 'must not ask for more than the model has');
+  } finally {
+    await server.close();
+  }
+});
+
+test('a context window within the model limit is left alone', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'ok' }], contextLength: 32768 });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-ctx-'));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--context', '16384', '--no-color', '-p', 'hi',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+
+    assert.ok(!stdout.includes('supports'), 'no warning when the request fits');
+    assert.equal(server.requests.find((r) => r.url === '/api/chat').body.options.num_ctx, 16384);
+  } finally {
+    await server.close();
+  }
+});
+
+test('a clamp that would starve the conversation also shrinks the reply budget', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'ok' }], contextLength: 4096 });
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-ctx-'));
+  try {
+    const { stdout } = await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--context', '32768', '--max-tokens', '4096', '--no-color', '-p', 'hi',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+
+    assert.match(stdout, /Reply budget reduced to 1024 tokens/);
+    assert.equal(server.requests.find((r) => r.url === '/api/chat').body.options.num_predict, 1024);
+  } finally {
+    await server.close();
+  }
+});
+
+test('a backend that reports no context length is left as configured', async () => {
+  const server = await startFakeOllama({ turns: [{ text: 'ok' }] });   // no model_info
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-ctx-'));
+  try {
+    await run(process.execPath, [
+      BIN, '--cwd', cwd, '--base-url', server.baseUrl, '--model', 'fake-coder:7b',
+      '--context', '16384', '--no-color', '-p', 'hi',
+    ], { env: { ...process.env, APOLLO_HOME: cwd } });
+    assert.equal(server.requests.find((r) => r.url === '/api/chat').body.options.num_ctx, 16384);
+  } finally {
+    await server.close();
+  }
+});

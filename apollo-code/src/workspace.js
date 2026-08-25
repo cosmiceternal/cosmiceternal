@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import { loadIgnoreMatcher } from './ignore.js';
 
 /**
  * Every filesystem tool resolves paths through here. The workspace root is a
@@ -10,6 +11,8 @@ import fs from 'node:fs';
 export class Workspace {
   constructor(root) {
     this.root = fs.realpathSync(path.resolve(root));
+    // Parsed once per session: every search tool shares this matcher.
+    this.ignore = loadIgnoreMatcher(this.root);
   }
 
   /**

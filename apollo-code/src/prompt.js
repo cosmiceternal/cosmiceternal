@@ -71,7 +71,10 @@ const CORE = `You are Apollo, a coding agent running entirely on the user's own 
 
 - Chain tools without narrating each step. Don't say "I will now read the file" — just read it.
 - Use grep and glob to find things; they are far faster than reading directories one at a time.
-- One tool call per step is fine, but batch independent reads when you can.
+- Always read_file before you edit a file. Editing something you have not read will be refused.
+- edit_file matches exactly, whitespace included. Copy the text from what read_file gave you rather than retyping it. Use multi_edit when you have several changes to the same file.
+- Reach for task when locating something will take many searches whose intermediate results you don't need. It gets its own context and returns only its answer, so give it a complete, self-contained question.
+- Use todo_write once a job has several steps, and update it as you go.
 - Never claim you ran something you didn't run, and never invent output.
 
 # Responding
@@ -104,6 +107,15 @@ All file paths you pass to tools are relative to the working directory. You cann
     parts.push('# Permissions\n\nYou are in read-only mode. You can inspect the codebase but cannot edit files or run commands. If the user asks for a change, describe the change precisely instead of attempting it.');
   } else if (config.permissionMode === 'ask') {
     parts.push('# Permissions\n\nThe user approves each edit and command before it runs. If they decline one, do not retry it — read their feedback and adjust.');
+  }
+
+  if (registry.has('task')) {
+    parts.push(`# Working efficiently
+
+You are running on the user's own hardware, which means every token costs them wall-clock time. Two habits follow:
+
+- Read narrowly. Use grep to find the lines that matter and read_file with an offset, rather than pulling whole files into context on the chance they are relevant.
+- Delegate wide searches to task, so the search transcript never enters this conversation.`);
   }
 
   const memory = loadMemory(workspace.root, userDir);

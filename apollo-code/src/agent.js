@@ -206,6 +206,14 @@ export class Agent {
     const calls = [];
     let started = false;
 
+    // --no-stream keeps the wire protocol streaming (that is how these servers
+    // work) but holds rendering until the reply is complete, which is what you
+    // want when piping output or reading a finished answer rather than watching
+    // it type.
+    const live = this.config.stream;
+    let held = '';
+    const render = (text) => { if (live) markdown.write(text); else held += text; };
+
     this.ui.startSpinner('thinking');
     try {
       const stream = this.provider.chat({
@@ -217,9 +225,9 @@ export class Agent {
       for await (const event of stream) {
         if (event.type === 'text') {
           raw += event.delta;
-          if (!started) { this.ui.stopSpinner(); started = true; }
+          if (!started && live) { this.ui.stopSpinner(); started = true; }
           const shown = native ? event.delta : filter.feed(event.delta);
-          if (shown) { markdown.write(shown); visible += shown; }
+          if (shown) { render(shown); visible += shown; }
 
           // In text mode the block is complete — no point generating further.
           if (!native && hasCompleteToolCall(raw)) {
@@ -227,8 +235,8 @@ export class Agent {
             break;
           }
         } else if (event.type === 'thinking') {
-          if (!started) { this.ui.stopSpinner(); started = true; }
-          this.ui.write(this.ui.dim(event.delta));
+          if (!started && live) { this.ui.stopSpinner(); started = true; }
+          if (live) this.ui.write(this.ui.dim(event.delta));
         } else if (event.type === 'tool_call') {
           calls.push(event.call);
         } else if (event.type === 'usage') {
@@ -248,7 +256,8 @@ export class Agent {
     }
 
     const tail = native ? '' : filter.flush();
-    if (tail) { markdown.write(tail); visible += tail; }
+    if (tail) { render(tail); visible += tail; }
+    if (held) markdown.write(held);
     markdown.flush();
     this.ui.flushLine();
 

@@ -1,0 +1,35 @@
+#compdef apollo
+# Zsh completion for apollo.
+#   Put this file on your $fpath (e.g. ~/.zsh/completions/_apollo) and run compinit.
+
+_apollo_models() {
+  local -a models
+  models=(${(f)"$(apollo models 2>/dev/null)"})
+  _describe 'model' models
+}
+
+_arguments -s \
+  '--provider[backend dialect]:provider:(ollama openai)' \
+  '--base-url[server address]:url:_urls' \
+  '--model[model to use]:model:_apollo_models' \
+  '--tool-mode[how tool calls are made]:mode:(auto native text)' \
+  '--context[context window in tokens]:tokens:' \
+  '--temperature[sampling temperature]:value:' \
+  '--max-tokens[reply budget in tokens]:tokens:' \
+  '--max-steps[tool steps per turn]:steps:' \
+  '--api-key[key for servers that want one]:key:' \
+  '--ask[approve every edit and command]' \
+  '--auto-edit[apply edits without asking]' \
+  '--yolo[never ask]' \
+  '--read-only[inspect only]' \
+  '(-c --continue)'{-c,--continue}'[resume the most recent session]' \
+  '--resume[resume a specific session]:session id:' \
+  '--cwd[workspace root]:directory:_files -/' \
+  '--no-stream[wait for the full reply]' \
+  '--no-color[disable colour]' \
+  '--show-thinking[show reasoning tokens]' \
+  '--json[print one JSON object instead of prose]' \
+  '(-p --print --prompt)'{-p,--print,--prompt}'[run one prompt and exit]:prompt:' \
+  '(- *)'{-h,--help}'[show help]' \
+  '(- *)'{-v,--version}'[show version]' \
+  '1:command:(doctor models init setup)'

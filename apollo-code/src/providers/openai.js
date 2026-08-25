@@ -29,6 +29,18 @@ export class OpenAICompatProvider {
     return (body.data || []).map((m) => ({ id: m.id, family: m.owned_by }));
   }
 
+  /** llama.cpp exposes the server's loaded context at /props; others may not. */
+  async contextLength() {
+    try {
+      const res = await request(`${this.config.baseUrl}/props`, { headers: this.headers, timeoutMs: 5000 });
+      const body = await res.json();
+      const value = Number(body.default_generation_settings?.n_ctx ?? body.n_ctx);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
   async supportsTools() {
     // No portable capability probe exists across these servers, so assume yes
     // and let toolMode 'auto' fall back if the first call errors on tools.

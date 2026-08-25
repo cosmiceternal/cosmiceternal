@@ -37,7 +37,7 @@ export default {
     if (fs.statSync(target).isFile()) {
       files.push(path.relative(ctx.workspace.root, target));
     } else {
-      for (const rel of walk(ctx.workspace.root, { dir: target })) {
+      for (const rel of walk(ctx.workspace.root, { dir: target, ignore: ctx.workspace.ignore })) {
         if (args.glob && !matchesGlob(rel, args.glob)) continue;
         files.push(rel);
       }

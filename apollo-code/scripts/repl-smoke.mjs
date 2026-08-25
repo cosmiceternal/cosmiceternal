@@ -29,11 +29,15 @@ const server = await startFakeOllama({
     { text: 'Reading now. ', toolCalls: [{ name: 'read_file', args: { path: 'demo.js' } }] },
     { text: 'It exports **answer**, which is `42`.\n\n```js\nexport const answer = 42;\n```\n' },
     { text: 'I can see the file you attached.' },
+    { text: 'Hello, world!' },
   ],
 });
 
 const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-repl-'));
 fs.writeFileSync(path.join(cwd, 'demo.js'), 'export const answer = 42;\n');
+fs.mkdirSync(path.join(cwd, '.apollo/commands'), { recursive: true });
+fs.writeFileSync(path.join(cwd, '.apollo/commands/greet.md'),
+  '---\ndescription: Say hello to someone\n---\nSay hello to $ARGUMENTS.\n');
 
 const child = spawn('script', [
   '-qec',
@@ -50,9 +54,10 @@ const script = [
   [2100, 'what does demo.js export?'],
   [3400, '!echo shell-escape-works'],
   [4100, 'explain @demo.js'],
-  [5000, '/checkpoints'],
-  [5600, '/context'],
-  [6200, '/exit'],
+  [5000, '/greet world'],
+  [5900, '/checkpoints'],
+  [6500, '/context'],
+  [7100, '/exit'],
 ];
 for (const [delay, line] of script) setTimeout(() => child.stdin.write(line + '\n'), delay);
 
@@ -78,6 +83,8 @@ const checks = {
   // rather than reporting an absurd tokens/second figure.
   'no bogus rate on an instant turn': !/\d{3,}\.\d tok\/s/.test(plain),
   '/context reported usage': /context {2}\[/.test(plain) && /tokens/.test(plain),
+  'project commands announced at startup': /1 project command: \/greet/.test(plain),
+  'project command ran as a prompt': /Hello, world!/.test(plain),
   'session saved on exit': /Session saved/.test(plain),
 };
 
