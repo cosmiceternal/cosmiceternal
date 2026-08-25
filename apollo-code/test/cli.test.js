@@ -400,3 +400,18 @@ test('an explicit permission flag still wins over init default', async () => {
     await server.close();
   }
 });
+
+test('the backend probe list covers the ports these servers actually use', async () => {
+  const { KNOWN_BACKENDS } = await import('../src/providers/index.js');
+  const urls = KNOWN_BACKENDS.map((b) => b.baseUrl);
+  assert.ok(urls.includes('http://127.0.0.1:11434'), 'Ollama');
+  assert.ok(urls.includes('http://127.0.0.1:8080'), 'llama.cpp server');
+  assert.ok(urls.includes('http://127.0.0.1:1234'), 'LM Studio');
+
+  for (const backend of KNOWN_BACKENDS) {
+    assert.ok(['ollama', 'openai'].includes(backend.provider), `${backend.label} has an unknown provider`);
+    assert.ok(backend.label, 'every probe needs a human-readable label');
+    // Probing a non-loopback address would send a request off the machine.
+    assert.match(backend.baseUrl, /^http:\/\/127\.0\.0\.1:/, 'probes must stay on loopback');
+  }
+});

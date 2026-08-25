@@ -1,5 +1,6 @@
 import { toolSchemas, buildRegistry } from './tools/index.js';
 import { parseToolCalls, hasCompleteToolCall } from './protocol/text-tools.js';
+import { ReasoningFilter } from './protocol/reasoning.js';
 import { needsCompaction, compact, usageReport, conversationTokens, TokenCalibration } from './context.js';
 import { summarizeArgs, NestedUI } from './ui.js';
 import { ProviderError } from './providers/index.js';
@@ -223,6 +224,7 @@ export class Agent {
     const native = this.toolMode === 'native';
     const tools = native ? toolSchemas(this.registry) : null;
     const filter = new StreamFilter();
+    const reasoning = new ReasoningFilter({ show: this.config.showThinking });
     const markdown = new MarkdownStream(this.ui);
     const controller = new AbortController();
     const onAbort = () => controller.abort();
@@ -251,9 +253,15 @@ export class Agent {
 
       for await (const event of stream) {
         if (event.type === 'text') {
-          raw += event.delta;
+          // Strip a reasoning model's scratchpad before anything else sees it:
+          // it is neither prose for the user nor a tool call.
+          const step = reasoning.feed(event.delta);
+          if (step.thinking && live) this.ui.write(this.ui.dim(step.thinking));
+          if (!step.visible) continue;
+
+          raw += step.visible;
           if (!started && live) { this.ui.stopSpinner(); started = true; }
-          const shown = native ? event.delta : filter.feed(event.delta);
+          const shown = native ? step.visible : filter.feed(step.visible);
           if (shown) { render(shown); visible += shown; }
 
           // In text mode the block is complete — no point generating further.
@@ -283,6 +291,14 @@ export class Agent {
     } finally {
       this.ui.stopSpinner();
       signal?.removeEventListener('abort', onAbort);
+    }
+
+    const leftover = reasoning.flush();
+    if (leftover.thinking && live) this.ui.write(this.ui.dim(leftover.thinking));
+    if (leftover.visible) {
+      raw += leftover.visible;
+      const shown = native ? leftover.visible : filter.feed(leftover.visible);
+      if (shown) { render(shown); visible += shown; }
     }
 
     const tail = native ? '' : filter.flush();

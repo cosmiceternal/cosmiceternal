@@ -204,6 +204,13 @@ Apollo handles both cases:
 `--tool-mode auto` (the default) asks the backend which the model supports, and
 falls back from `native` to `text` if a request is rejected over tools.
 
+### Reasoning models
+
+`deepseek-r1`, `qwen3` and similar emit their scratchpad inline as
+`<think>…</think>`. Apollo strips it from the terminal *and* from the
+conversation history, so it doesn't consume context on later turns. Tool calls
+inside such a reply still work. `--show-thinking` renders it dimmed instead.
+
 ## Configuration
 
 Lowest precedence to highest: built-in defaults → `~/.apollo/config.json` →
@@ -320,7 +327,7 @@ src/cli.js            flags, subcommands, the REPL
 src/agent.js          the loop: stream → tool calls → execute → feed back → repeat
 src/providers/        ollama (native API) and openai-compatible dialects
 src/tools/            read, write, edit, multi-edit, list, glob, grep, bash, todo, task
-src/protocol/         the text tool-calling protocol for models without native tools
+src/protocol/         text tool-calling for models without native tools; reasoning-block stripping
 src/permissions.js    what needs approval, and what is never allowed
 src/workspace.js      the path jail — every filesystem access goes through it
 src/checkpoints.js    snapshots behind /undo
@@ -339,7 +346,7 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 248 tests, no network, no model required
+npm test           # 266 tests, no network, no model required
 npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 

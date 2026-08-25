@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { Workspace } from '../src/workspace.js';
 import { buildRegistry, toolSchemas, ALL_TOOLS } from '../src/tools/index.js';
-import { checkCommand } from '../src/tools/bash.js';
+import { checkCommand, HARD_DENY } from '../src/tools/bash.js';
+import { applyEdits } from '../src/tools/multi-edit.js';
 import { globToRegExp, matchesGlob, clampOutput } from '../src/fsutil.js';
 import { DEFAULTS } from '../src/config.js';
 
@@ -402,4 +403,37 @@ test('previewing an overwrite still refuses an unread file', () => {
     () => registry.get('write_file').preview({ path: 'README.md', content: 'x' }, ctx),
     /have not read it in this session/
   );
+});
+
+test('applyEdits is a pure function over the source text', () => {
+  const source = 'a = 1;\nb = 2;\nc = 3;\n';
+  const result = applyEdits(source, [
+    { old_string: 'a = 1', new_string: 'a = 10' },
+    { old_string: 'c = 3', new_string: 'c = 30' },
+  ]);
+  assert.equal(result, 'a = 10;\nb = 2;\nc = 30;\n');
+  assert.equal(source, 'a = 1;\nb = 2;\nc = 3;\n', 'the input must not be mutated');
+});
+
+test('applyEdits reports which edit failed, by index', () => {
+  assert.throws(
+    () => applyEdits('x = 1;\n', [{ old_string: 'x = 1', new_string: 'x = 2' }, { old_string: 'nope', new_string: 'y' }]),
+    /edits\[1\] failed/
+  );
+});
+
+test('applyEdits rejects a malformed edit entry', () => {
+  assert.throws(() => applyEdits('x', [{ old_string: 'x' }]), /edits\[0\] needs both/);
+  assert.throws(() => applyEdits('x', [null]), /edits\[0\] needs both/);
+});
+
+test('every hard-deny rule is a usable regex with a stated reason', () => {
+  assert.ok(HARD_DENY.length >= 8);
+  for (const rule of HARD_DENY) {
+    assert.ok(rule.re instanceof RegExp, 'each rule needs a regex');
+    assert.ok(typeof rule.why === 'string' && rule.why.length > 8, `reason too vague: ${rule.why}`);
+    // A rule that matches an empty string would refuse everything.
+    assert.equal(rule.re.test(''), false, `over-broad rule: ${rule.re}`);
+    assert.equal(rule.re.test('npm test'), false, `rule blocks ordinary commands: ${rule.re}`);
+  }
 });

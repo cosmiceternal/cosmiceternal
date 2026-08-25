@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { estimateTokens, conversationTokens, needsCompaction, usageReport, compact, TokenCalibration } from '../src/context.js';
+import { estimateTokens, messageTokens, conversationTokens, needsCompaction, usageReport, compact, TokenCalibration } from '../src/context.js';
 import { DEFAULTS } from '../src/config.js';
 
 const config = { ...DEFAULTS, contextTokens: 1000, maxTokens: 200, compactAt: 0.75 };
@@ -144,4 +144,18 @@ test('usageReport exposes both the raw and calibrated figures', () => {
   assert.equal(report.raw, conversationTokens(messages), 'raw is the uncalibrated estimate');
   assert.equal(report.used, Math.round(report.raw * 1.5));
   assert.equal(usageReport(messages, cfg).used, report.raw, 'no calibration means no scaling');
+});
+
+test('messageTokens accounts for role framing and tool-call payloads', () => {
+  const plain = messageTokens({ role: 'user', content: 'hello' });
+  assert.ok(plain > estimateTokens('hello'), 'framing overhead is included');
+
+  const withCall = messageTokens({
+    role: 'assistant',
+    content: '',
+    tool_calls: [{ function: { name: 'read_file', arguments: '{"path":"src/a-long-file-name.js"}' } }],
+  });
+  assert.ok(withCall > plain, 'a tool call costs more than an empty message');
+
+  assert.equal(messageTokens({ role: 'user', content: '' }), 4, 'an empty message is just framing');
 });
