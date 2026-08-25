@@ -375,7 +375,7 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 299 tests, no network, no model required
+npm test           # 306 tests, no network, no model required
 npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 
