@@ -1,5 +1,0 @@
-node_modules/
-.apollo/sessions/
-.apollo/config.local.json
-*.log
-.DS_Store
