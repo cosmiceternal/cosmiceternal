@@ -18,7 +18,15 @@ export class CheckpointStore {
     this.dir = path.join(root, '.apollo', 'checkpoints');
     this.limit = limit;
     this.entries = [];
+    // Groups checkpoints by the user turn that caused them, so a turn that
+    // touched five files can be undone as one thing.
+    this.turn = 0;
     this.#load();
+  }
+
+  /** Called at the start of each user turn. */
+  beginTurn(id) {
+    this.turn = id;
   }
 
   #load() {
@@ -55,6 +63,7 @@ export class CheckpointStore {
     const entry = {
       id: String(this.entries.length + 1).padStart(4, '0') + '-' + Date.now().toString(36),
       label,
+      turn: this.turn,
       at: new Date().toISOString(),
       files: snapshot.map((f) => ({ path: f.path, before: f.before })),
     };
@@ -68,42 +77,72 @@ export class CheckpointStore {
     return this.entries.slice(-limit).reverse().map((e) => ({
       id: e.id,
       label: e.label,
+      turn: e.turn ?? 0,
       at: e.at,
       files: e.files.map((f) => path.relative(this.root, f.path)),
     }));
   }
 
   /**
-   * Restore the most recent checkpoint (or a specific one by id).
-   * @returns {{label: string, restored: string[], deleted: string[]}}
+   * Restore checkpoints.
+   *   undo()            the most recent single change
+   *   undo('turn')      every change made by the most recent turn
+   *   undo('all')       every change still recorded
+   *   undo('<id>')      one specific checkpoint
+   *
+   * Reverting oldest-last matters: a file touched twice must end up holding the
+   * state it had before the *first* of those changes.
+   *
+   * @returns {{label: string, restored: string[], deleted: string[], count: number}}
    */
-  undo(id) {
-    const index = id
-      ? this.entries.findIndex((e) => e.id === id || e.id.startsWith(id))
-      : this.entries.length - 1;
-    if (index === -1 || this.entries.length === 0) {
-      throw new Error(id ? `no checkpoint ${id}` : 'nothing to undo');
+  undo(selector) {
+    if (this.entries.length === 0) throw new Error('nothing to undo');
+
+    const chosen = this.#select(selector);
+    if (chosen.length === 0) {
+      throw new Error(selector ? `no checkpoint matching "${selector}"` : 'nothing to undo');
     }
 
-    const entry = this.entries[index];
-    const restored = [];
-    const deleted = [];
+    const restored = new Set();
+    const deleted = new Set();
 
-    for (const file of entry.files) {
-      if (file.before === null) {
-        try {
-          fs.unlinkSync(file.path);
-          deleted.push(path.relative(this.root, file.path));
-        } catch { /* already gone */ }
-      } else {
-        fs.mkdirSync(path.dirname(file.path), { recursive: true });
-        fs.writeFileSync(file.path, file.before, 'utf8');
-        restored.push(path.relative(this.root, file.path));
+    // Newest first, so an earlier snapshot of the same file wins.
+    for (const entry of [...chosen].reverse()) {
+      for (const file of entry.files) {
+        const rel = path.relative(this.root, file.path);
+        if (file.before === null) {
+          try {
+            fs.unlinkSync(file.path);
+            deleted.add(rel);
+          } catch { /* already gone */ }
+          restored.delete(rel);
+        } else {
+          fs.mkdirSync(path.dirname(file.path), { recursive: true });
+          fs.writeFileSync(file.path, file.before, 'utf8');
+          restored.add(rel);
+          deleted.delete(rel);
+        }
       }
+      this.entries.splice(this.entries.indexOf(entry), 1);
     }
 
-    this.entries.splice(index, 1);
     this.#persist();
-    return { label: entry.label, restored, deleted };
+    return {
+      label: chosen.length === 1 ? chosen[0].label : `${chosen.length} changes`,
+      restored: [...restored],
+      deleted: [...deleted],
+      count: chosen.length,
+    };
+  }
+
+  #select(selector) {
+    if (!selector) return this.entries.slice(-1);
+    if (selector === 'all') return [...this.entries];
+    if (selector === 'turn') {
+      const lastTurn = this.entries.at(-1).turn ?? 0;
+      return this.entries.filter((e) => (e.turn ?? 0) === lastTurn);
+    }
+    const match = this.entries.find((e) => e.id === selector || e.id.startsWith(selector));
+    return match ? [match] : [];
   }
 }

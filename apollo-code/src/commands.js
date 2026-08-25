@@ -249,7 +249,7 @@ export const COMMANDS = {
   },
 
   undo: {
-    summary: 'Revert the last file change Apollo made (/undo <id> for an earlier one)',
+    summary: 'Revert file changes: /undo, /undo turn, /undo all, or /undo <id>',
     run({ ui, agent, args }) {
       const result = agent.checkpoints.undo(args || undefined);
       ui.success(`Reverted: ${result.label}`);
@@ -267,10 +267,11 @@ export const COMMANDS = {
       ui.line();
       for (const entry of entries) {
         const when = new Date(entry.at).toLocaleTimeString();
-        ui.line(`  ${ui.cyan(entry.id)}  ${ui.dim(when)}  ${entry.label}  ${ui.dim(entry.files.join(', '))}`);
+        const turn = entry.turn ? ui.dim(`turn ${entry.turn}`) : ui.dim('—');
+        ui.line(`  ${ui.cyan(entry.id)}  ${ui.dim(when)}  ${turn}  ${entry.label}  ${ui.dim(entry.files.join(', '))}`);
       }
       ui.line();
-      ui.info('  /undo reverts the most recent; /undo <id> reverts a specific one.');
+      ui.info('  /undo reverts the most recent change · /undo turn the whole last turn · /undo all everything.');
     },
   },
 

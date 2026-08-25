@@ -101,7 +101,7 @@ Type a question. Or:
 | `/resume` | switch to another saved session |
 | `/model`, `/models` | show or switch the active model |
 | `/mode ask\|auto-edit\|yolo\|read-only` | change how much Apollo asks |
-| `/undo`, `/checkpoints` | revert a file change Apollo made |
+| `/undo`, `/checkpoints` | revert a change — `/undo turn` for the whole last turn, `/undo all` for everything |
 | `/retry` | send your last message again, dropping the reply you didn't like |
 | `/context` | context-window usage for this session |
 | `/compact` | summarize the conversation to free up context |
@@ -166,7 +166,9 @@ Three things hold in every mode, including `yolo`:
   throwaway checkout.
 
 And if something does go wrong, `/undo` puts it back — every file a tool changes
-is snapshotted first.
+is snapshotted first. Changes are grouped by turn, so when a model makes a mess
+across five files, `/undo turn` reverts all of it at once, restoring each file to
+what it held *before* the turn began.
 
 ## Tools
 
@@ -376,7 +378,7 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 311 tests, no network, no model required
+npm test           # 317 tests, no network, no model required
 npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 

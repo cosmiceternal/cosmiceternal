@@ -147,6 +147,8 @@ export class Agent {
     this.session.messages.push({ role: 'user', content: userInput });
     this.session.usage.turns++;
     this.overflowRecovered = false;
+    // Group everything this turn changes, so /undo turn can revert it as one.
+    this.checkpoints.beginTurn(this.session.usage.turns);
 
     let finalText = '';
     let parseFailures = 0;

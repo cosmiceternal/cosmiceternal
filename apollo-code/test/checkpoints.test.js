@@ -233,3 +233,143 @@ test('/resume adopts a saved session in place, keeping the system prompt', async
   assert.equal(current.usage.turns, 1);
   assert.match(stream.text, /Resumed/);
 });
+
+test('/undo turn reverts every file the last turn touched', () => {
+  const root = tmpRoot();
+  fs.writeFileSync(path.join(root, 'b.txt'), 'b original\n');
+  const store = new CheckpointStore({ root });
+  const a = path.join(root, 'a.txt');
+  const b = path.join(root, 'b.txt');
+
+  // Turn 1: one change we want to keep.
+  store.beginTurn(1);
+  let snapshot = store.capture([a]);
+  fs.writeFileSync(a, 'turn one\n');
+  store.commit('edit a', snapshot);
+
+  // Turn 2: three changes across two files, plus a new file.
+  store.beginTurn(2);
+  for (const [file, content] of [[a, 'turn two\n'], [b, 'turn two b\n']]) {
+    snapshot = store.capture([file]);
+    fs.writeFileSync(file, content);
+    store.commit(`edit ${path.basename(file)}`, snapshot);
+  }
+  const created = path.join(root, 'new.txt');
+  snapshot = store.capture([created]);
+  fs.writeFileSync(created, 'created in turn two\n');
+  store.commit('write new.txt', snapshot);
+
+  const result = store.undo('turn');
+  assert.equal(result.count, 3);
+  assert.equal(fs.readFileSync(a, 'utf8'), 'turn one\n', 'turn 1 change is preserved');
+  assert.equal(fs.readFileSync(b, 'utf8'), 'b original\n');
+  assert.equal(fs.existsSync(created), false);
+  assert.deepEqual(result.deleted, ['new.txt']);
+  assert.deepEqual(result.restored.sort(), ['a.txt', 'b.txt']);
+
+  // Turn 1's checkpoint survives and can still be undone.
+  assert.equal(store.list().length, 1);
+  store.undo();
+  assert.equal(fs.readFileSync(a, 'utf8'), 'original\n');
+});
+
+test('a file edited twice in one turn is restored to its pre-turn state', () => {
+  const root = tmpRoot();
+  const store = new CheckpointStore({ root });
+  const file = path.join(root, 'a.txt');
+
+  store.beginTurn(1);
+  for (const content of ['first edit\n', 'second edit\n', 'third edit\n']) {
+    const snapshot = store.capture([file]);
+    fs.writeFileSync(file, content);
+    store.commit('edit', snapshot);
+  }
+
+  store.undo('turn');
+  assert.equal(fs.readFileSync(file, 'utf8'), 'original\n', 'the earliest snapshot must win');
+});
+
+test('/undo all reverts everything still recorded', () => {
+  const root = tmpRoot();
+  const store = new CheckpointStore({ root });
+  const file = path.join(root, 'a.txt');
+
+  for (let turn = 1; turn <= 3; turn++) {
+    store.beginTurn(turn);
+    const snapshot = store.capture([file]);
+    fs.writeFileSync(file, `turn ${turn}\n`);
+    store.commit(`edit turn ${turn}`, snapshot);
+  }
+
+  const result = store.undo('all');
+  assert.equal(result.count, 3);
+  assert.equal(fs.readFileSync(file, 'utf8'), 'original\n');
+  assert.equal(store.list().length, 0);
+  assert.throws(() => store.undo(), /nothing to undo/);
+});
+
+test('a file created and then edited in one turn is deleted, not restored', () => {
+  const root = tmpRoot();
+  const store = new CheckpointStore({ root });
+  const file = path.join(root, 'fresh.txt');
+
+  store.beginTurn(1);
+  let snapshot = store.capture([file]);
+  fs.writeFileSync(file, 'v1\n');
+  store.commit('write fresh.txt', snapshot);
+
+  snapshot = store.capture([file]);
+  fs.writeFileSync(file, 'v2\n');
+  store.commit('edit fresh.txt', snapshot);
+
+  const result = store.undo('turn');
+  assert.equal(fs.existsSync(file), false, 'the file never existed before the turn');
+  assert.deepEqual(result.deleted, ['fresh.txt']);
+  assert.deepEqual(result.restored, []);
+});
+
+test('an unknown selector is reported rather than reverting something else', () => {
+  const root = tmpRoot();
+  const store = new CheckpointStore({ root });
+  const snapshot = store.capture([path.join(root, 'a.txt')]);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'changed\n');
+  store.commit('edit', snapshot);
+
+  assert.throws(() => store.undo('9999-nope'), /no checkpoint matching/);
+  assert.equal(fs.readFileSync(path.join(root, 'a.txt'), 'utf8'), 'changed\n', 'nothing was reverted');
+});
+
+test('an agent turn tags its checkpoints with the turn number', async () => {
+  const server = await startFakeOllama({
+    turns: [
+      { toolCalls: [{ name: 'write_file', args: { path: 'one.txt', content: 'a' } }] },
+      { toolCalls: [{ name: 'write_file', args: { path: 'two.txt', content: 'b' } }] },
+      { text: 'Made both.' },
+    ],
+  });
+  try {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'apollo-turn-'));
+    const config = { ...DEFAULTS, baseUrl: server.baseUrl, model: 'fake-coder:7b', permissionMode: 'yolo' };
+    const workspace = new Workspace(root);
+    const agent = new Agent({
+      config, provider: createProvider(config), workspace,
+      registry: buildRegistry(),
+      permissions: new Permissions({ mode: 'yolo', config }),
+      ui: new UI({ color: false, stream: captureStream() }),
+      session: new Session({ root: workspace.root }),
+      toolMode: 'native', rebuildSystem: () => 'system',
+    });
+    agent.setSystemPrompt('system');
+
+    await agent.run('make two files');
+    const entries = agent.checkpoints.list();
+    assert.equal(entries.length, 2);
+    assert.ok(entries.every((e) => e.turn === 1), 'both belong to turn 1');
+
+    agent.checkpoints.undo('turn');
+    assert.equal(fs.existsSync(path.join(workspace.root, 'one.txt')), false);
+    assert.equal(fs.existsSync(path.join(workspace.root, 'two.txt')), false);
+  } finally {
+    await server.close();
+  }
+});
