@@ -1,3 +1,5 @@
+import { tracer } from '../trace.js';
+
 export class ProviderError extends Error {
   constructor(message, { status, cause, hint } = {}) {
     super(message);
@@ -41,6 +43,8 @@ async function attemptRequest(url, { method = 'GET', body, headers = {}, signal,
   if (signal) signal.addEventListener('abort', onAbort, { once: true });
 
   try {
+    if (body) tracer.request(url, body);
+
     const res = await fetch(url, {
       method,
       headers: body ? { 'content-type': 'application/json', ...headers } : headers,
@@ -86,11 +90,17 @@ export async function* streamLines(res) {
     while ((idx = buffer.indexOf('\n')) !== -1) {
       const line = buffer.slice(0, idx).replace(/\r$/, '');
       buffer = buffer.slice(idx + 1);
-      if (line) yield line;
+      if (line) {
+        if (tracer.enabled) tracer.responseFrame(line);
+        yield line;
+      }
     }
   }
   buffer += decoder.decode();
-  if (buffer.trim()) yield buffer.trim();
+  if (buffer.trim()) {
+    if (tracer.enabled) tracer.responseFrame(buffer.trim());
+    yield buffer.trim();
+  }
 }
 
 /** Yield parsed JSON payloads from a Server-Sent Events stream. */

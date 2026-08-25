@@ -325,6 +325,19 @@ apollo -p "which exports are unused?" --json --read-only
 }
 ```
 
+## When something goes wrong
+
+`--trace <file>` (or `APOLLO_TRACE=<file>`) writes every request, every raw
+stream frame and every parsed tool call to a JSONL log. When a local model does
+something inexplicable — a tool call that never fires, a reply that stops
+mid-sentence, an edit aimed at text that isn't there — this is what tells you
+what the model actually saw and actually sent.
+
+```bash
+apollo --trace /tmp/apollo.jsonl -p "fix the failing test"
+jq -r 'select(.kind=="event" and .type=="tool_call") | .name' /tmp/apollo.jsonl
+```
+
 ## Shell completion
 
 ```bash
@@ -352,6 +365,7 @@ src/input.js          @references, tab completion, history
 src/ignore.js         .gitignore matching for the search tools
 src/session.js        save and resume
 src/selftest.js       the scenarios behind `apollo selftest`
+src/trace.js          the wire log behind --trace
 ```
 
 The agent loop is the whole idea and it is about 200 lines: send the conversation,
@@ -361,7 +375,7 @@ until it stops asking for tools or hits `maxSteps`.
 ## Development
 
 ```bash
-npm test           # 294 tests, no network, no model required
+npm test           # 299 tests, no network, no model required
 npm run smoke      # drives the real REPL through a pty (needs util-linux `script`)
 ```
 

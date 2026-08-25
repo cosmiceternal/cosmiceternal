@@ -17,6 +17,7 @@ import { expandReferences, createCompleter, History, classify } from './input.js
 import { COMMANDS } from './commands.js';
 import { loadCustomCommands } from './custom-commands.js';
 import { runSelftest, SCENARIO_IDS } from './selftest.js';
+import { tracer } from './trace.js';
 
 // Read from the manifest so the version can never drift from package.json.
 const VERSION = JSON.parse(
@@ -54,6 +55,7 @@ Session
   --cwd <path>                  workspace root (default: the current directory)
   --no-stream                   render the reply when complete, not as it arrives
   --json                        with -p, print one JSON object instead of prose
+  --trace <file>                log every request, stream frame and tool call
   --version, --help
 
 In a session
@@ -73,7 +75,7 @@ const FLAG_ALIASES = {
 };
 
 export function parseArgs(argv) {
-  const out = { flags: {}, prompt: null, command: null, cwd: process.cwd(), resume: null, json: false, only: null };
+  const out = { flags: {}, prompt: null, command: null, cwd: process.cwd(), resume: null, json: false, only: null, trace: null };
   const positional = [];
 
   for (let i = 0; i < argv.length; i++) {
@@ -88,6 +90,8 @@ export function parseArgs(argv) {
       out.resume = argv[++i];
     } else if (arg === '--only') {
       out.only = argv[++i];
+    } else if (arg === '--trace') {
+      out.trace = argv[++i];
     } else if (arg === '-c' || arg === '--continue') {
       out.resume = 'last';
     } else if (arg === '--yolo') {
@@ -651,6 +655,13 @@ export async function main(argv = process.argv.slice(2)) {
     return 2;
   }
   const { config, ui, workspace, provider, registry } = ctx;
+
+  const traceFile = args.trace || process.env.APOLLO_TRACE;
+  if (traceFile) {
+    const opened = tracer.enable(traceFile);
+    if (opened) ui.info(`Tracing to ${opened}`);
+    else ui.warn(`Could not open ${traceFile} for tracing — continuing without it.`);
+  }
 
   if (!fs.existsSync(workspace.root)) {
     ui.error(`no such directory: ${workspace.root}`);

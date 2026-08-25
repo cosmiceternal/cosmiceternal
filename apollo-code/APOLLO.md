@@ -73,6 +73,12 @@ Tests must not need a real model, a network, or a TTY. `scripts/repl-smoke.mjs`
 is the exception — it drives the real REPL through a pty and is run by hand
 (`npm run smoke`), not by `npm test`.
 
+## Debugging a model, not the code
+
+`node bin/apollo.js --trace /tmp/t.jsonl -p "…"` logs every request, stream
+frame and parsed tool call. When behaviour looks wrong, read the trace before
+reading the code — it is usually the model, and the trace says so immediately.
+
 ## Commands this project defines
 
 `.apollo/commands/` holds `/review` and `/test-one`. They are Apollo's own

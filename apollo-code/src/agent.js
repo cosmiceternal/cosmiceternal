@@ -4,6 +4,7 @@ import { ReasoningFilter } from './protocol/reasoning.js';
 import { needsCompaction, compact, usageReport, conversationTokens, TokenCalibration } from './context.js';
 import { summarizeArgs, NestedUI } from './ui.js';
 import { normalizeArgs } from './tools/normalize.js';
+import { tracer } from './trace.js';
 import { ProviderError } from './providers/index.js';
 import { CheckpointStore } from './checkpoints.js';
 import { MarkdownStream } from './markdown.js';
@@ -310,6 +311,8 @@ export class Agent {
     markdown.flush();
     this.ui.flushLine();
 
+    if (tracer.enabled) tracer.event('turn', { native, rawLength: raw.length, raw });
+
     let parseErrors = [];
     if (!native) {
       const parsed = parseToolCalls(raw);
@@ -423,6 +426,8 @@ export class Agent {
     // recognise rather than spending a turn on the correction.
     const { args, renamed } = normalizeArgs(tool, call.args);
     call.args = args;
+
+    if (tracer.enabled) tracer.event('tool_call', { name: tool.name, args: call.args, renamed });
 
     this.ui.toolCall(tool.name, summarizeArgs(tool.name, call.args));
     if (renamed.length) {
