@@ -275,7 +275,8 @@ session.
 If the project root has an `APOLLO.md` (or `AGENTS.md`, or `CLAUDE.md`), it's
 loaded into the system prompt every session. Put the things you'd otherwise repeat
 in it — how to run one test, which directories are generated, conventions the
-codebase actually follows. `/init` writes a first draft by exploring the repo.
+codebase actually follows. `/init` in a session — or `apollo init` from the shell
+— writes a first draft by exploring the repo.
 
 ## Project commands
 
