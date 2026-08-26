@@ -12,7 +12,11 @@ const SECURE = process.env.SECURE_COOKIES === '1';
 const MAX_AGE_DAYS = 30;
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 const MIN_PASSWORD = 8;
-const LOCKOUT_THRESHOLD = Number(process.env.LOCKOUT_THRESHOLD || 5);
+// 10, not 5: argon2id (~100ms/try) plus the per-IP auth rate limit already make
+// online guessing hopeless, so the lockout's job is a backstop — not to punish a
+// player who mistypes their own password a few times. A per-username lockout is
+// also grief-able (anyone can lock a known name out), which a higher bar blunts.
+const LOCKOUT_THRESHOLD = Number(process.env.LOCKOUT_THRESHOLD || 10);
 const LOCKOUT_WINDOW_MS = Number(process.env.LOCKOUT_WINDOW_MS || 15 * 60 * 1000);
 // A short, blunt blocklist for the most-guessed passwords. Not a full dictionary
 // (intentionally — that belongs in a dedicated service like HIBP), just enough
@@ -178,6 +182,28 @@ async function recentFailedLogins(username) {
   return Number(rows[0]?.n || 0);
 }
 
+// How long until the lockout actually lifts. Failures age out of a sliding
+// window, so the wait is until the OLDEST failure in the window expires — not
+// the full window. Reporting the full window told a locked-out player to wait
+// 15 minutes even when they were seconds away from being let back in.
+async function lockoutClearsInMs(username) {
+  const { rows } = await db.query(
+    'SELECT MIN(created_at) AS oldest FROM login_attempts WHERE username = ? AND success = 0 AND created_at > ?',
+    [username, Date.now() - LOCKOUT_WINDOW_MS]
+  );
+  const oldest = Number(rows[0]?.oldest || 0);
+  if (!oldest) return 0;
+  return Math.max(0, oldest + LOCKOUT_WINDOW_MS - Date.now());
+}
+
+// "in 1 minute" / "in 4 minutes" / "in a moment" — a wait a person can act on.
+function waitPhrase(ms) {
+  const mins = Math.ceil(ms / 60000);
+  if (mins <= 0) return 'in a moment';
+  if (mins === 1) return 'in 1 minute';
+  return `in ${mins} minutes`;
+}
+
 async function register(req, username, password) {
   if (!USERNAME_RE.test(username || '')) {
     throw httpError(400, 'Username must be 3–20 chars: letters, numbers, underscore.');
@@ -236,7 +262,8 @@ async function loginAttempt(req, username, password) {
     const fails = await recentFailedLogins(username);
     if (fails >= LOCKOUT_THRESHOLD) {
       logAudit(req, 'auth.lockout_hit', null, { username, fails });
-      throw httpError(429, `Too many failed attempts. Try again in ${Math.ceil(LOCKOUT_WINDOW_MS / 60000)} minutes.`);
+      const wait = waitPhrase(await lockoutClearsInMs(username));
+      throw httpError(429, `Too many failed sign-in attempts. Try again ${wait}.`);
     }
   }
   const { rows } = await db.query('SELECT * FROM users WHERE username = ?', [username]);
