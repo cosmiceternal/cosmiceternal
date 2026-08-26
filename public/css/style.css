@@ -21,6 +21,10 @@
   --violet-rgb: 160, 123, 255;
   --gold-rgb: 255, 192, 97;
   --teal-rgb: 95, 227, 192;
+  /* Ink for text sitting ON an accent fill. Light text on a bright accent is
+     unreadable (the active auth tab measured 1.35:1), so anything filled with
+     the accent takes this dark ink instead of --text. */
+  --on-accent: #1a0d16;
   --accent: #ff5e9c;           /* hot pink — primary neon */
   --accent-2: #ff85b6;         /* lighter pink for gradients/highlights */
   --accent-glow: rgba(var(--accent-rgb), 0.45);
@@ -223,7 +227,7 @@ input { font-family: inherit; }
 .btn-ghost:hover { background: var(--bg-3); }
 .btn-primary {
   background: linear-gradient(180deg, var(--accent), var(--accent-2));
-  color: var(--text);
+  color: var(--on-accent);
   border-color: transparent;
   box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.28);
 }
@@ -961,7 +965,7 @@ input { font-family: inherit; }
   flex: 1; background: transparent; border: none; color: var(--muted);
   padding: 10px; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 13px;
 }
-.auth-tab.active { background: var(--accent); color: var(--text); }
+.auth-tab.active { background: var(--accent); color: var(--on-accent); }
 #authForm { display: flex; flex-direction: column; gap: 14px; }
 .auth-error { color: var(--danger); font-size: 12px; min-height: 14px; font-weight: 600; }
 .auth-foot { text-align: center; font-size: 11px; margin: 16px 0 0; }
@@ -1380,7 +1384,7 @@ input { font-family: inherit; }
 .lb-tabs { display: flex; gap: 4px; background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px; padding: 4px; margin-bottom: 12px; }
 .lb-tab { flex: 1; background: transparent; border: none; color: var(--muted); padding: 8px; border-radius: 5px; cursor: pointer; font-weight: 700; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
 .lb-tab:hover { color: var(--text); }
-.lb-tab.active { background: var(--accent); color: var(--text); box-shadow: 0 0 12px var(--accent-glow); }
+.lb-tab.active { background: var(--accent); color: var(--on-accent); box-shadow: 0 0 12px var(--accent-glow); }
 .lb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 360px; overflow-y: auto; }
 .lb-row { display: grid; grid-template-columns: 38px 1fr 50px 100px; align-items: center; gap: 8px; padding: 9px 12px; background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px; font-variant-numeric: tabular-nums; transition: transform 0.15s; }
 .lb-row.you { border-color: var(--accent); background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.08), transparent 60%); box-shadow: 0 0 0 1px var(--accent-glow); }
@@ -2853,7 +2857,7 @@ input { font-family: inherit; }
 .stats-tabs { display: flex; gap: 4px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
 .stats-tab { flex: 1; background: transparent; border: none; color: var(--muted); font: inherit; font-weight: 700; font-size: 13px; padding: 8px; border-radius: 7px; cursor: pointer; transition: 130ms; }
 .stats-tab:hover { color: var(--text); }
-.stats-tab.active { background: var(--accent); color: #fff; }
+.stats-tab.active { background: var(--accent); color: var(--on-accent); }
 .stats-pane { animation: fade 0.18s ease; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
@@ -3061,6 +3065,7 @@ html[data-skin="boneyard"] {
   --violet-rgb: 157, 132, 238;   /* amethyst */
   --gold-rgb: 255, 207, 122;     /* candle gold */
   --teal-rgb: 124, 224, 192;
+  --on-accent: #04140f;          /* deep green-black ink on the teal fills */
   --accent: #7ce0c0;           /* ghost teal — primary glow */
   --accent-2: #a6ecd8;
   --accent-glow: rgba(124, 224, 192, 0.45);
