@@ -1,7 +1,7 @@
 {
   "name": "Crypt Casino",
   "short_name": "Crypt",
-  "description": "Play-money, provably-fair casino — 33 games, AI dealers, progressive jackpot.",
+  "description": "Play-money, provably-fair casino — 50 games, AI dealers, progressive jackpot.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0c0817",
