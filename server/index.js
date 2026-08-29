@@ -113,7 +113,16 @@ app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
 app.get('/healthz', async (req, res) => {
   try {
     await db.query('SELECT 1 AS ok');
-    res.set('Cache-Control', 'no-store').json({ ok: true, ts: Date.now() });
+    // Report the engine actually in use: if DATABASE_URL was set but Postgres
+    // was unreachable at boot we are running degraded on ephemeral SQLite, and
+    // that should be visible without reading the deploy logs.
+    res.set('Cache-Control', 'no-store').json({
+      ok: true,
+      ts: Date.now(),
+      storage: db.storage.engine,
+      degraded: db.storage.degraded || undefined,
+      reason: db.storage.reason || undefined
+    });
   } catch (e) {
     res.status(503).json({ ok: false, error: 'db-unhealthy' });
   }

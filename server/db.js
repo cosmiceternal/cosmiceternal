@@ -13,7 +13,13 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
-const USE_PG = !!process.env.DATABASE_URL;
+// Mutable: if DATABASE_URL is set but the database cannot be reached at boot,
+// init() downgrades this to false and runs on SQLite rather than refusing to
+// start (see init). Nothing outside this module reads it directly.
+let usePg = !!process.env.DATABASE_URL;
+
+// What the process actually ended up running on, for /healthz and the logs.
+const storage = { engine: 'unknown', degraded: false, reason: '' };
 
 let pool = null;     // pg Pool
 let sqlite = null;   // better-sqlite3 Database
@@ -27,7 +33,7 @@ function toPg(sql) {
 
 // ---- unified query ----
 async function query(sql, params = []) {
-  if (USE_PG) {
+  if (usePg) {
     const res = await pool.query(toPg(sql), params);
     return { rows: res.rows, rowCount: res.rowCount };
   }
@@ -40,7 +46,7 @@ async function query(sql, params = []) {
 // ---- transactions ----
 // fn receives a `q(sql, params)` bound to the transaction.
 async function tx(fn) {
-  if (USE_PG) {
+  if (usePg) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -309,32 +315,82 @@ const MIGRATIONS = [
   "ALTER TABLE bets ADD COLUMN client_seed TEXT"
 ];
 
-async function init() {
-  if (USE_PG) {
-    const pg = require('pg');
-    // BIGINT (int8, OID 20) defaults to string in node-postgres; our values are
-    // cents/nonces well under 2^53, so parse them as numbers for clean math.
-    pg.types.setTypeParser(20, (v) => (v === null ? null : parseInt(v, 10)));
-    const { Pool } = pg;
-    const url = process.env.DATABASE_URL;
-    const local = /localhost|127\.0\.0\.1/.test(url);
-    pool = new Pool({
+function openSqlite() {
+  const Database = require('better-sqlite3');
+  const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'neonstake.db');
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+  sqlite = new Database(DB_PATH);
+  sqlite.pragma('journal_mode = WAL');
+  sqlite.pragma('foreign_keys = ON');
+  sqlite.exec(SCHEMA_SQLITE);
+  return DB_PATH;
+}
+
+// A managed Postgres can be briefly unreachable while it wakes, so a single
+// refused connection is not proof it is gone: try a few times with backoff.
+async function connectPg(url) {
+  const pg = require('pg');
+  // BIGINT (int8, OID 20) defaults to string in node-postgres; our values are
+  // cents/nonces well under 2^53, so parse them as numbers for clean math.
+  pg.types.setTypeParser(20, (v) => (v === null ? null : parseInt(v, 10)));
+  const local = /localhost|127\.0\.0\.1/.test(url);
+  const attempts = Number(process.env.DB_CONNECT_ATTEMPTS || 3);
+  let lastErr = null;
+  for (let i = 1; i <= attempts; i++) {
+    const p = new pg.Pool({
       connectionString: url,
-      ssl: local ? false : { rejectUnauthorized: false }
+      ssl: local ? false : { rejectUnauthorized: false },
+      connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS || 8000)
     });
-    // pg can't run multiple statements with parameters, but plain multi-statement
-    // DDL via a single query string is fine.
-    await pool.query(SCHEMA_PG);
-    console.log('Storage: PostgreSQL');
+    try {
+      // pg can't run multiple statements with parameters, but plain
+      // multi-statement DDL via a single query string is fine.
+      await p.query(SCHEMA_PG);
+      return p;
+    } catch (e) {
+      lastErr = e;
+      try { await p.end(); } catch (_) { /* pool never came up */ }
+      if (i < attempts) await new Promise((r) => { setTimeout(r, 1000 * 2 ** (i - 1)); });
+    }
+  }
+  throw lastErr;
+}
+
+async function init() {
+  if (usePg) {
+    const url = process.env.DATABASE_URL;
+    try {
+      pool = await connectPg(url);
+      storage.engine = 'postgres';
+      console.log('Storage: PostgreSQL');
+    } catch (e) {
+      // The database is configured but unreachable — most often a free-tier
+      // Postgres that has expired. Refusing to boot takes the whole site down
+      // and shows visitors nothing at all; running on local SQLite keeps the
+      // casino playable. That disk is ephemeral on most hosts, so this is a
+      // loud, visible degradation, not a silent one. DB_FALLBACK=0 opts out
+      // and restores fail-fast for deployments where losing writes is worse
+      // than being down.
+      if (process.env.DB_FALLBACK === '0') throw e;
+      usePg = false;
+      storage.engine = 'sqlite';
+      storage.degraded = true;
+      storage.reason = 'postgres-unreachable: ' + (e && e.message ? e.message : String(e));
+      console.error('=================================================================');
+      console.error('DATABASE_URL is set but Postgres could not be reached:');
+      console.error('  ' + storage.reason);
+      console.error('Falling back to SQLite so the site still runs. THIS DISK IS');
+      console.error('EPHEMERAL on free hosting — accounts and balances will reset');
+      console.error('on the next deploy or restart. Recreate/repair the database');
+      console.error('and redeploy to restore persistence. Set DB_FALLBACK=0 to');
+      console.error('fail fast instead of degrading.');
+      console.error('=================================================================');
+      const at = openSqlite();
+      console.log('Storage: SQLite (DEGRADED fallback) at ' + at);
+    }
   } else {
-    const Database = require('better-sqlite3');
-    const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'neonstake.db');
-    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-    sqlite = new Database(DB_PATH);
-    sqlite.pragma('journal_mode = WAL');
-    sqlite.pragma('foreign_keys = ON');
-    sqlite.exec(SCHEMA_SQLITE);
-    console.log('Storage: SQLite at ' + DB_PATH);
+    storage.engine = 'sqlite';
+    console.log('Storage: SQLite at ' + openSqlite());
   }
   // Run idempotent migrations after the base schema. Both engines throw a
   // recognisable duplicate-column message when the column already exists;
@@ -369,4 +425,8 @@ async function ensureSecret() {
 }
 function sessionSecret() { return _secret; }
 
-module.exports = { init, query, tx, getSetting, setSetting, sessionSecret, USE_PG };
+module.exports = {
+  init, query, tx, getSetting, setSetting, sessionSecret,
+  get USE_PG() { return usePg; },
+  storage
+};
