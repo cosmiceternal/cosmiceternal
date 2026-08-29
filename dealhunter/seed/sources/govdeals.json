@@ -1,0 +1,44 @@
+{
+  "id": "govdeals",
+  "label": "GovDeals (government surplus)",
+  "site": "https://www.govdeals.com",
+  "kind": "json",
+  "verified": false,
+  "notes": [
+    "GovDeals publishes no documented public API. This recipe targets the search endpoint the site's own storefront calls, which Liquidity Services changes without notice.",
+    "If a scrape returns 'itemsPath did not resolve to an array' or HTTP 404, open the site's search page with devtools on the Network tab, copy the request it makes, and update url/method/body/itemsPath/map below. No code change is needed.",
+    "Set GOVDEALS_SEARCH_URL to override the url without editing this file."
+  ],
+  "method": "POST",
+  "url": "https://api.govdeals.com/v1/search/assets",
+  "headers": { "accept": "application/json" },
+  "body": {
+    "keywords": "{query}",
+    "pageNumber": "{page}",
+    "pageSize": 100,
+    "sortBy": "timeRemaining",
+    "sortOrder": "asc",
+    "status": "open"
+  },
+  "pages": 3,
+  "pageStart": 1,
+  "pageSize": 100,
+  "itemsPath": "results",
+  "map": {
+    "externalId": "id",
+    "title": { "path": "title", "transform": "text" },
+    "description": { "path": "description", "transform": "text" },
+    "url": { "template": "https://www.govdeals.com/asset/{id}" },
+    "imageUrl": { "path": "primaryImageUrl", "baseUrl": "https://www.govdeals.com" },
+    "category": "category",
+    "currentBid": { "path": "currentBid", "transform": "money" },
+    "bidCount": { "path": "bidCount", "transform": "int" },
+    "quantity": { "path": "quantity", "transform": "int" },
+    "closesAt": { "path": "auctionCloseDate", "transform": "date" },
+    "seller": { "path": "sellerName", "transform": "text" },
+    "location": { "path": "location", "transform": "text" },
+    "city": "city",
+    "state": "state",
+    "condition": { "path": "condition", "transform": "text" }
+  }
+}

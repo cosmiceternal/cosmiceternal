@@ -1,0 +1,29 @@
+name: dealhunter
+
+on:
+  push:
+    branches: [main]
+    paths: ['dealhunter/**', '.github/workflows/dealhunter.yml']
+  pull_request:
+    paths: ['dealhunter/**', '.github/workflows/dealhunter.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # dealhunter has no dependencies and claims Node 18+, so prove it on the
+        # oldest supported release as well as current.
+        node-version: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Test (no install step — dealhunter has no dependencies)
+        run: npm test
+        working-directory: dealhunter
+      - name: Syntax-check the dashboard bundle
+        run: node --check dealhunter/web/app.js
+      - name: Validate the shipped source recipes and comps table
+        run: node -e "const{loadSources}=require('./dealhunter/src/sources');const{problems}=loadSources();if(problems.length){console.error(problems.join('\n'));process.exit(1)};require('./dealhunter/src/valuation/comps').loadComps();console.log('recipes and comps valid')"

@@ -49,6 +49,18 @@ module.exports = [
     rules: { ...bugRules, 'no-undef': 'error' },
   },
   {
+    // dealhunter is a separate zero-dependency service in this repo; it gets the
+    // same bug guardrails as the casino server.
+    files: ['dealhunter/src/**/*.js', 'dealhunter/bin/**/*.js', 'dealhunter/test/**/*.js'],
+    languageOptions: { ecmaVersion: 2022, sourceType: 'commonjs', globals: { ...globals.node } },
+    rules: { ...bugRules, 'no-undef': 'error' },
+  },
+  {
+    files: ['dealhunter/web/**/*.js'],
+    languageOptions: { ecmaVersion: 2022, sourceType: 'script', globals: { ...globals.browser } },
+    rules: { ...bugRules, 'no-undef': 'error' },
+  },
+  {
     files: ['public/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,

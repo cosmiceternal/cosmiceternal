@@ -1,0 +1,35 @@
+{
+  "id": "itad-hibid",
+  "label": "ITAD auctioneer on HiBid (template)",
+  "site": "https://hibid.com",
+  "kind": "html",
+  "verified": false,
+  "notes": [
+    "Most independent ITAD houses run their timed auctions on HiBid rather than their own software, so one recipe covers many of them.",
+    "Set vars.auctioneer to the auctioneer's HiBid slug (the first path segment of their catalog URL) and enable this source under a per-auctioneer id, e.g. copy this file to itad-<name>.json.",
+    "HiBid renders its catalog client-side and ships the lot array as an embedded blob; the row regex is the fallback."
+  ],
+  "vars": { "auctioneer": "example-recovery", "query": "" },
+  "url": "https://hibid.com/{auctioneer}/catalog?apage={page}&q={query}",
+  "headers": { "accept": "text/html" },
+  "pages": 2,
+  "embeddedJson": {
+    "pattern": "window\\.__INITIAL_STATE__\\s*=\\s*(\\{[\\s\\S]*?\\});?\\s*</script>"
+  },
+  "itemsPath": "catalog.lots",
+  "rowPattern": "<div[^>]+class=\"[^\"]*lot-tile[^\"]*\"[\\s\\S]*?</div>\\s*</div>",
+  "map": {
+    "externalId": "id",
+    "title": { "path": "lead", "transform": "text" },
+    "description": { "path": "description", "transform": "text" },
+    "url": { "template": "https://hibid.com/lot/{id}" },
+    "imageUrl": "featuredPicture.fullSizeLocation",
+    "currentBid": { "path": "highBid", "transform": "money" },
+    "bidCount": { "path": "bidCount", "transform": "int" },
+    "quantity": { "path": "quantity", "transform": "int" },
+    "closesAt": { "path": "utcBiddingEndDate", "transform": "date" },
+    "seller": { "path": "auction.auctioneer.name", "transform": "text" },
+    "location": { "path": "auction.eventAddress", "transform": "text" },
+    "state": "auction.eventState"
+  }
+}

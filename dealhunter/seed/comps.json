@@ -1,0 +1,1261 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-29",
+  "note": [
+    "STARTER ESTIMATES, NOT MARKET DATA. Every unitValue here is a plausible opening assumption for a working, US-market resale of that item, meant to get the pipeline producing numbers on day one.",
+    "Calibrate them against your own sold-comps before you bid real money: `dealhunter comps import <file.json|file.csv>` replaces or extends this table, and `confidence` feeds straight into alert filtering so a value you have not verified can be held below your minConfidence threshold."
+  ],
+  "conditionMultipliers": {
+    "new": 1.35,
+    "refurbished": 1.1,
+    "used": 1.0,
+    "salvage": 0.22,
+    "unknown": 0.85
+  },
+  "categoryDefaults": {
+    "laptops": {
+      "unitValue": 90,
+      "confidence": 0.2
+    },
+    "desktops": {
+      "unitValue": 70,
+      "confidence": 0.2
+    },
+    "servers": {
+      "unitValue": 400,
+      "confidence": 0.18
+    },
+    "networking": {
+      "unitValue": 100,
+      "confidence": 0.18
+    },
+    "storage": {
+      "unitValue": 20,
+      "confidence": 0.18
+    },
+    "monitors": {
+      "unitValue": 40,
+      "confidence": 0.22
+    },
+    "phones": {
+      "unitValue": 90,
+      "confidence": 0.18
+    },
+    "tablets": {
+      "unitValue": 60,
+      "confidence": 0.2
+    },
+    "printers": {
+      "unitValue": 120,
+      "confidence": 0.15
+    },
+    "testequipment": {
+      "unitValue": 200,
+      "confidence": 0.15
+    },
+    "av": {
+      "unitValue": 80,
+      "confidence": 0.15
+    },
+    "medical": {
+      "unitValue": 300,
+      "confidence": 0.12
+    },
+    "tools": {
+      "unitValue": 60,
+      "confidence": 0.15
+    },
+    "vehicles": {
+      "unitValue": 4000,
+      "confidence": 0.1
+    },
+    "heavyequipment": {
+      "unitValue": 15000,
+      "confidence": 0.1
+    },
+    "furniture": {
+      "unitValue": 60,
+      "confidence": 0.18
+    },
+    "misc": {
+      "unitValue": 25,
+      "confidence": 0.1
+    }
+  },
+  "penalties": [
+    {
+      "id": "icloud-lock",
+      "pattern": "icloud (lock|activation)|activation lock|find my (iphone|ipad) (on|enabled)",
+      "multiplier": 0.15,
+      "note": "iCloud activation lock \u2014 resale is parts value only"
+    },
+    {
+      "id": "mdm-enrolled",
+      "pattern": "(enterprise|domain|district) enroll|mdm (lock|enrolled)|still enrolled",
+      "multiplier": 0.35,
+      "note": "Device still enrolled in someone else's management \u2014 buyer cannot release it"
+    },
+    {
+      "id": "bios-locked",
+      "pattern": "bios password|supervisor password|computrace|bios lock",
+      "multiplier": 0.4,
+      "note": "BIOS/supervisor password set \u2014 needs board work or is scrap"
+    },
+    {
+      "id": "meraki-unlicensed",
+      "pattern": "meraki",
+      "requires": "unlicensed|licen[sc]e[sd]? (expired|not transferable|non-transferable)",
+      "multiplier": 0.3,
+      "note": "Meraki hardware without a transferable licence is close to worthless",
+      "supersedes": [
+        "licence-expired"
+      ]
+    },
+    {
+      "id": "licence-expired",
+      "pattern": "licen[sc]e[sd]? (expired|not transferable|non-transferable)",
+      "multiplier": 0.75,
+      "note": "Software licence does not transfer with the hardware"
+    },
+    {
+      "id": "untested",
+      "pattern": "untested|not tested|unable to test|condition unknown",
+      "multiplier": 0.8,
+      "note": "Untested \u2014 assume a share of the lot is dead"
+    },
+    {
+      "id": "cracked",
+      "pattern": "cracked|broken screen|shattered|water damage",
+      "multiplier": 0.5,
+      "note": "Physical damage called out in the listing"
+    },
+    {
+      "id": "no-drives",
+      "pattern": "no (hard )?drives|drives (removed|destroyed|wiped and removed)|hdd removed",
+      "multiplier": 0.95,
+      "note": "Drives removed \u2014 normal for surplus IT, small deduction for the caddies"
+    },
+    {
+      "id": "no-power-supply",
+      "pattern": "no (chargers?|power (supply|adapters?|cords?))|chargers? not included",
+      "multiplier": 0.93,
+      "note": "No power adapters \u2014 you will buy them"
+    },
+    {
+      "id": "missing-parts",
+      "pattern": "missing (parts|components|keys)|incomplete",
+      "multiplier": 0.7,
+      "note": "Listing admits missing components"
+    }
+  ],
+  "bulk": {
+    "note": "Selling 200 identical units takes months and pushes the price down. Multiplier = 1 - slope * log10(qty), floored.",
+    "slope": 0.08,
+    "floor": 0.6
+  },
+  "comps": [
+    {
+      "id": "dell-latitude-5490",
+      "category": "laptops",
+      "label": "Dell Latitude 5490 (i5/8GB/256GB)",
+      "match": {
+        "all": [
+          "latitude",
+          "5490"
+        ]
+      },
+      "unitValue": 110,
+      "basisCondition": "used",
+      "confidence": 0.75,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        },
+        "storageGb": {
+          "512": 1.08,
+          "1024": 1.15
+        }
+      }
+    },
+    {
+      "id": "dell-latitude-5400",
+      "category": "laptops",
+      "label": "Dell Latitude 5400/5410",
+      "match": {
+        "all": [
+          "latitude",
+          "54"
+        ]
+      },
+      "unitValue": 140,
+      "basisCondition": "used",
+      "confidence": 0.6,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        },
+        "storageGb": {
+          "512": 1.08,
+          "1024": 1.15
+        }
+      }
+    },
+    {
+      "id": "dell-latitude-7420",
+      "category": "laptops",
+      "label": "Dell Latitude 7420 (i7)",
+      "match": {
+        "all": [
+          "latitude",
+          "7420"
+        ]
+      },
+      "unitValue": 260,
+      "basisCondition": "used",
+      "confidence": 0.72,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        },
+        "storageGb": {
+          "512": 1.08,
+          "1024": 1.15
+        }
+      }
+    },
+    {
+      "id": "hp-elitebook-840-g6",
+      "category": "laptops",
+      "label": "HP EliteBook 840 G6",
+      "match": {
+        "all": [
+          "elitebook",
+          "840",
+          "g6"
+        ]
+      },
+      "unitValue": 200,
+      "basisCondition": "used",
+      "confidence": 0.75,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        },
+        "storageGb": {
+          "512": 1.08,
+          "1024": 1.15
+        }
+      }
+    },
+    {
+      "id": "hp-elitebook-840-g5",
+      "category": "laptops",
+      "label": "HP EliteBook 840 G5",
+      "match": {
+        "all": [
+          "elitebook",
+          "840",
+          "g5"
+        ]
+      },
+      "unitValue": 150,
+      "basisCondition": "used",
+      "confidence": 0.72,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        },
+        "storageGb": {
+          "512": 1.08,
+          "1024": 1.15
+        }
+      }
+    },
+    {
+      "id": "hp-probook-450",
+      "category": "laptops",
+      "label": "HP ProBook 450 G7",
+      "match": {
+        "all": [
+          "probook",
+          "450"
+        ]
+      },
+      "unitValue": 170,
+      "basisCondition": "used",
+      "confidence": 0.65,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        },
+        "storageGb": {
+          "512": 1.08,
+          "1024": 1.15
+        }
+      }
+    },
+    {
+      "id": "lenovo-thinkpad-t14g2",
+      "category": "laptops",
+      "label": "Lenovo ThinkPad T14 Gen 2",
+      "match": {
+        "all": [
+          "thinkpad",
+          "t14"
+        ]
+      },
+      "unitValue": 300,
+      "basisCondition": "used",
+      "confidence": 0.72,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        },
+        "storageGb": {
+          "512": 1.08,
+          "1024": 1.15
+        }
+      }
+    },
+    {
+      "id": "lenovo-thinkpad-t480",
+      "category": "laptops",
+      "label": "Lenovo ThinkPad T480",
+      "match": {
+        "all": [
+          "thinkpad",
+          "t480"
+        ]
+      },
+      "unitValue": 150,
+      "basisCondition": "used",
+      "confidence": 0.75,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        },
+        "storageGb": {
+          "512": 1.08,
+          "1024": 1.15
+        }
+      }
+    },
+    {
+      "id": "lenovo-x1-carbon",
+      "category": "laptops",
+      "label": "Lenovo ThinkPad X1 Carbon (gen 7-9)",
+      "match": {
+        "all": [
+          "x1",
+          "carbon"
+        ]
+      },
+      "unitValue": 260,
+      "basisCondition": "used",
+      "confidence": 0.68,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        },
+        "storageGb": {
+          "512": 1.08,
+          "1024": 1.15
+        }
+      }
+    },
+    {
+      "id": "apple-macbook-air-m1",
+      "category": "laptops",
+      "label": "Apple MacBook Air M1",
+      "match": {
+        "all": [
+          "macbook",
+          "air",
+          "m1"
+        ]
+      },
+      "unitValue": 420,
+      "basisCondition": "used",
+      "confidence": 0.8
+    },
+    {
+      "id": "apple-macbook-pro-13-2019",
+      "category": "laptops",
+      "label": "Apple MacBook Pro 13\" (2019)",
+      "match": {
+        "all": [
+          "macbook",
+          "pro",
+          "13"
+        ]
+      },
+      "unitValue": 330,
+      "basisCondition": "used",
+      "confidence": 0.6
+    },
+    {
+      "id": "chromebook-generic",
+      "category": "laptops",
+      "label": "Chromebook (education fleet)",
+      "match": {
+        "all": [
+          "chromebook"
+        ]
+      },
+      "unitValue": 45,
+      "basisCondition": "used",
+      "confidence": 0.55
+    },
+    {
+      "id": "dell-optiplex-7070-micro",
+      "category": "desktops",
+      "label": "Dell OptiPlex 7070 Micro",
+      "match": {
+        "all": [
+          "optiplex",
+          "7070"
+        ]
+      },
+      "unitValue": 130,
+      "basisCondition": "used",
+      "confidence": 0.72,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        }
+      }
+    },
+    {
+      "id": "dell-optiplex-7050",
+      "category": "desktops",
+      "label": "Dell OptiPlex 7050",
+      "match": {
+        "all": [
+          "optiplex",
+          "7050"
+        ]
+      },
+      "unitValue": 85,
+      "basisCondition": "used",
+      "confidence": 0.72,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        }
+      }
+    },
+    {
+      "id": "hp-prodesk-600-g4",
+      "category": "desktops",
+      "label": "HP ProDesk 600 G4",
+      "match": {
+        "all": [
+          "prodesk",
+          "600"
+        ]
+      },
+      "unitValue": 95,
+      "basisCondition": "used",
+      "confidence": 0.68,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        }
+      }
+    },
+    {
+      "id": "lenovo-thinkcentre-m720q",
+      "category": "desktops",
+      "label": "Lenovo ThinkCentre M720q",
+      "match": {
+        "all": [
+          "thinkcentre",
+          "m720"
+        ]
+      },
+      "unitValue": 120,
+      "basisCondition": "used",
+      "confidence": 0.68,
+      "specAdjust": {
+        "ramGb": {
+          "16": 1.1,
+          "32": 1.22,
+          "64": 1.35
+        },
+        "cpu": {
+          "i3": 0.82,
+          "i5": 1.0,
+          "i7": 1.18,
+          "i9": 1.3
+        }
+      }
+    },
+    {
+      "id": "apple-imac-27-2019",
+      "category": "desktops",
+      "label": "Apple iMac 27\" (2019)",
+      "match": {
+        "all": [
+          "imac",
+          "27"
+        ]
+      },
+      "unitValue": 450,
+      "basisCondition": "used",
+      "confidence": 0.6
+    },
+    {
+      "id": "apple-mac-mini-2018",
+      "category": "desktops",
+      "label": "Apple Mac mini (2018)",
+      "match": {
+        "all": [
+          "mac",
+          "mini"
+        ]
+      },
+      "unitValue": 280,
+      "basisCondition": "used",
+      "confidence": 0.6
+    },
+    {
+      "id": "dell-r640",
+      "category": "servers",
+      "label": "Dell PowerEdge R640 (no drives)",
+      "match": {
+        "all": [
+          "poweredge",
+          "r640"
+        ]
+      },
+      "unitValue": 900,
+      "basisCondition": "used",
+      "confidence": 0.7,
+      "specAdjust": {
+        "ramGb": {
+          "256": 1.15,
+          "512": 1.35
+        }
+      }
+    },
+    {
+      "id": "dell-r740",
+      "category": "servers",
+      "label": "Dell PowerEdge R740 (no drives)",
+      "match": {
+        "all": [
+          "poweredge",
+          "r740"
+        ]
+      },
+      "unitValue": 1200,
+      "basisCondition": "used",
+      "confidence": 0.7
+    },
+    {
+      "id": "dell-r630",
+      "category": "servers",
+      "label": "Dell PowerEdge R630",
+      "match": {
+        "all": [
+          "poweredge",
+          "r630"
+        ]
+      },
+      "unitValue": 320,
+      "basisCondition": "used",
+      "confidence": 0.72
+    },
+    {
+      "id": "hpe-dl380-gen10",
+      "category": "servers",
+      "label": "HPE ProLiant DL380 Gen10",
+      "match": {
+        "all": [
+          "dl380",
+          "gen10"
+        ]
+      },
+      "unitValue": 950,
+      "basisCondition": "used",
+      "confidence": 0.7
+    },
+    {
+      "id": "hpe-dl360-gen9",
+      "category": "servers",
+      "label": "HPE ProLiant DL360 Gen9",
+      "match": {
+        "all": [
+          "dl360",
+          "gen9"
+        ]
+      },
+      "unitValue": 350,
+      "basisCondition": "used",
+      "confidence": 0.7
+    },
+    {
+      "id": "supermicro-1u",
+      "category": "servers",
+      "label": "Supermicro 1U server",
+      "match": {
+        "all": [
+          "supermicro"
+        ]
+      },
+      "unitValue": 250,
+      "basisCondition": "used",
+      "confidence": 0.45
+    },
+    {
+      "id": "cisco-2960x-48",
+      "category": "networking",
+      "label": "Cisco Catalyst 2960X 48-port",
+      "match": {
+        "all": [
+          "2960x"
+        ]
+      },
+      "unitValue": 110,
+      "basisCondition": "used",
+      "confidence": 0.75
+    },
+    {
+      "id": "cisco-9300-48",
+      "category": "networking",
+      "label": "Cisco Catalyst 9300 48-port",
+      "match": {
+        "all": [
+          "9300"
+        ]
+      },
+      "unitValue": 700,
+      "basisCondition": "used",
+      "confidence": 0.65
+    },
+    {
+      "id": "cisco-nexus-9372",
+      "category": "networking",
+      "label": "Cisco Nexus 9372PX",
+      "match": {
+        "all": [
+          "nexus",
+          "9372"
+        ]
+      },
+      "unitValue": 350,
+      "basisCondition": "used",
+      "confidence": 0.6
+    },
+    {
+      "id": "meraki-ms225-48",
+      "category": "networking",
+      "label": "Cisco Meraki MS225-48FP",
+      "match": {
+        "all": [
+          "ms225"
+        ]
+      },
+      "unitValue": 250,
+      "basisCondition": "used",
+      "confidence": 0.6
+    },
+    {
+      "id": "aruba-2930f-48",
+      "category": "networking",
+      "label": "Aruba 2930F 48G PoE+",
+      "match": {
+        "all": [
+          "2930f"
+        ]
+      },
+      "unitValue": 220,
+      "basisCondition": "used",
+      "confidence": 0.62
+    },
+    {
+      "id": "ubiquiti-udm-pro",
+      "category": "networking",
+      "label": "Ubiquiti UniFi Dream Machine Pro",
+      "match": {
+        "all": [
+          "dream",
+          "machine",
+          "pro"
+        ]
+      },
+      "unitValue": 270,
+      "basisCondition": "used",
+      "confidence": 0.72
+    },
+    {
+      "id": "ubiquiti-uap-ac-pro",
+      "category": "networking",
+      "label": "Ubiquiti UniFi AP AC Pro",
+      "match": {
+        "all": [
+          "unifi",
+          "ac",
+          "pro"
+        ]
+      },
+      "unitValue": 55,
+      "basisCondition": "used",
+      "confidence": 0.65
+    },
+    {
+      "id": "fortigate-100f",
+      "category": "networking",
+      "label": "Fortinet FortiGate 100F",
+      "match": {
+        "all": [
+          "fortigate",
+          "100f"
+        ]
+      },
+      "unitValue": 600,
+      "basisCondition": "used",
+      "confidence": 0.6
+    },
+    {
+      "id": "dell-u2419h",
+      "category": "monitors",
+      "label": "Dell UltraSharp U2419H 24\"",
+      "match": {
+        "all": [
+          "u2419"
+        ]
+      },
+      "unitValue": 65,
+      "basisCondition": "used",
+      "confidence": 0.75
+    },
+    {
+      "id": "dell-p2419h",
+      "category": "monitors",
+      "label": "Dell P2419H 24\"",
+      "match": {
+        "all": [
+          "p2419"
+        ]
+      },
+      "unitValue": 55,
+      "basisCondition": "used",
+      "confidence": 0.72
+    },
+    {
+      "id": "hp-e243",
+      "category": "monitors",
+      "label": "HP EliteDisplay E243 24\"",
+      "match": {
+        "all": [
+          "e243"
+        ]
+      },
+      "unitValue": 50,
+      "basisCondition": "used",
+      "confidence": 0.68
+    },
+    {
+      "id": "monitor-22-generic",
+      "category": "monitors",
+      "label": "Generic 22\" business LCD",
+      "match": {
+        "all": [
+          "22"
+        ],
+        "any": [
+          "monitor",
+          "lcd",
+          "display"
+        ]
+      },
+      "unitValue": 30,
+      "basisCondition": "used",
+      "confidence": 0.35
+    },
+    {
+      "id": "ipad-7th-gen",
+      "category": "tablets",
+      "label": "Apple iPad 7th gen 32GB",
+      "match": {
+        "all": [
+          "ipad",
+          "7th"
+        ]
+      },
+      "unitValue": 95,
+      "basisCondition": "used",
+      "confidence": 0.72
+    },
+    {
+      "id": "ipad-air-2",
+      "category": "tablets",
+      "label": "Apple iPad Air 2",
+      "match": {
+        "all": [
+          "ipad",
+          "air",
+          "2"
+        ]
+      },
+      "unitValue": 55,
+      "basisCondition": "used",
+      "confidence": 0.65
+    },
+    {
+      "id": "galaxy-tab-a",
+      "category": "tablets",
+      "label": "Samsung Galaxy Tab A",
+      "match": {
+        "all": [
+          "galaxy",
+          "tab"
+        ]
+      },
+      "unitValue": 50,
+      "basisCondition": "used",
+      "confidence": 0.55
+    },
+    {
+      "id": "iphone-11-64",
+      "category": "phones",
+      "label": "Apple iPhone 11 64GB (unlocked)",
+      "match": {
+        "all": [
+          "iphone",
+          "11"
+        ]
+      },
+      "unitValue": 180,
+      "basisCondition": "used",
+      "confidence": 0.7
+    },
+    {
+      "id": "iphone-12",
+      "category": "phones",
+      "label": "Apple iPhone 12",
+      "match": {
+        "all": [
+          "iphone",
+          "12"
+        ]
+      },
+      "unitValue": 250,
+      "basisCondition": "used",
+      "confidence": 0.7
+    },
+    {
+      "id": "motorola-apx-6000",
+      "category": "phones",
+      "label": "Motorola APX 6000 portable radio",
+      "match": {
+        "all": [
+          "apx",
+          "6000"
+        ]
+      },
+      "unitValue": 320,
+      "basisCondition": "used",
+      "confidence": 0.6
+    },
+    {
+      "id": "zebra-zt411",
+      "category": "printers",
+      "label": "Zebra ZT411 industrial label printer",
+      "match": {
+        "all": [
+          "zt411"
+        ]
+      },
+      "unitValue": 900,
+      "basisCondition": "used",
+      "confidence": 0.65
+    },
+    {
+      "id": "zebra-zt230",
+      "category": "printers",
+      "label": "Zebra ZT230 label printer",
+      "match": {
+        "all": [
+          "zt230"
+        ]
+      },
+      "unitValue": 400,
+      "basisCondition": "used",
+      "confidence": 0.65
+    },
+    {
+      "id": "hp-m607dn",
+      "category": "printers",
+      "label": "HP LaserJet Enterprise M607dn",
+      "match": {
+        "all": [
+          "m607"
+        ]
+      },
+      "unitValue": 180,
+      "basisCondition": "used",
+      "confidence": 0.68
+    },
+    {
+      "id": "hp-m402dn",
+      "category": "printers",
+      "label": "HP LaserJet Pro M402dn",
+      "match": {
+        "all": [
+          "m402"
+        ]
+      },
+      "unitValue": 90,
+      "basisCondition": "used",
+      "confidence": 0.68
+    },
+    {
+      "id": "xerox-workcentre",
+      "category": "printers",
+      "label": "Xerox WorkCentre MFP",
+      "match": {
+        "all": [
+          "workcentre"
+        ]
+      },
+      "unitValue": 200,
+      "basisCondition": "used",
+      "confidence": 0.45
+    },
+    {
+      "id": "fluke-87v",
+      "category": "testequipment",
+      "label": "Fluke 87V industrial multimeter",
+      "match": {
+        "all": [
+          "fluke",
+          "87v"
+        ]
+      },
+      "unitValue": 250,
+      "basisCondition": "used",
+      "confidence": 0.8
+    },
+    {
+      "id": "fluke-289",
+      "category": "testequipment",
+      "label": "Fluke 289 logging multimeter",
+      "match": {
+        "all": [
+          "fluke",
+          "289"
+        ]
+      },
+      "unitValue": 350,
+      "basisCondition": "used",
+      "confidence": 0.75
+    },
+    {
+      "id": "tektronix-tds2024c",
+      "category": "testequipment",
+      "label": "Tektronix TDS2024C 200MHz scope",
+      "match": {
+        "all": [
+          "tds2024"
+        ]
+      },
+      "unitValue": 600,
+      "basisCondition": "used",
+      "confidence": 0.7
+    },
+    {
+      "id": "keysight-34461a",
+      "category": "testequipment",
+      "label": "Keysight 34461A bench DMM",
+      "match": {
+        "all": [
+          "34461"
+        ]
+      },
+      "unitValue": 700,
+      "basisCondition": "used",
+      "confidence": 0.7
+    },
+    {
+      "id": "synology-rs3618xs",
+      "category": "storage",
+      "label": "Synology RS3618xs (diskless)",
+      "match": {
+        "all": [
+          "rs3618"
+        ]
+      },
+      "unitValue": 700,
+      "basisCondition": "used",
+      "confidence": 0.6
+    },
+    {
+      "id": "synology-ds1819",
+      "category": "storage",
+      "label": "Synology DS1819+ (diskless)",
+      "match": {
+        "all": [
+          "ds1819"
+        ]
+      },
+      "unitValue": 500,
+      "basisCondition": "used",
+      "confidence": 0.6
+    },
+    {
+      "id": "netapp-ds4246",
+      "category": "storage",
+      "label": "NetApp DS4246 disk shelf",
+      "match": {
+        "all": [
+          "ds4246"
+        ]
+      },
+      "unitValue": 250,
+      "basisCondition": "used",
+      "confidence": 0.55
+    },
+    {
+      "id": "hdd-sata-1tb",
+      "category": "storage",
+      "label": "1TB SATA hard drive (used)",
+      "match": {
+        "all": [
+          "1tb"
+        ],
+        "none": [
+          "ssd",
+          "nvme"
+        ]
+      },
+      "unitValue": 8,
+      "basisCondition": "used",
+      "confidence": 0.5
+    },
+    {
+      "id": "hdd-sata-2tb",
+      "category": "storage",
+      "label": "2TB SATA hard drive (used)",
+      "match": {
+        "all": [
+          "2tb"
+        ],
+        "none": [
+          "ssd",
+          "nvme"
+        ]
+      },
+      "unitValue": 14,
+      "basisCondition": "used",
+      "confidence": 0.5
+    },
+    {
+      "id": "ssd-sata-256",
+      "category": "storage",
+      "label": "256GB SATA SSD (used)",
+      "match": {
+        "all": [
+          "256gb"
+        ],
+        "any": [
+          "ssd",
+          "nvme"
+        ]
+      },
+      "unitValue": 12,
+      "basisCondition": "used",
+      "confidence": 0.5
+    },
+    {
+      "id": "aeron-size-b",
+      "category": "furniture",
+      "label": "Herman Miller Aeron size B",
+      "match": {
+        "all": [
+          "aeron"
+        ]
+      },
+      "unitValue": 420,
+      "basisCondition": "used",
+      "confidence": 0.75
+    },
+    {
+      "id": "steelcase-leap-v2",
+      "category": "furniture",
+      "label": "Steelcase Leap v2",
+      "match": {
+        "all": [
+          "leap"
+        ]
+      },
+      "unitValue": 280,
+      "basisCondition": "used",
+      "confidence": 0.65
+    },
+    {
+      "id": "logitech-mk540",
+      "category": "misc",
+      "label": "Logitech MK540 keyboard/mouse combo",
+      "match": {
+        "all": [
+          "mk540"
+        ]
+      },
+      "unitValue": 28,
+      "basisCondition": "new",
+      "confidence": 0.7
+    },
+    {
+      "id": "ford-f150-2015-2017",
+      "category": "vehicles",
+      "label": "Ford F-150 XL (2015-2017, high miles)",
+      "match": {
+        "all": [
+          "f-150"
+        ]
+      },
+      "unitValue": 11500,
+      "basisCondition": "used",
+      "confidence": 0.5
+    },
+    {
+      "id": "crown-victoria-p71",
+      "category": "vehicles",
+      "label": "Ford Crown Victoria P71",
+      "match": {
+        "all": [
+          "crown",
+          "victoria"
+        ]
+      },
+      "unitValue": 3200,
+      "basisCondition": "used",
+      "confidence": 0.55
+    },
+    {
+      "id": "jd-310-backhoe",
+      "category": "heavyequipment",
+      "label": "John Deere 310 backhoe loader",
+      "match": {
+        "all": [
+          "deere"
+        ],
+        "regex": "\\b310[a-z]{0,2}\\b"
+      },
+      "unitValue": 48000,
+      "basisCondition": "used",
+      "confidence": 0.5
+    },
+    {
+      "id": "forklift-5k-class",
+      "category": "heavyequipment",
+      "label": "Forklift, 5,000 lb class",
+      "match": {
+        "all": [
+          "forklift"
+        ]
+      },
+      "unitValue": 9000,
+      "basisCondition": "used",
+      "confidence": 0.4
+    }
+  ]
+}

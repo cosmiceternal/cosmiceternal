@@ -1,0 +1,27 @@
+{
+  "_comment": "Copy to dealhunter.config.json. Every key is optional; what you leave out keeps its default. This file is the easier place to tune the nested cost model, since the per-category overrides have no environment-variable equivalent.",
+  "sources": ["govdeals", "allsurplus"],
+  "scrapeIntervalMs": 900000,
+  "categories": ["laptops", "desktops", "servers", "networking", "testequipment"],
+  "excludeKeywords": ["parts only", "scrap metal", "icloud locked"],
+  "costs": {
+    "buyerPremiumPct": 0.125,
+    "salesTaxPct": 0,
+    "marketplaceFeePct": 0.1325,
+    "inboundFreightFlat": 180,
+    "refurbCostPerUnit": 18,
+    "outboundShipPerUnit": 16,
+    "sellThroughPct": 0.85,
+    "byCategory": {
+      "servers": { "refurbCostPerUnit": 45, "outboundShipPerUnit": 65, "inboundFreightFlat": 250 },
+      "monitors": { "refurbCostPerUnit": 8, "outboundShipPerUnit": 30 }
+    }
+  },
+  "thresholds": {
+    "minMarginPct": 0.4,
+    "minProfit": 250,
+    "minRoi": 0.5,
+    "minConfidence": 0.5
+  },
+  "alertCooldownMinutes": 360
+}

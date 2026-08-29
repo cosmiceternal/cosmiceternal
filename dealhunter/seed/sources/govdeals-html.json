@@ -1,0 +1,77 @@
+{
+  "id": "govdeals-html",
+  "label": "GovDeals (search page fallback)",
+  "site": "https://www.govdeals.com",
+  "kind": "html",
+  "verified": false,
+  "notes": [
+    "Fallback for when the JSON search endpoint moves: fetches the public search page and lifts the state blob the storefront embeds, falling back again to row regexes if the blob is gone.",
+    "Slower and more fragile than the JSON recipe \u2014 use it to keep alerts flowing while you re-point govdeals.json."
+  ],
+  "url": "https://www.govdeals.com/search?searchPg=Assets&kWord={query}&pageNumber={page}&sortBy=timeRemaining",
+  "headers": {
+    "accept": "text/html"
+  },
+  "pages": 2,
+  "embeddedJson": {
+    "pattern": "<script[^>]+id=\"__NEXT_DATA__\"[^>]*>([\\s\\S]*?)</script>"
+  },
+  "itemsPath": "props.pageProps.searchResults.assets",
+  "rowPattern": "<div[^>]+class=\"[^\"]*asset-card[^\"]*\"[\\s\\S]*?</div>\\s*</div>",
+  "map": {
+    "externalId": [
+      "id",
+      {
+        "regex": "data-asset-id=\"([^\"]+)\""
+      },
+      {
+        "regex": "/asset/(\\d+)"
+      }
+    ],
+    "title": [
+      {
+        "path": "title",
+        "transform": "text"
+      },
+      {
+        "regex": "<h[23][^>]*>([\\s\\S]*?)</h[23]>",
+        "transform": "text"
+      }
+    ],
+    "url": [
+      {
+        "template": "https://www.govdeals.com/asset/{id}"
+      },
+      {
+        "regex": "href=\"(/asset/[^\"]+)\"",
+        "baseUrl": "https://www.govdeals.com"
+      }
+    ],
+    "currentBid": [
+      {
+        "path": "currentBid",
+        "transform": "money"
+      },
+      {
+        "regex": "current bid[^$]*\\$([0-9,.]+)",
+        "transform": "money"
+      }
+    ],
+    "bidCount": {
+      "path": "bidCount",
+      "transform": "int"
+    },
+    "quantity": {
+      "path": "quantity",
+      "transform": "int"
+    },
+    "closesAt": {
+      "path": "auctionCloseDate",
+      "transform": "date"
+    },
+    "location": {
+      "path": "location",
+      "transform": "text"
+    }
+  }
+}

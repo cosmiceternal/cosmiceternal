@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dealhunter — GovDeals &amp; ITAD deal board</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>💰</text></svg>">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">deal<span>hunter</span><small id="brand-sub">underpriced surplus, by margin</small></div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="deals" aria-selected="true">Deals</button>
+    <button role="tab" data-tab="alerts" aria-selected="false">Alerts</button>
+    <button role="tab" data-tab="rules" aria-selected="false">Rules</button>
+    <button role="tab" data-tab="sources" aria-selected="false">Sources</button>
+  </nav>
+  <button class="btn" id="scrape-now">Scrape now</button>
+</header>
+
+<main>
+  <section id="tab-deals">
+    <div class="tiles" id="tiles"></div>
+
+    <div class="filters">
+      <label>Search<input type="search" id="f-q" placeholder="title or description"></label>
+      <label>Category<select id="f-category"><option value="">All</option></select></label>
+      <label>Source<select id="f-source"><option value="">All</option></select></label>
+      <label>Min margin %<input type="number" id="f-margin" min="0" max="100" step="5" placeholder="0"></label>
+      <label>Min profit<input type="number" id="f-profit" min="0" step="50" placeholder="0"></label>
+      <label>Closes within (h)<input type="number" id="f-closing" min="1" step="6" placeholder="any"></label>
+      <label>Min confidence %<input type="number" id="f-confidence" min="0" max="100" step="5" placeholder="0"></label>
+      <label>Sort<select id="f-sort">
+        <option value="score">Score</option>
+        <option value="profit">Profit</option>
+        <option value="margin">Margin</option>
+        <option value="roi">ROI</option>
+        <option value="closing">Closing soonest</option>
+        <option value="bid">Current bid</option>
+        <option value="newest">Newest</option>
+      </select></label>
+      <label class="check"><input type="checkbox" id="f-all"> Include unprofitable</label>
+      <button class="btn secondary" id="f-reset">Reset</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Score</th><th>Lot</th><th class="num">Qty</th><th class="num">Bid</th>
+          <th class="num">Max bid</th><th class="num">Profit</th><th class="num">Margin</th>
+          <th class="num">ROI</th><th class="num">Conf</th><th class="num">Closes</th>
+        </tr></thead>
+        <tbody id="lot-rows"></tbody>
+      </table>
+      <div class="empty hidden" id="lots-empty">No lots match those filters. Try <b>Scrape now</b>, or loosen the margin.</div>
+    </div>
+    <p class="faint" id="lot-count"></p>
+  </section>
+
+  <section id="tab-alerts" class="hidden">
+    <div id="alert-list"></div>
+  </section>
+
+  <section id="tab-rules" class="hidden">
+    <div class="card">
+      <h3>New alert rule</h3>
+      <form class="rule-form" id="rule-form">
+        <label>Name<input name="name" required placeholder="Cheap laptop lots near me"></label>
+        <label>Category<select name="category"><option value="">Any</option></select></label>
+        <label>State<input name="state" placeholder="TX,OK"></label>
+        <label>Keywords<input name="keywords" placeholder="latitude,thinkpad"></label>
+        <label>Min margin %<input name="minMarginPct" type="number" min="0" max="100" step="5" placeholder="35"></label>
+        <label>Min profit<input name="minProfit" type="number" min="0" step="50" placeholder="150"></label>
+        <label>Min confidence %<input name="minConfidence" type="number" min="0" max="100" step="5" placeholder="35"></label>
+        <label>Closes within (h)<input name="closingWithinHours" type="number" min="1" step="6" placeholder="any"></label>
+        <label>Webhook URL<input name="webhook" type="url" placeholder="https://hooks.slack.com/…"></label>
+        <label>Channel<select name="channelType">
+          <option value="console">Console only</option>
+          <option value="slack">Slack</option>
+          <option value="discord">Discord</option>
+          <option value="webhook">Generic webhook</option>
+        </select></label>
+        <button class="btn" type="submit">Add rule</button>
+      </form>
+    </div>
+    <div id="rule-list"></div>
+  </section>
+
+  <section id="tab-sources" class="hidden">
+    <div id="source-list"></div>
+  </section>
+</main>
+
+<div id="drawer-root"></div>
+<script src="/app.js"></script>
+</body>
+</html>

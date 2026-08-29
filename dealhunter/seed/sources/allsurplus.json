@@ -1,0 +1,37 @@
+{
+  "id": "allsurplus",
+  "label": "AllSurplus (commercial / ITAD surplus)",
+  "site": "https://www.allsurplus.com",
+  "kind": "json",
+  "verified": false,
+  "notes": [
+    "AllSurplus is GovDeals' commercial sibling and carries most large corporate ITAD consignments, so it is the highest-volume ITAD source in this list.",
+    "Same caveat as GovDeals: the endpoint is the storefront's own, not a documented API. Re-point url/itemsPath/map from devtools if it moves."
+  ],
+  "method": "POST",
+  "url": "https://api.allsurplus.com/v1/search/assets",
+  "headers": { "accept": "application/json" },
+  "body": {
+    "keywords": "{query}",
+    "pageNumber": "{page}",
+    "pageSize": 100,
+    "status": "open"
+  },
+  "pages": 3,
+  "itemsPath": "results",
+  "map": {
+    "externalId": "id",
+    "title": { "path": "title", "transform": "text" },
+    "description": { "path": "description", "transform": "text" },
+    "url": { "template": "https://www.allsurplus.com/asset/{id}" },
+    "imageUrl": { "path": "primaryImageUrl", "baseUrl": "https://www.allsurplus.com" },
+    "category": "category",
+    "currentBid": { "path": "currentBid", "transform": "money" },
+    "bidCount": { "path": "bidCount", "transform": "int" },
+    "quantity": { "path": "quantity", "transform": "int" },
+    "closesAt": { "path": "auctionCloseDate", "transform": "date" },
+    "seller": { "path": "sellerName", "transform": "text" },
+    "location": { "path": "location", "transform": "text" },
+    "condition": { "path": "condition", "transform": "text" }
+  }
+}

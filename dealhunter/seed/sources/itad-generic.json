@@ -1,0 +1,27 @@
+{
+  "id": "itad-generic",
+  "label": "Generic ITAD JSON search (template)",
+  "site": "https://itad.example.com",
+  "kind": "json",
+  "verified": false,
+  "notes": [
+    "Starting point for any ITAD house that exposes a JSON search endpoint. Copy this file, rename the id, and fill in url / itemsPath / map from the site's own network requests.",
+    "Field specs accept a bare path (\"title\"), or an object with path/regex/template/const plus optional transform (text, money, date, int, number, bool, lower, upper) and baseUrl for relative links."
+  ],
+  "url": "https://itad.example.com/api/lots?page={page}&q={query}",
+  "pages": 1,
+  "itemsPath": "data.items",
+  "map": {
+    "externalId": "lotId",
+    "title": { "path": "name", "transform": "text" },
+    "description": { "path": "details", "transform": "text" },
+    "url": { "path": "permalink", "baseUrl": "https://itad.example.com" },
+    "currentBid": { "path": "bid.amount", "transform": "money" },
+    "bidCount": { "path": "bid.count", "transform": "int" },
+    "quantity": { "path": "qty", "transform": "int" },
+    "closesAt": { "path": "closesAt", "transform": "date" },
+    "location": { "path": "warehouse.city", "transform": "text" },
+    "state": "warehouse.state",
+    "condition": { "path": "grade", "transform": "text" }
+  }
+}

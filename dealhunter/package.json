@@ -1,0 +1,30 @@
+{
+  "name": "dealhunter",
+  "version": "1.0.0",
+  "description": "Deal-hunting aggregator: scrapes GovDeals and ITAD auction lots, values them against a comps table, and alerts on lots whose margin clears your thresholds.",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "dealhunter": "bin/dealhunter.js"
+  },
+  "scripts": {
+    "start": "node bin/dealhunter.js serve",
+    "dev": "node --watch bin/dealhunter.js serve",
+    "scrape": "node bin/dealhunter.js scrape",
+    "demo": "node bin/dealhunter.js demo",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "keywords": [
+    "govdeals",
+    "itad",
+    "auctions",
+    "scraper",
+    "arbitrage",
+    "alerts"
+  ],
+  "license": "MIT",
+  "private": true
+}
