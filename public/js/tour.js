@@ -12,7 +12,9 @@
       body: 'Top up with BTC / ETH / USDT / SOL. (Play-money mode for the demo.)' },
     { sel: '#btnFair',   title: 'Provably fair',
       body: 'Every roll is cryptographically verifiable. Rotate the seed to reveal it and replay any past bet.' },
-    { sel: '#gamesDdBtn', title: 'All 43 games',
+    // Counted from the catalogue, not hardcoded — a literal here said "43"
+    // long after the floor had grown to 50.
+    { sel: '#gamesDdBtn', title: `All ${((global.GameCatalog || {}).GAMES || []).length || ''} games`.replace('  ', ' ').trim(),
       body: 'Open this to jump to any game — AI Dealer blackjack, slots, live races and more.' }
   ];
 

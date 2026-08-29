@@ -4,7 +4,12 @@
 (function (global) {
   'use strict';
 
-  const COLORS = ['#ff5e9c', '#ffb449', '#6dd9b8', '#a07bff', '#ffe066'];
+  const COLORS_NEON = ['#ff5e9c', '#ffb449', '#6dd9b8', '#a07bff', '#ffe066'];
+  // Graveyard palette: ghost teal, amethyst, bone, candle gold, moon white.
+  const COLORS_BONE = ['#7ce0c0', '#9d84ee', '#ece4cf', '#ffcf7a', '#e9f4ee'];
+  function palette() {
+    return document.documentElement.dataset.skin === 'neon' ? COLORS_NEON : COLORS_BONE;
+  }
   const PIECE_LIFETIME_MS = 1600;
 
   let host = null;
@@ -28,10 +33,11 @@
     const x = (typeof opts.x === 'number') ? opts.x : window.innerWidth / 2;
     const y = (typeof opts.y === 'number') ? opts.y : window.innerHeight / 3;
     const root = ensureHost();
+    const colors = palette();
     for (let i = 0; i < count; i++) {
       const p = document.createElement('span');
       p.className = 'confetti-piece';
-      const color = COLORS[(Math.random() * COLORS.length) | 0];
+      const color = colors[(Math.random() * colors.length) | 0];
       const angle = Math.random() * Math.PI * 2;
       const dist = 80 + Math.random() * 280;
       const dx = Math.cos(angle) * dist;

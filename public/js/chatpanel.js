@@ -9,7 +9,10 @@
 (function (global) {
   'use strict';
 
-  const POLL_MS = 5000;
+  // 2.5s, not 5s: at five seconds a reply between two people playing together
+  // lands long after it was sent and the room reads as dead. Two polls a
+  // player-minute is still far inside the API rate limit.
+  const POLL_MS = 2500;
   let listEl, inputEl, sendEl, onlineEl;
   let msgs = [], lastId = 0, timer = null, alive = false;
 

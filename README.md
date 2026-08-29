@@ -26,7 +26,7 @@ Keno, Bingo Rush, Craps, Chicken Road, Three Card Poker, Sic Bo, Diamonds, Slots
 - **True provably-fair** — the server seed lives on the server; you only get its SHA-256
   hash (a commitment) up front. Rotate the seed any time to reveal the original and
   recompute every past roll yourself (see [Verifying fairness](#verifying-fairness)).
-- **19 games**, all provably fair and server-settled:
+- **50 games**, all provably fair and server-settled:
   - *Multiplier & climb:* Crash, Limbo, Towers, Pump (escalating-risk meter), Plinko.
   - *Cards:* Blackjack (3:2, double), Video Poker (Jacks or Better), Hi-Lo.
   - *Wheels & tables:* Wheel (low/mid/high risk), Roulette (European), Sic Bo.
