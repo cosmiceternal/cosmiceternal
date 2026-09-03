@@ -3021,13 +3021,29 @@ input { font-family: inherit; }
 /* Collapsed: the column shrinks to a narrow rail that STILL SHOWS the toggle —
    hiding the panel outright would hide its own re-open button and trap the
    user with no way back. Persisted in localStorage by chatpanel.js. */
-body.chat-collapsed .layout { grid-template-columns: 40px 1fr 360px; }
-body.chat-collapsed .cs-list,
-body.chat-collapsed .cs-input,
-body.chat-collapsed .cs-live,
-body.chat-collapsed .cs-title { display: none; }
-body.chat-collapsed .cs-head { justify-content: center; padding: 10px 4px; border-bottom: none; }
-body.chat-collapsed .chat-side { background: var(--bg-2); }
+/* Collapsed chat hides completely and hands its re-open control to a slim tab
+   pinned to the window edge. (It used to leave a 40px rail behind purely so the
+   toggle stayed reachable — the tab lets the column go away entirely.) */
+body.chat-collapsed .layout { grid-template-columns: 1fr 360px; }
+body.chat-collapsed .chat-side { display: none; }
+
+.chat-reopen {
+  display: none;
+  position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+  z-index: 30;
+  width: 22px; height: 74px; padding: 0;
+  align-items: center; justify-content: center;
+  font: 700 16px/1 var(--sans); color: var(--muted);
+  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  border: 1px solid var(--line); border-left: none;
+  border-radius: 0 10px 10px 0;
+  cursor: pointer;
+  transition: color .15s, background .15s, width .15s;
+}
+body.chat-collapsed .chat-reopen { display: flex; }
+.chat-reopen:hover { color: var(--accent); width: 27px;
+  box-shadow: 0 0 0 1px var(--accent-glow), 6px 0 20px -8px var(--accent-glow); }
+.chat-reopen:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Hide the chat column wherever a third column will not fit. */
 @media (max-width: 1200px) {
@@ -3220,4 +3236,57 @@ html[data-skin="boneyard"] .lobby-host {
 @media (prefers-reduced-motion: reduce) {
   .bones .b-char, .bones .b-aura, .bones .b-lid, .bones .b-hat, .bones .b-cards { animation: none !important; }
   .bones.cheer .b-char, .bones.cheer .b-hat, .bones.cheer .b-aura { animation: none !important; }
+}
+
+/* ============================================================================
+   Skeleton card dealer + deal animation (all 9 card games)
+   Mounted by carddealer.js above any .stage containing a .cards-row.
+   ========================================================================== */
+.card-dealer {
+  width: 100%; display: flex; justify-content: center;
+  margin: -4px 0 2px; pointer-events: none;
+}
+/* Glow comes from a drop-shadow, not a painted ellipse: the ellipse rendered
+   as a hard-edged grey smudge behind the skull. */
+.cd-bones { width: 150px; height: auto; display: block;
+  filter: drop-shadow(0 0 10px rgba(var(--accent-rgb), .30)) drop-shadow(0 8px 14px rgba(0, 0, 0, 0.5)); }
+.cd-eye { fill: var(--accent); }
+.cd-band { fill: var(--accent); }
+.cd-pip { fill: var(--accent); opacity: .75; }
+.cd-bow { fill: var(--violet); }
+
+/* Idle: a slow breath and an occasional blink, so he reads as alive but never
+   pulls focus from the cards. */
+.cd-body { animation: cdBreathe 5.2s ease-in-out infinite; transform-origin: 100px 100px; }
+@keyframes cdBreathe { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.cd-lid { transform-origin: center; transform-box: fill-box; animation: cdBlink 5.6s ease-in-out infinite; }
+@keyframes cdBlink { 0%,93%,100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+
+/* Dealing: hands flick out, hat tips. */
+.card-dealer.dealing .cd-arm-l { animation: cdArmL .6s ease; transform-origin: 57px 92px; }
+.card-dealer.dealing .cd-arm-r { animation: cdArmR .6s ease; transform-origin: 143px 92px; }
+.card-dealer.dealing .cd-hat   { animation: cdHat .6s ease; transform-origin: 100px 44px; }
+.card-dealer.dealing .cd-deck  { animation: cdDeck .6s ease; transform-origin: 100px 124px; }
+@keyframes cdArmL { 35% { transform: rotate(-16deg) translateY(4px); } 100% { transform: none; } }
+@keyframes cdArmR { 35% { transform: rotate(16deg) translateY(4px); } 100% { transform: none; } }
+@keyframes cdHat  { 30% { transform: translateY(-5px) rotate(-5deg); } 100% { transform: none; } }
+@keyframes cdDeck { 30% { transform: translateY(-4px) rotate(-6deg); } 100% { transform: none; } }
+
+/* A card flying out of his hands into its slot, turning face-up as it lands. */
+.pcard.cd-deal {
+  animation: cdDeal 340ms cubic-bezier(.2, .7, .3, 1) backwards;
+  will-change: transform, opacity;
+}
+@keyframes cdDeal {
+  0%   { opacity: 0; transform: translate(var(--cd-dx, 0), var(--cd-dy, -140px)) rotate(-24deg) scale(.7); }
+  55%  { opacity: 1; }
+  80%  { transform: translate(0, 0) rotate(3deg) scale(1.04); }
+  100% { opacity: 1; transform: none; }
+}
+
+@media (max-width: 720px) { .cd-bones { width: 112px; } }
+@media (prefers-reduced-motion: reduce) {
+  .cd-body, .cd-lid, .pcard.cd-deal,
+  .card-dealer.dealing .cd-arm-l, .card-dealer.dealing .cd-arm-r,
+  .card-dealer.dealing .cd-hat, .card-dealer.dealing .cd-deck { animation: none !important; }
 }
