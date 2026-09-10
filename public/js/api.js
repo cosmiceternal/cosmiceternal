@@ -7,6 +7,15 @@
     return m ? decodeURIComponent(m[1]) : '';
   }
 
+  // Paytables never change while the page is open, so fetch them once.
+  let _slotThemes = null;
+  function slotThemesCached() {
+    if (!_slotThemes) {
+      _slotThemes = request('GET', '/api/slots/themes').catch((e) => { _slotThemes = null; throw e; });
+    }
+    return _slotThemes;
+  }
+
   async function request(method, path, body, opts) {
     const headers = {};
     if (body) headers['Content-Type'] = 'application/json';
@@ -75,6 +84,11 @@
     slots:        (b)      => request('POST', '/api/play/slots', b),
     luckySevens:  (b)      => request('POST', '/api/play/luckysevens', b),
     cosmicReels:  (b)      => request('POST', '/api/play/cosmic', b),
+    cryptReels:   (b)      => request('POST', '/api/play/crypt', b),
+    pirateHoard:  (b)      => request('POST', '/api/play/pirate', b),
+    dragonGold:   (b)      => request('POST', '/api/play/dragon', b),
+    frostPeaks:   (b)      => request('POST', '/api/play/frost', b),
+    slotThemes:   ()       => slotThemesCached(),
     sicbo:        (b)      => request('POST', '/api/play/sicbo', b),
     color:        (b)      => request('POST', '/api/play/color', b),
     scratch:      (b)      => request('POST', '/api/play/scratch', b),

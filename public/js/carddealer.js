@@ -120,6 +120,12 @@
     const host = stage.querySelector(':scope > .card-dealer');
     const cr = card.getBoundingClientRect();
     if (!cr.width) return;
+    // Yield to a game that animates its own cards. Red Dog flips each card with
+    // `.rd-card.flip .pcard { animation: rdFlip }`, and because our rule is
+    // later in the stylesheet the fly-in silently replaced that reveal. If the
+    // card already has an animation of its own, let it play.
+    const own = global.getComputedStyle(card).animationName;
+    if (own && own !== 'none' && own !== 'cdDeal') return;
     let dx = 0, dy = -140;
     if (host) {
       const hr = host.getBoundingClientRect();

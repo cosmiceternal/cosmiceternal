@@ -538,6 +538,27 @@ async function playSlotsThemed(userId, { bet }, themeKey) {
 function playSlots(userId, body)        { return playSlotsThemed(userId, body, 'classic'); }
 function playLuckySevens(userId, body)  { return playSlotsThemed(userId, body, 'sevens'); }
 function playCosmicReels(userId, body)  { return playSlotsThemed(userId, body, 'cosmic'); }
+function playCryptReels(userId, body)   { return playSlotsThemed(userId, body, 'crypt'); }
+function playPirateHoard(userId, body)  { return playSlotsThemed(userId, body, 'pirate'); }
+function playDragonGold(userId, body)   { return playSlotsThemed(userId, body, 'dragon'); }
+function playFrostPeaks(userId, body)   { return playSlotsThemed(userId, body, 'frost'); }
+
+// The real pay tables, so a reel UI can show its top prize instead of carrying
+// a hardcoded number. Cosmic Reels advertised "190x" in both the lobby tag and
+// its own Top Prize stat while the table actually topped out at 115.50x —
+// exactly the drift this endpoint removes.
+function slotThemeInfo() {
+  const out = {};
+  for (const [key, t] of Object.entries(SLOT_THEMES)) {
+    out[key] = {
+      symbols: t.symbols,
+      pairPay: t.pairPay,
+      triple: t.triple,
+      top: Math.max(...t.triple)
+    };
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------- PUMP (escalating meter)
 function pumpStart(userId, { bet, difficulty }) {
@@ -987,6 +1008,7 @@ module.exports = {
   playRoulette,
   coinStart, coinFlip, coinCashout,
   playDiamonds, playSlots, playLuckySevens, playCosmicReels,
+  playCryptReels, playPirateHoard, playDragonGold, playFrostPeaks, slotThemeInfo,
   pumpStart, pumpPump, pumpCashout,
   playSicbo, playColor, playScratch,
   videoPokerStart, videoPokerDraw,
