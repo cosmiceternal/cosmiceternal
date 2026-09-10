@@ -113,7 +113,7 @@ function diamondCategory(counts) {
 
 // ---- Slots — 3 reels, uniform draw across N symbols, ~4% house edge.
 // Triple = bigSymbolMult, pair = pairPay. Mults computed to hit the target
-// RTP regardless of symbol-count (5, 6, 7 supported below).
+// RTP regardless of symbol-count (5 through 8 are in use below).
 function buildSlotTable({ symbols, weights, pairPay, rtp = 0.96 }) {
   const N = symbols.length;
   const p3 = 1 / Math.pow(N, 3);                               // P(specific triple)
@@ -141,6 +141,33 @@ const SLOT_THEMES = {
     symbols: ['comet', 'planet', 'star', 'galaxy', 'ufo', 'rocket', 'eclipse'],
     weights: [1, 1.4, 2, 3, 5, 8, 15],
     pairPay: 0.45
+  },
+  // ---- Themed reels. Each picks a different volatility shape so they play
+  // differently, not just look different; buildSlotTable solves the pays to the
+  // same house edge either way. ----
+  crypt: {
+    // 6 symbols, evenly stepped — the house style, middle of the road.
+    symbols: ['bat', 'spider', 'pumpkin', 'coffin', 'ghost', 'skull'],
+    weights: [1, 1.5, 2.2, 3.4, 6, 11],
+    pairPay: 0.5
+  },
+  pirate: {
+    // 5 symbols and a fat pair pay: small wins land often, top prize modest.
+    symbols: ['map', 'grog', 'anchor', 'parrot', 'chest'],
+    weights: [1, 1.3, 2, 3.2, 8],
+    pairPay: 0.7
+  },
+  dragon: {
+    // 8 symbols and a thin pair pay: the most volatile reel on the floor.
+    symbols: ['coin', 'lantern', 'fan', 'koi', 'tiger', 'phoenix', 'pearl', 'dragon'],
+    weights: [1, 1.4, 2, 2.8, 4, 6.5, 11, 26],
+    pairPay: 0.3
+  },
+  frost: {
+    // 6 symbols, flat weights, generous pairs — grindy and low-variance.
+    symbols: ['snowflake', 'icicle', 'penguin', 'seal', 'bear', 'aurora'],
+    weights: [1, 1.2, 1.6, 2.2, 3, 4.5],
+    pairPay: 0.8
   }
 };
 // Pre-compute the triple pay tables once at load.

@@ -280,6 +280,13 @@ app.post('/api/play/diamonds', auth.requireAuth, h((req) => games.playDiamonds(r
 app.post('/api/play/slots',         auth.requireAuth, h((req) => games.playSlots(req.user.id, req.body || {})));
 app.post('/api/play/luckysevens',   auth.requireAuth, h((req) => games.playLuckySevens(req.user.id, req.body || {})));
 app.post('/api/play/cosmic',        auth.requireAuth, h((req) => games.playCosmicReels(req.user.id, req.body || {})));
+app.post('/api/play/crypt',         auth.requireAuth, h((req) => games.playCryptReels(req.user.id, req.body || {})));
+app.post('/api/play/pirate',        auth.requireAuth, h((req) => games.playPirateHoard(req.user.id, req.body || {})));
+app.post('/api/play/dragon',        auth.requireAuth, h((req) => games.playDragonGold(req.user.id, req.body || {})));
+app.post('/api/play/frost',         auth.requireAuth, h((req) => games.playFrostPeaks(req.user.id, req.body || {})));
+// Public paytables: a provably-fair casino publishes its odds, and it keeps the
+// reel UIs from carrying hardcoded top-prize numbers that drift out of date.
+app.get('/api/slots/themes', h(() => games.slotThemeInfo()));
 app.post('/api/play/sicbo',  auth.requireAuth, h((req) => games.playSicbo(req.user.id, req.body || {})));
 app.post('/api/play/color',  auth.requireAuth, h((req) => games.playColor(req.user.id, req.body || {})));
 app.post('/api/play/scratch', auth.requireAuth, h((req) => games.playScratch(req.user.id, req.body || {})));

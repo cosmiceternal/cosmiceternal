@@ -1,5 +1,5 @@
 /* Cosmic Reels — space-themed slot, 7 symbols, big top-symbol jackpot
- * (~190×). Lower pair rate than Lucky Sevens, higher peak. Server theme
+ * Lower pair rate than Lucky Sevens, higher peak. Server theme
  * key is 'cosmic'. */
 (function (global) {
   'use strict';
@@ -12,7 +12,7 @@
       <button class="btn btn-primary btn-block" id="crAction">Launch</button>
       <div class="stat-grid">
         <div class="stat"><span class="stat-label">Last Win</span><span class="stat-value" id="crLast">—</span></div>
-        <div class="stat"><span class="stat-label">Top Prize</span><span class="stat-value">🌑 190×</span></div>
+        <div class="stat"><span class="stat-label">Top Prize</span><span class="stat-value" id="crTop">—</span></div>
       </div>
       <p class="muted" style="font-size:11px;line-height:1.5;margin:0;">Seven symbols means rarer pairs but a bigger top prize when the eclipses align.</p>
     `, `<div class="slots-reels cosmic-reels" id="crReels">
@@ -25,8 +25,16 @@
     const reels = [0, 1, 2].map(i => container.querySelector('#crR' + i));
     const statusEl = container.querySelector('#crStatus');
     const lastEl = container.querySelector('#crLast');
+    const topEl = container.querySelector('#crTop');
     let busy = false, alive = true, spins = [];
     GameKit.wireBet(container, betInput);
+
+    // Read the real top prize instead of trusting a literal: this stat said
+    // 190x while the table topped out at 115.50x.
+    API.slotThemes().then((t) => {
+      if (!alive || !t || !t.cosmic) return;
+      topEl.textContent = '🌑 ' + t.cosmic.top.toFixed(2) + '×';
+    }).catch(() => { if (alive) topEl.textContent = '—'; });
 
     function spinReel(el, stopIcon, delay) {
       const iv = setInterval(() => { el.textContent = ICON[ALL[Math.floor(Math.random() * ALL.length)]]; }, 70);
