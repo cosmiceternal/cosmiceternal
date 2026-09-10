@@ -14,11 +14,16 @@
  * The AI Dealer game is skipped — it already has its own dealer portrait, and
  * two dealers at one table reads as a bug. */
 (function (global) {
-  // 460/165, not 340/90: the whole four-card deal used to be over in ~600ms
-  // with every card at full opacity by 190ms, so it read as one clump landing
-  // rather than cards being dealt one at a time.
-  const DEAL_MS = 460;
-  const STAGGER_MS = 165;
+  // Paced off a real table. A croupier takes roughly three quarters of a second
+  // to peel a card, skim it across the felt and set it down, and waits for his
+  // hand to come back before the next one — so a four-card opening runs about
+  // two and a half seconds, not the half second this started at. At 460/165 it
+  // still read as teleporting.
+  const DEAL_MS = 720;
+  const STAGGER_MS = 420;
+  // Must be shorter than the stagger, or the next card restarts the reach
+  // part-way and the arm snaps back to rest instead of completing its return.
+  const GESTURE_MS = 400;
 
   let observer = null;
 
@@ -46,11 +51,11 @@
           // arms angling in toward the deck
           '<g class="cd-arm cd-arm-l">' +
             '<rect x="62" y="102" width="10.5" height="26" rx="5.25" transform="rotate(17 67 104)" fill="url(#cdBone)" stroke="#c9c1a7" stroke-width="1"/>' +
-            '<circle cx="82" cy="128" r="7.5" fill="url(#cdBone)" stroke="#c9c1a7" stroke-width="1"/>' +
+            '<circle cx="82" cy="128" r="8.5" fill="url(#cdBone)" stroke="#b8ae92" stroke-width="1.4"/>' +
           '</g>' +
           '<g class="cd-arm cd-arm-r">' +
             '<rect x="127.5" y="102" width="10.5" height="26" rx="5.25" transform="rotate(-17 133 104)" fill="url(#cdBone)" stroke="#c9c1a7" stroke-width="1"/>' +
-            '<circle cx="118" cy="128" r="7.5" fill="url(#cdBone)" stroke="#c9c1a7" stroke-width="1"/>' +
+            '<circle cx="118" cy="128" r="8.5" fill="url(#cdBone)" stroke="#b8ae92" stroke-width="1.4"/>' +
           '</g>' +
           // the deck he deals from
           '<g class="cd-deck">' +
@@ -114,10 +119,11 @@
     if (!host || reduced()) return;
     setTimeout(() => {
       if (!host.isConnected) return;
+      host.style.setProperty('--cd-gest', GESTURE_MS + 'ms');
       host.classList.remove('dealing');
       void host.offsetWidth;                     // restart the animation
       host.classList.add('dealing');
-      setTimeout(() => host.classList.remove('dealing'), 420);
+      setTimeout(() => host.classList.remove('dealing'), GESTURE_MS);
     }, delay || 0);
   }
 
@@ -144,9 +150,11 @@
     card.style.setProperty('--cd-dx', dx.toFixed(1) + 'px');
     card.style.setProperty('--cd-dy', dy.toFixed(1) + 'px');
     // A little variation per card so a dealt hand doesn't look stamped out.
-    const jitter = -22 + ((order * 7) % 11);
+    // A dealer is consistent, so keep the variation small — just enough that a
+    // hand isn't stamped out.
+    const jitter = -16 + ((order * 5) % 7);
     card.style.setProperty('--cd-rot', jitter + 'deg');
-    card.style.setProperty('--cd-dur', (DEAL_MS + ((order * 13) % 70)) + 'ms');
+    card.style.setProperty('--cd-dur', (DEAL_MS + ((order * 17) % 90)) + 'ms');
     card.style.animationDelay = (order * STAGGER_MS) + 'ms';
     card.classList.add('cd-deal');
     const done = () => {
@@ -157,7 +165,7 @@
       card.style.removeProperty('--cd-rot');
       card.style.removeProperty('--cd-dur');
     };
-    setTimeout(done, DEAL_MS + 70 + order * STAGGER_MS + 90);
+    setTimeout(done, DEAL_MS + 90 + order * STAGGER_MS + 120);
   }
 
   // Card containers differ per game: most use .cards-row, reddog drops .pcard
