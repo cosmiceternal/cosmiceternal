@@ -3280,33 +3280,77 @@ html[data-skin="boneyard"] .lobby-host {
 @keyframes cdDeck { 26% { transform: translate(-3px, 3px) rotate(-9deg) scale(.96); } 100% { transform: none; } }
 @keyframes cdNod  { 34% { transform: translateY(2px) rotate(1.5deg); } 100% { transform: none; } }
 
-/* A card flicked out of his hands: it leaves the deck edge-on, arcs across, and
-   turns face-on as it lands. Flying the card flat and face-up the whole way
-   read as one clump sliding, not as cards being dealt. The turn stays gentle:
-   at a steeper angle the card squashed to a sliver and looked like it had
-   vanished rather than turned. --cd-rot is jittered per card so a dealt hand
-   isn't stamped out. */
+/* A card being DEALT, not thrown.
+   Watching a real table: the croupier peels a card off the top of the deck,
+   skims it low across the felt, and it slides to a stop — it never arcs up
+   through the air. So the motion is a shallow skim, the card stays close to
+   the table plane, and it only turns face-on in the last third as it is set
+   down. Earlier passes flew it high and fast and it read as teleporting. */
 .pcard.cd-deal {
-  animation: cdDeal var(--cd-dur, 460ms) cubic-bezier(.17, .72, .28, 1) backwards;
+  animation: cdDeal var(--cd-dur, 720ms) cubic-bezier(.22, .78, .28, 1) backwards;
   will-change: transform, opacity;
-  transform-origin: 50% 60%;
+  transform-origin: 50% 70%;
+  z-index: 3;
 }
 @keyframes cdDeal {
+  /* sitting on the deck in his hand */
   0% {
     opacity: 0;
     transform: translate(var(--cd-dx, 0), var(--cd-dy, -140px))
-               rotate(var(--cd-rot, -18deg)) perspective(760px) rotateY(44deg) scale(.84);
+               rotate(var(--cd-rot, -14deg)) perspective(900px) rotateY(52deg) scale(.88);
   }
-  14% { opacity: 1; }
-  58% {
-    transform: translate(calc(var(--cd-dx, 0px) * .3), calc(var(--cd-dy, 0px) * .3 - 16px))
-               rotate(calc(var(--cd-rot, -18deg) * .45)) perspective(760px) rotateY(22deg) scale(.94);
+  /* peeled off the top of the deck */
+  10% { opacity: 1; }
+  18% {
+    transform: translate(calc(var(--cd-dx, 0px) * .93), calc(var(--cd-dy, 0px) * .93 - 5px))
+               rotate(calc(var(--cd-rot, -14deg) * .95)) perspective(900px) rotateY(48deg) scale(.9);
   }
-  86% {
-    transform: translate(0, 0) rotate(0deg) perspective(760px) rotateY(-7deg) scale(1.03);
+  /* skimming the felt — barely off the straight line, no arc through the air */
+  62% {
+    transform: translate(calc(var(--cd-dx, 0px) * .34), calc(var(--cd-dy, 0px) * .34 - 7px))
+               rotate(calc(var(--cd-rot, -14deg) * .42)) perspective(900px) rotateY(30deg) scale(.95);
+  }
+  /* set down, turning face-on as it lands */
+  88% {
+    transform: translate(0, 0) rotate(-1.5deg) perspective(900px) rotateY(-6deg) scale(1.015);
   }
   100% { opacity: 1; transform: none; }
 }
+
+/* One deliberate reach per card: the right hand goes out with the card and
+   comes back, rather than a twitch. Timed to the card's own flight. */
+.card-dealer.dealing .cd-arm-r { animation: cdArmR var(--cd-gest, 620ms) cubic-bezier(.3,.7,.3,1); transform-origin: 133px 100px; }
+.card-dealer.dealing .cd-arm-l { animation: cdArmL var(--cd-gest, 620ms) ease-in-out; transform-origin: 67px 100px; }
+.card-dealer.dealing .cd-deck  { animation: cdDeck var(--cd-gest, 620ms) ease-in-out; transform-origin: 103px 128px; }
+.card-dealer.dealing .cd-skull { animation: cdNod var(--cd-gest, 620ms) ease-in-out; transform-origin: 100px 86px; }
+/* The dealing hand travels FORWARD down the felt, which from this front-on view
+   reads as down-and-slightly-out. Swinging it sideways (the first attempt) just
+   looked like a limb flailing. The left hand keeps hold of the deck. */
+@keyframes cdArmR {
+  0%   { transform: none; }
+  26%  { transform: rotate(-11deg) translate(4px, 13px); }    /* reach down the table */
+  50%  { transform: rotate(-14deg) translate(6px, 18px); }    /* set the card down */
+  72%  { transform: rotate(-6deg) translate(3px, 8px); }      /* draw back */
+  100% { transform: none; }
+}
+/* the deck hand barely moves — it is holding the pack */
+@keyframes cdArmL { 40% { transform: rotate(3deg) translateY(2px); } 100% { transform: none; } }
+/* the deck settles back as a card is taken off the top */
+@keyframes cdDeck { 20% { transform: translate(-2px, 2px) rotate(-7deg) scale(.97); } 100% { transform: none; } }
+@keyframes cdNod  { 40% { transform: translateY(2px) rotate(1.2deg); } 100% { transform: none; } }
+
+/* The felt he deals across, so the cards read as sliding over a table rather
+   than floating in the dark. */
+.card-dealer::after {
+  content: "";
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: -6px; width: min(560px, 92%); height: 46px;
+  border-radius: 50% / 100% 100% 0 0;
+  background: radial-gradient(60% 100% at 50% 0%, rgba(var(--accent-rgb), .10), transparent 72%);
+  border-top: 1px solid rgba(var(--accent-rgb), .16);
+  pointer-events: none;
+}
+.card-dealer { position: relative; }
 
 @media (max-width: 720px) { .cd-bones { width: 112px; } }
 @media (prefers-reduced-motion: reduce) {
