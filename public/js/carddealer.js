@@ -14,10 +14,12 @@
  * The AI Dealer game is skipped — it already has its own dealer portrait, and
  * two dealers at one table reads as a bug. */
 (function (global) {
-  const DEAL_MS = 340;
-  const STAGGER_MS = 90;
+  // 460/165, not 340/90: the whole four-card deal used to be over in ~600ms
+  // with every card at full opacity by 190ms, so it read as one clump landing
+  // rather than cards being dealt one at a time.
+  const DEAL_MS = 460;
+  const STAGGER_MS = 165;
 
-  const counts = new WeakMap();     // .cards-row -> cards last seen
   let observer = null;
 
   const reduced = () => global.matchMedia
@@ -105,14 +107,18 @@
     return host;
   }
 
-  // Flick the croupier's hands — called as cards leave them.
-  function dealGesture(stage) {
+  // Flick the croupier's hands. Fires once per card as that card leaves, so a
+  // four-card deal is four flicks rather than one shrug at the start.
+  function dealGesture(stage, delay) {
     const host = stage.querySelector(':scope > .card-dealer');
     if (!host || reduced()) return;
-    host.classList.remove('dealing');
-    void host.offsetWidth;                       // restart the animation
-    host.classList.add('dealing');
-    setTimeout(() => host.classList.remove('dealing'), 620);
+    setTimeout(() => {
+      if (!host.isConnected) return;
+      host.classList.remove('dealing');
+      void host.offsetWidth;                     // restart the animation
+      host.classList.add('dealing');
+      setTimeout(() => host.classList.remove('dealing'), 420);
+    }, delay || 0);
   }
 
   // Fly one card from the dealer's hands into its slot.
@@ -127,13 +133,20 @@
     const own = global.getComputedStyle(card).animationName;
     if (own && own !== 'none' && own !== 'cdDeal') return;
     let dx = 0, dy = -140;
-    if (host) {
-      const hr = host.getBoundingClientRect();
+    // Measure the deck in his hands, not the dealer container: the container is
+    // full-width, so its centre only lines up with the deck by coincidence.
+    const src = (host && host.querySelector('.cd-deck')) || host;
+    if (src) {
+      const hr = src.getBoundingClientRect();
       dx = (hr.left + hr.width / 2) - (cr.left + cr.width / 2);
-      dy = (hr.top + hr.height * 0.85) - (cr.top + cr.height / 2);
+      dy = (hr.top + hr.height / 2) - (cr.top + cr.height / 2);
     }
     card.style.setProperty('--cd-dx', dx.toFixed(1) + 'px');
     card.style.setProperty('--cd-dy', dy.toFixed(1) + 'px');
+    // A little variation per card so a dealt hand doesn't look stamped out.
+    const jitter = -22 + ((order * 7) % 11);
+    card.style.setProperty('--cd-rot', jitter + 'deg');
+    card.style.setProperty('--cd-dur', (DEAL_MS + ((order * 13) % 70)) + 'ms');
     card.style.animationDelay = (order * STAGGER_MS) + 'ms';
     card.classList.add('cd-deal');
     const done = () => {
@@ -141,14 +154,27 @@
       card.style.animationDelay = '';
       card.style.removeProperty('--cd-dx');
       card.style.removeProperty('--cd-dy');
+      card.style.removeProperty('--cd-rot');
+      card.style.removeProperty('--cd-dur');
     };
-    setTimeout(done, DEAL_MS + order * STAGGER_MS + 90);
+    setTimeout(done, DEAL_MS + 70 + order * STAGGER_MS + 90);
   }
 
   // Card containers differ per game: most use .cards-row, reddog drops .pcard
-  // straight into its felt, and war uses .war-card. Group by whatever element
-  // actually holds the cards rather than assuming a wrapper class.
+  // straight into its felt, video poker wraps each card in a .vp-slot, and war
+  // uses .war-card.
+  //
+  // Deciding what is NEW took three tries. Counting cards per container broke
+  // video poker, whose slot holds exactly one card: the count never grew, so
+  // every unrelated mutation in the pane re-dealt it forever. Tracking card
+  // ELEMENTS broke blackjack, which rebuilds its whole row with innerHTML, so
+  // hitting replaced every element and re-dealt the entire hand.
+  //
+  // What actually identifies a card is its face. Remember the faces a container
+  // last held, keep the matching prefix, and deal the rest.
   const CARD_SEL = '.pcard, .war-card';
+  const lastFaces = new WeakMap();          // container -> [face, ...]
+  const faceOf = (c) => c.className + '|' + (c.textContent || '');
 
   // Which stages are card tables. Keyed on the stage class the game passes to
   // GameKit.frame, so the croupier is present the moment the game opens rather
@@ -163,18 +189,6 @@
     return set;
   }
 
-  function syncContainer(box, stage) {
-    const cards = box.querySelectorAll(':scope > ' + CARD_SEL.split(', ').join(', :scope > '));
-    const prev = counts.get(box) || 0;
-    counts.set(box, cards.length);
-    if (!cards.length || reduced()) return 0;
-    // Grew -> deal only the new tail. Shrank/reset -> deal the whole hand.
-    const from = cards.length > prev ? prev : 0;
-    let order = 0;
-    for (let i = from; i < cards.length; i++) flyIn(cards[i], stage, order++);
-    return order;
-  }
-
   function refresh() {
     const pane = document.getElementById('gamePane');
     if (!pane) return;
@@ -182,9 +196,31 @@
       if (stage.classList.contains('aidealer-stage')) return;
       if (!isCardStage(stage) && !stage.querySelector(CARD_SEL)) return;
       mountDealer(stage);
-      let dealt = 0;
-      containersIn(stage).forEach((box) => { dealt += syncContainer(box, stage); });
-      if (dealt) dealGesture(stage);
+      if (reduced()) return;
+
+      // Collect what to deal first, then stagger across the whole table, so a
+      // hand spread over several containers still deals one card at a time.
+      const fresh = [];
+      containersIn(stage).forEach((box) => {
+        const cards = [...box.children].filter((c) => c.matches && c.matches(CARD_SEL));
+        if (!cards.length) return;
+        const faces = cards.map(faceOf);
+        const prev = lastFaces.get(box) || [];
+        let keep = 0;
+        while (keep < faces.length && keep < prev.length && faces[keep] === prev[keep]) keep++;
+        lastFaces.set(box, faces);
+        for (let i = keep; i < cards.length; i++) fresh.push(cards[i]);
+      });
+      if (!fresh.length) return;
+      // Deal in visual order rather than container order.
+      fresh.sort((a, b) => {
+        const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        return (ra.top - rb.top) || (ra.left - rb.left);
+      });
+      fresh.forEach((card, order) => {
+        flyIn(card, stage, order);
+        dealGesture(stage, order * STAGGER_MS);
+      });
     });
   }
 
