@@ -105,20 +105,21 @@
       if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); send(); }
     });
     const toggle = document.getElementById('csToggle');
-    // The collapsed state keeps a narrow rail so this button stays reachable —
-    // hiding the whole panel would hide its own re-open control.
+    const reopen = document.getElementById('chatReopen');
+    // Collapsing hides the panel outright, so the re-open control has to live
+    // outside it: an edge tab that only appears while chat is away.
     const syncToggle = () => {
       const collapsed = document.body.classList.contains('chat-collapsed');
-      if (toggle) {
-        toggle.textContent = collapsed ? '\u203a' : '\u2039';
-        toggle.title = collapsed ? 'Show chat' : 'Hide chat';
-      }
+      if (toggle) { toggle.textContent = '\u2039'; toggle.title = 'Hide chat'; }
+      if (reopen) reopen.setAttribute('aria-expanded', String(!collapsed));
     };
-    if (toggle) toggle.addEventListener('click', () => {
-      document.body.classList.toggle('chat-collapsed');
-      try { localStorage.setItem('crypt.chatCollapsed', document.body.classList.contains('chat-collapsed') ? '1' : '0'); } catch (_) {}
+    const setCollapsed = (collapsed) => {
+      document.body.classList.toggle('chat-collapsed', collapsed);
+      try { localStorage.setItem('crypt.chatCollapsed', collapsed ? '1' : '0'); } catch (_) {}
       syncToggle();
-    });
+    };
+    if (toggle) toggle.addEventListener('click', () => setCollapsed(true));
+    if (reopen) reopen.addEventListener('click', () => setCollapsed(false));
     try { if (localStorage.getItem('crypt.chatCollapsed') === '1') document.body.classList.add('chat-collapsed'); } catch (_) {}
     syncToggle();
     start();
