@@ -53,21 +53,26 @@
             '<rect x="62" y="102" width="10.5" height="26" rx="5.25" transform="rotate(17 67 104)" fill="url(#cdBone)" stroke="#c9c1a7" stroke-width="1"/>' +
             '<circle cx="82" cy="128" r="8.5" fill="url(#cdBone)" stroke="#b8ae92" stroke-width="1.4"/>' +
           '</g>' +
-          '<g class="cd-arm cd-arm-r">' +
-            '<rect x="127.5" y="102" width="10.5" height="26" rx="5.25" transform="rotate(-17 133 104)" fill="url(#cdBone)" stroke="#c9c1a7" stroke-width="1"/>' +
-            '<circle cx="118" cy="128" r="8.5" fill="url(#cdBone)" stroke="#b8ae92" stroke-width="1.4"/>' +
-          '</g>' +
           // the deck he deals from
           '<g class="cd-deck">' +
             '<rect x="88" y="122" width="25" height="19" rx="3" fill="#b9c2cd" stroke="#94a0ad" stroke-width="1"/>' +
             '<rect x="89.5" y="119" width="25" height="19" rx="3" fill="#dbe2ea" stroke="#94a0ad" stroke-width="1"/>' +
-            '<rect x="91" y="116" width="25" height="19" rx="3" fill="#fffdf6" stroke="#b4ab8d" stroke-width="1"/>' +
-            '<circle class="cd-pip" cx="103.5" cy="125.5" r="3.2"/>' +
+            // The top card peels off as each card is dealt, so the deal starts
+            // at the pack instead of a card simply appearing beside it.
+            '<g class="cd-top">' +
+              '<rect x="91" y="116" width="25" height="19" rx="3" fill="#fffdf6" stroke="#b4ab8d" stroke-width="1"/>' +
+              '<circle class="cd-pip" cx="103.5" cy="125.5" r="3.2"/>' +
+            '</g>' +
+          '</g>' +
+          // Right arm sits IN FRONT of the pack: that is the hand that takes
+          // cards off the top, while the left holds it. With the deck drawn over
+          // both hands he looked like he was standing behind it, not holding it.
+          '<g class="cd-arm cd-arm-r">' +
+            '<rect x="127.5" y="102" width="10.5" height="26" rx="5.25" transform="rotate(-17 133 104)" fill="url(#cdBone)" stroke="#c9c1a7" stroke-width="1"/>' +
+            '<circle cx="118" cy="128" r="8.5" fill="url(#cdBone)" stroke="#b8ae92" stroke-width="1.4"/>' +
           '</g>' +
           // neck
           '<rect x="94" y="78" width="12" height="9" rx="3" fill="url(#cdBone)"/>' +
-          // bow tie at the collar, well clear of the jaw
-          '<g class="cd-bow"><path d="M100 92 l-10 -5 v10 z M100 92 l10 -5 v10 z"/><circle cx="100" cy="92" r="3"/></g>' +
           '<g class="cd-skull">' +
             // cranium + cheekbones + jaw
             '<path fill="url(#cdBone)" stroke="#cdc5aa" stroke-width="1.2" d="' +
@@ -91,6 +96,10 @@
               '<line x1="93" y1="71.5" x2="93" y2="77"/><line x1="100" y1="73.5" x2="100" y2="79"/><line x1="107" y1="71.5" x2="107" y2="77"/>' +
             '</g>' +
           '</g>' +
+          // Bow tie at the collar. It used to be drawn before the skull, so the
+          // jaw cut off its top half — invisible at the old size, obvious once
+          // he was scaled up.
+          '<g class="cd-bow"><path d="M100 99 l-11 -6 v12 z M100 99 l11 -6 v12 z"/><circle cx="100" cy="99" r="3.2"/></g>' +
           // croupier hat with a banded brim
           '<g class="cd-hat">' +
             '<ellipse cx="100" cy="29" rx="36" ry="7.5" fill="#0e131c"/>' +
