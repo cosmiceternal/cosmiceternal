@@ -3244,7 +3244,13 @@ html[data-skin="boneyard"] .lobby-host {
    ========================================================================== */
 .card-dealer {
   width: 100%; display: flex; justify-content: center;
-  margin: -4px 0 2px; pointer-events: none;
+  pointer-events: none;
+  /* Put a stretch of felt between the croupier and the cards. He sat about 70px
+     above the first row, so a dealt card travelled barely more than its own
+     height and no duration could stop that reading as a teleport — there was
+     nowhere to travel. The stage had ~240px of dead space above him and as much
+     below the cards; this spends it on the table. */
+  margin: -4px 0 clamp(70px, 19vh, 190px);
 }
 /* Glow comes from a drop-shadow, not a painted ellipse: the ellipse rendered
    as a hard-edged grey smudge behind the skull. */
@@ -3353,7 +3359,7 @@ html[data-skin="boneyard"] .lobby-host {
 .card-dealer::after {
   content: "";
   position: absolute; left: 50%; transform: translateX(-50%);
-  bottom: -6px; width: min(560px, 92%); height: 46px;
+  bottom: calc(-1 * clamp(70px, 19vh, 190px) - 6px); width: min(620px, 94%); height: 46px;
   border-radius: 50% / 100% 100% 0 0;
   background: radial-gradient(60% 100% at 50% 0%, rgba(var(--accent-rgb), .10), transparent 72%);
   border-top: 1px solid rgba(var(--accent-rgb), .16);
@@ -3362,6 +3368,30 @@ html[data-skin="boneyard"] .lobby-host {
 .card-dealer { position: relative; }
 
 @media (max-width: 720px) { .cd-bones { width: 150px; } }
+
+/* The table depth has to give way when the window is short, or the croupier's
+   head is clipped off the top of the stage and the player's row drops below the
+   bottom of it. Measured: at 700px tall the untamed gap pushed 10px off the top
+   and 6px off the bottom; by 520px it was 83px. */
+@media (max-height: 820px) {
+  .card-dealer { margin-bottom: clamp(40px, 10vh, 110px); }
+  .card-dealer::after { bottom: calc(-1 * clamp(40px, 10vh, 110px) - 6px); }
+}
+@media (max-height: 700px) {
+  .card-dealer { margin-bottom: 34px; }
+  .card-dealer::after { bottom: -40px; }
+  .cd-bones { width: 150px; }
+}
+@media (max-height: 600px) {
+  .card-dealer { margin-bottom: 18px; }
+  .card-dealer::after { bottom: -24px; }
+  .cd-bones { width: 116px; }
+}
+@media (max-height: 560px) {
+  .card-dealer { margin-bottom: 8px; }
+  .card-dealer::after { bottom: -14px; }
+  .cd-bones { width: 96px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .cd-body, .cd-lid, .pcard.cd-deal,
   .card-dealer.dealing .cd-arm-l, .card-dealer.dealing .cd-arm-r,
