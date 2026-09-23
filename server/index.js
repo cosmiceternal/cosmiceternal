@@ -287,6 +287,8 @@ app.post('/api/play/frost',         auth.requireAuth, h((req) => games.playFrost
 // Public paytables: a provably-fair casino publishes its odds, and it keeps the
 // reel UIs from carrying hardcoded top-prize numbers that drift out of date.
 app.get('/api/slots/themes', h(() => games.slotThemeInfo()));
+app.post('/api/play/letitride/start', auth.requireAuth, h((req) => games.lirStart(req.user.id, req.body || {})));
+app.post('/api/play/letitride/act',   auth.requireAuth, h((req) => games.lirAct(req.user.id, req.body || {})));
 app.post('/api/play/sicbo',  auth.requireAuth, h((req) => games.playSicbo(req.user.id, req.body || {})));
 app.post('/api/play/color',  auth.requireAuth, h((req) => games.playColor(req.user.id, req.body || {})));
 app.post('/api/play/scratch', auth.requireAuth, h((req) => games.playScratch(req.user.id, req.body || {})));

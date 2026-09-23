@@ -19,11 +19,11 @@
   // hand to come back before the next one — so a four-card opening runs about
   // two and a half seconds, not the half second this started at. At 460/165 it
   // still read as teleporting.
-  const DEAL_MS = 720;
-  const STAGGER_MS = 420;
+  const DEAL_MS = 1050;
+  const STAGGER_MS = 540;
   // Must be shorter than the stagger, or the next card restarts the reach
   // part-way and the arm snaps back to rest instead of completing its return.
-  const GESTURE_MS = 400;
+  const GESTURE_MS = 500;
 
   let observer = null;
 
@@ -163,7 +163,7 @@
     // hand isn't stamped out.
     const jitter = -16 + ((order * 5) % 7);
     card.style.setProperty('--cd-rot', jitter + 'deg');
-    card.style.setProperty('--cd-dur', (DEAL_MS + ((order * 17) % 90)) + 'ms');
+    card.style.setProperty('--cd-dur', (DEAL_MS + ((order * 23) % 110)) + 'ms');
     card.style.animationDelay = (order * STAGGER_MS) + 'ms';
     card.classList.add('cd-deal');
     const done = () => {

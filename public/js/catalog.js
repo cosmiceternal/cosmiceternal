@@ -60,6 +60,7 @@
     { key: 'miniroulette',name: 'Mini Roulette',  icon: '🎡', cat: 'tables',    tag: '13 pockets' },
     { key: 'pinata',      name: 'Piñata Pop',     icon: '🪅', cat: 'originals', tag: 'burst multiplier' },
     { key: 'fantan',      name: 'Fan Tan',        icon: '🔵', cat: 'tables',    tag: 'bead count' },
+    { key: 'letitride',   name: 'Let It Ride',     icon: '🎴', cat: 'cards',     tag: 'pull or ride' },
     { key: 'reddog',      name: 'Red Dog',        icon: '🃏', cat: 'cards',     tag: 'beat the spread' },
     { key: 'amroulette',  name: 'American Roulette', icon: '🎡', cat: 'tables', tag: '0 and 00' }
   ];

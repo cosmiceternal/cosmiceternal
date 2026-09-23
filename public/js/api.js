@@ -89,6 +89,8 @@
     dragonGold:   (b)      => request('POST', '/api/play/dragon', b),
     frostPeaks:   (b)      => request('POST', '/api/play/frost', b),
     slotThemes:   ()       => slotThemesCached(),
+    lirStart:     (b)      => request('POST', '/api/play/letitride/start', b),
+    lirAct:       (b)      => request('POST', '/api/play/letitride/act', b),
     sicbo:        (b)      => request('POST', '/api/play/sicbo', b),
     color:        (b)      => request('POST', '/api/play/color', b),
     scratch:      (b)      => request('POST', '/api/play/scratch', b),
