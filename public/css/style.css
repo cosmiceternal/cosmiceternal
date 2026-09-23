@@ -3289,43 +3289,50 @@ html[data-skin="boneyard"] .lobby-host {
 /* A card being DEALT, not thrown.
    Watching a real table: the croupier peels a card off the top of the deck,
    skims it low across the felt, and it slides to a stop — it never arcs up
-   through the air. So the motion is a shallow skim, the card stays close to
-   the table plane, and it only turns face-on in the last third as it is set
-   down. Earlier passes flew it high and fast and it read as teleporting. */
+   through the air.
+
+   The timing function is `linear` on purpose. CSS applies an easing curve to
+   EVERY segment between keyframes, so an ease with several stops decelerates,
+   re-accelerates into the next stop, and decelerates again — a pulsing stutter
+   that reads as jerkiness however long the animation runs. The deceleration is
+   baked into the keyframe SPACING instead: each step covers less ground than
+   the last (55%, 25%, 14%, 6% of the journey), so linear interpolation between
+   them gives one continuous glide. */
 .pcard.cd-deal {
-  animation: cdDeal var(--cd-dur, 720ms) cubic-bezier(.22, .78, .28, 1) backwards;
+  animation: cdDeal var(--cd-dur, 1050ms) linear backwards;
   will-change: transform, opacity;
   transform-origin: 50% 70%;
+  backface-visibility: hidden;
   z-index: 3;
 }
 @keyframes cdDeal {
-  /* sitting on the deck in his hand */
+  /* on the pack in his hand */
   0% {
     opacity: 0;
     transform: translate(var(--cd-dx, 0), var(--cd-dy, -140px))
-               rotate(var(--cd-rot, -14deg)) perspective(900px) rotateY(52deg) scale(.88);
+               rotate(var(--cd-rot, -14deg)) perspective(1000px) rotateY(44deg) scale(.9);
   }
-  /* peeled off the top of the deck */
-  10% { opacity: 1; }
-  18% {
-    transform: translate(calc(var(--cd-dx, 0px) * .93), calc(var(--cd-dy, 0px) * .93 - 5px))
-               rotate(calc(var(--cd-rot, -14deg) * .95)) perspective(900px) rotateY(48deg) scale(.9);
+  9% { opacity: 1; }
+  /* away fast, then progressively less ground per step */
+  30% {
+    transform: translate(calc(var(--cd-dx, 0px) * .45), calc(var(--cd-dy, 0px) * .45 - 9px))
+               rotate(calc(var(--cd-rot, -14deg) * .5)) perspective(1000px) rotateY(29deg) scale(.935);
   }
-  /* skimming the felt — barely off the straight line, no arc through the air */
-  62% {
-    transform: translate(calc(var(--cd-dx, 0px) * .34), calc(var(--cd-dy, 0px) * .34 - 7px))
-               rotate(calc(var(--cd-rot, -14deg) * .42)) perspective(900px) rotateY(30deg) scale(.95);
+  55% {
+    transform: translate(calc(var(--cd-dx, 0px) * .2), calc(var(--cd-dy, 0px) * .2 - 8px))
+               rotate(calc(var(--cd-rot, -14deg) * .22)) perspective(1000px) rotateY(17deg) scale(.962);
   }
-  /* set down, turning face-on as it lands */
-  88% {
-    transform: translate(0, 0) rotate(-1.5deg) perspective(900px) rotateY(-6deg) scale(1.015);
+  78% {
+    transform: translate(calc(var(--cd-dx, 0px) * .06), calc(var(--cd-dy, 0px) * .06 - 4px))
+               rotate(calc(var(--cd-rot, -14deg) * .06)) perspective(1000px) rotateY(7deg) scale(.987);
   }
+  /* settles flat — no overshoot, which at this speed reads as a twitch */
   100% { opacity: 1; transform: none; }
 }
 
 /* One deliberate reach per card: the right hand goes out with the card and
    comes back, rather than a twitch. Timed to the card's own flight. */
-.card-dealer.dealing .cd-arm-r { animation: cdArmR var(--cd-gest, 620ms) cubic-bezier(.3,.7,.3,1); transform-origin: 133px 100px; }
+.card-dealer.dealing .cd-arm-r { animation: cdArmR var(--cd-gest, 500ms) cubic-bezier(.33,.62,.3,1); transform-origin: 133px 100px; }
 .card-dealer.dealing .cd-arm-l { animation: cdArmL var(--cd-gest, 620ms) ease-in-out; transform-origin: 67px 100px; }
 .card-dealer.dealing .cd-deck  { animation: cdDeck var(--cd-gest, 620ms) ease-in-out; transform-origin: 103px 128px; }
 .card-dealer.dealing .cd-skull { animation: cdNod var(--cd-gest, 620ms) ease-in-out; transform-origin: 100px 86px; }
@@ -3398,3 +3405,26 @@ html[data-skin="boneyard"] .lobby-host {
   .card-dealer.dealing .cd-deck, .card-dealer.dealing .cd-skull,
   .card-dealer.dealing .cd-top { animation: none !important; }
 }
+
+/* ---- Let It Ride ---- */
+.lir-table { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+.lir-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.lir-bets { display: flex; gap: 12px; margin-top: 6px; }
+.lir-chip {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  font: 700 13px var(--sans);
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--muted);
+  transition: 180ms;
+}
+.lir-chip.riding { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), .12); }
+.lir-chip.live   { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), .16);
+                   box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .14); }
+.lir-chip.pulled { opacity: .35; text-decoration: line-through; }
+.lir-paytable { display: grid; gap: 2px; margin-top: 4px; }
+.lir-pay {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11.5px; color: var(--muted);
+  padding: 3px 8px; border-radius: 6px; background: var(--bg-2);
+}
+.lir-pay b { color: var(--accent); font-family: var(--mono, monospace); font-variant-numeric: tabular-nums; }

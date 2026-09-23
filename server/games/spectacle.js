@@ -5,8 +5,120 @@ const db = require('../db');
 const fair = require('../fair');
 const { httpError } = require('../auth');
 const {
-  HOUSE, ROULETTE_RED, drawDistinctCards, toCents, debit, credit, balanceOf, recordBet, settleRound
+  HOUSE, ROULETTE_RED, drawDistinctCards, toCents, debit, credit, balanceOf, recordBet, settleRound,
+  isFlush, isStraight
 } = require('./core');
+
+
+// ---------------------------------------------------------------- LET IT RIDE
+// The player posts three equal bets and sees three cards; two community cards
+// come out one at a time. Before each is revealed they may pull one bet back.
+// The last bet always rides. The final five-card hand pays each remaining bet
+// off the table below — a pair of TENS or better, not jacks, which is what
+// separates this paytable from video poker's.
+//
+// All five cards are drawn from the fair stream at the start, so the player's
+// pull/ride decisions cannot change them; the commitment covers the whole hand.
+// A house paytable, not the casino-standard one. Standard Let It Ride pays
+// 1000/200/50/11/8/5/3/2/1 and reaches its advertised ~3.5% edge only under
+// optimal pull-back strategy; a player who simply lets everything ride faces
+// 37%. Every other game on this floor has a flat edge whatever the player does,
+// so these pays are solved to put always-riding at 3.38% — verified
+// exhaustively over all 2,598,960 five-card hands in test/letitride.test.js.
+// Pulling a bet back is then a real choice rather than a tax on not knowing.
+const LIR_PAYS = { royal: 1500, sf: 300, four: 80, full: 18, flush: 12, straight: 8, three: 5, twopair: 4, tens: 2, none: 0 };
+
+function lirEvaluate(cards) {
+  const ranks = cards.map(c => c.rank);
+  const counts = {};
+  ranks.forEach(r => { counts[r] = (counts[r] || 0) + 1; });
+  const groups = Object.values(counts).sort((a, b) => b - a);
+  const flush = isFlush(cards);
+  const straight = isStraight(ranks);
+  const u = [...new Set(ranks)].sort((a, b) => a - b);
+  if (flush && JSON.stringify(u) === JSON.stringify([1, 10, 11, 12, 13])) return 'royal';
+  if (flush && straight) return 'sf';
+  if (groups[0] === 4) return 'four';
+  if (groups[0] === 3 && groups[1] === 2) return 'full';
+  if (flush) return 'flush';
+  if (straight) return 'straight';
+  if (groups[0] === 3) return 'three';
+  if (groups[0] === 2 && groups[1] === 2) return 'twopair';
+  if (groups[0] === 2) {
+    // Tens or better. Ace is stored as rank 1, so it is checked explicitly.
+    const pairRank = Number(Object.keys(counts).find(r => counts[r] === 2));
+    if (pairRank === 1 || pairRank >= 10) return 'tens';
+  }
+  return 'none';
+}
+
+function lirStart(userId, { bet }) {
+  const unitCents = toCents(bet);              // one of the three equal bets
+  return db.tx(async (q) => {
+    await debit(q, userId, unitCents * 3);
+    const { floats, nonce, serverHash } = await fair.drawTx(q, userId, 5);
+    const cards = drawDistinctCards(floats, 5);
+    const id = crypto.randomUUID();
+    await q('INSERT INTO rounds(id, user_id, game, state, settled, created_at) VALUES(?,?,?,?,0,?)',
+      [id, userId, 'letitride', JSON.stringify({
+        unitCents, cards, nonce, stage: 1, riding: [true, true]   // bets 1 and 2; bet 3 always rides
+      }), Date.now()]);
+    return {
+      roundId: id,
+      player: cards.slice(0, 3),
+      stage: 1,
+      serverHash,
+      balance: await balanceOf(q, userId) / 100
+    };
+  });
+}
+
+function lirAct(userId, { roundId, action }) {
+  if (action !== 'ride' && action !== 'pull') throw httpError(400, "Action must be 'ride' or 'pull'.");
+  return db.tx(async (q) => {
+    const { rows } = await q('SELECT * FROM rounds WHERE id = ? AND user_id = ? AND game = ?', [roundId, userId, 'letitride']);
+    const round = rows[0];
+    if (!round) throw httpError(404, 'Round not found.');
+    if (Number(round.settled)) throw httpError(409, 'Round already over.');
+    const s = JSON.parse(round.state);
+
+    // Pulling returns that bet to the player straight away.
+    if (action === 'pull') {
+      s.riding[s.stage - 1] = false;
+      await credit(q, userId, s.unitCents);
+    }
+    const revealed = s.cards[2 + s.stage];      // community card for this stage
+
+    if (s.stage === 1) {
+      s.stage = 2;
+      await q('UPDATE rounds SET state = ? WHERE id = ?', [JSON.stringify(s), roundId]);
+      return {
+        stage: 2, revealed, pulled: action === 'pull',
+        balance: await balanceOf(q, userId) / 100
+      };
+    }
+
+    // Second decision closes the hand out.
+    await settleRound(q, roundId);
+    const riding = 1 + s.riding.filter(Boolean).length;   // bet 3 always rides
+    const kind = lirEvaluate(s.cards);
+    const per = LIR_PAYS[kind] || 0;
+    const stakeCents = s.unitCents * 3;
+    const payoutCents = per > 0 ? riding * s.unitCents * (per + 1) : 0;
+    await credit(q, userId, payoutCents);
+    const mult = +(payoutCents / stakeCents).toFixed(4);
+    await recordBet(q, userId, {
+      game: 'letitride', betCents: stakeCents, mult, payoutCents, win: payoutCents > stakeCents,
+      nonce: s.nonce, detail: { kind, riding, cards: s.cards }
+    });
+    return {
+      stage: 'done', revealed, pulled: action === 'pull',
+      cards: s.cards, kind, per, riding, mult,
+      payout: payoutCents / 100,
+      balance: await balanceOf(q, userId) / 100
+    };
+  });
+}
 
 // ---------------------------------------------------------------- CHICKEN ROAD
 // Hop across lanes of traffic. Each lane survives with probability p (drawn
@@ -1016,6 +1128,7 @@ function penaltyCashout(userId, { roundId }) {
 
 
 module.exports = {
+  lirStart, lirAct, lirEvaluate, LIR_PAYS,
   chickenStart, chickenStep, chickenCashout,
   crapsStart, crapsRoll,
   tcpStart, tcpAct,
