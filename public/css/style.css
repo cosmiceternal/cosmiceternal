@@ -3250,11 +3250,11 @@ html[data-skin="boneyard"] .lobby-host {
      height and no duration could stop that reading as a teleport — there was
      nowhere to travel. The stage had ~240px of dead space above him and as much
      below the cards; this spends it on the table. */
-  margin: -4px 0 clamp(70px, 19vh, 190px);
+  margin: -4px 0 clamp(48px, 13vh, 132px);
 }
 /* Glow comes from a drop-shadow, not a painted ellipse: the ellipse rendered
    as a hard-edged grey smudge behind the skull. */
-.cd-bones { width: 208px; height: auto; display: block;
+.cd-bones { width: 286px; height: auto; display: block;
   filter: drop-shadow(0 0 10px rgba(var(--accent-rgb), .30)) drop-shadow(0 8px 14px rgba(0, 0, 0, 0.5)); }
 .cd-eye { fill: var(--accent); }
 .cd-band { fill: var(--accent); }
@@ -3287,47 +3287,86 @@ html[data-skin="boneyard"] .lobby-host {
 @keyframes cdNod  { 34% { transform: translateY(2px) rotate(1.5deg); } 100% { transform: none; } }
 
 /* A card being DEALT, not thrown.
-   Watching a real table: the croupier peels a card off the top of the deck,
-   skims it low across the felt, and it slides to a stop — it never arcs up
-   through the air.
+   It slides FACE DOWN at full size the whole way across the felt, and is turned
+   over only once it arrives — which is what a croupier actually does, and what
+   keeps the card readable for every frame of the journey.
 
-   The timing function is `linear` on purpose. CSS applies an easing curve to
-   EVERY segment between keyframes, so an ease with several stops decelerates,
-   re-accelerates into the next stop, and decelerates again — a pulsing stutter
-   that reads as jerkiness however long the animation runs. The deceleration is
-   baked into the keyframe SPACING instead: each step covers less ground than
-   the last (55%, 25%, 14%, 6% of the journey), so linear interpolation between
-   them gives one continuous glide. */
+   An earlier attempt turned the card mid-flight. Physically right, visually
+   wrong: the card squeezed to a 10px sliver in mid-air and looked like it had
+   vanished. The turn now happens in the last fifth, at rest, where a brief
+   squeeze reads as a card being flipped rather than disappearing.
+
+   The face is covered by an opaque back that is dropped at the exact instant
+   the card is edge-on. Not backface-visibility — hiding the card's backface hid
+   the element outright, ::after included, leaving nothing on screen at all.
+
+   Timing is `linear` with the deceleration baked into keyframe SPACING: CSS
+   applies an easing curve to EVERY segment, so an eased multi-stop animation
+   decelerates into each stop and re-accelerates out of it, which pulses. */
 .pcard.cd-deal {
   animation: cdDeal var(--cd-dur, 1050ms) linear backwards;
   will-change: transform, opacity;
-  transform-origin: 50% 70%;
-  backface-visibility: hidden;
+  transform-origin: 50% 60%;
+  position: relative;
   z-index: 3;
 }
+.pcard.cd-deal:not(.back)::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 8px;
+  background: repeating-linear-gradient(45deg, #1c2a52, #1c2a52 6px, #243266 6px, #243266 12px);
+  border: 2px solid #2d3e66;
+  animation: cdBackOff var(--cd-dur, 1050ms) linear backwards;
+}
+/* The back is dropped at 84% — the frame where the card is edge-on. */
+@keyframes cdBackOff {
+  0%, 83.9% { opacity: 1; }
+  84%, 100% { opacity: 0; }
+}
+/* Cards the game deals face down never turn; they just slide. */
+.pcard.cd-deal.back { animation-name: cdDealNoTurn; }
+
 @keyframes cdDeal {
   /* on the pack in his hand */
   0% {
     opacity: 0;
     transform: translate(var(--cd-dx, 0), var(--cd-dy, -140px))
-               rotate(var(--cd-rot, -14deg)) perspective(1000px) rotateY(44deg) scale(.9);
+               rotate(var(--cd-rot, -14deg)) scale(.92);
+    box-shadow: 0 16px 26px rgba(0,0,0,.5);
   }
-  9% { opacity: 1; }
-  /* away fast, then progressively less ground per step */
-  30% {
-    transform: translate(calc(var(--cd-dx, 0px) * .45), calc(var(--cd-dy, 0px) * .45 - 9px))
-               rotate(calc(var(--cd-rot, -14deg) * .5)) perspective(1000px) rotateY(29deg) scale(.935);
+  5% { opacity: 1; }
+  /* --- the glide: full size, face down, ground covered evenly --- */
+  24% { transform: translate(calc(var(--cd-dx, 0px) * .70), calc(var(--cd-dy, 0px) * .70 - 7px))
+                   rotate(calc(var(--cd-rot, -14deg) * .74)) scale(.94); }
+  46% { transform: translate(calc(var(--cd-dx, 0px) * .43), calc(var(--cd-dy, 0px) * .43 - 10px))
+                   rotate(calc(var(--cd-rot, -14deg) * .47)) scale(.962); }
+  66% { transform: translate(calc(var(--cd-dx, 0px) * .19), calc(var(--cd-dy, 0px) * .19 - 7px))
+                   rotate(calc(var(--cd-rot, -14deg) * .21)) scale(.983); }
+  /* --- arrived: now it is turned over --- */
+  78% { transform: translate(0, 0) rotate(0deg) perspective(1200px) rotateY(58deg) scale(1); }
+  84% { transform: translate(0, 0) rotate(0deg) perspective(1200px) rotateY(90deg) scale(1); }
+  90% { transform: translate(0, 0) rotate(0deg) perspective(1200px) rotateY(50deg) scale(1); }
+  100% { opacity: 1; transform: none; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+}
+
+/* Same glide, no turn — for cards that stay face down. */
+@keyframes cdDealNoTurn {
+  0% {
+    opacity: 0;
+    transform: translate(var(--cd-dx, 0), var(--cd-dy, -140px))
+               rotate(var(--cd-rot, -14deg)) scale(.92);
+    box-shadow: 0 16px 26px rgba(0,0,0,.5);
   }
-  55% {
-    transform: translate(calc(var(--cd-dx, 0px) * .2), calc(var(--cd-dy, 0px) * .2 - 8px))
-               rotate(calc(var(--cd-rot, -14deg) * .22)) perspective(1000px) rotateY(17deg) scale(.962);
-  }
-  78% {
-    transform: translate(calc(var(--cd-dx, 0px) * .06), calc(var(--cd-dy, 0px) * .06 - 4px))
-               rotate(calc(var(--cd-rot, -14deg) * .06)) perspective(1000px) rotateY(7deg) scale(.987);
-  }
-  /* settles flat — no overshoot, which at this speed reads as a twitch */
-  100% { opacity: 1; transform: none; }
+  5% { opacity: 1; }
+  24% { transform: translate(calc(var(--cd-dx, 0px) * .70), calc(var(--cd-dy, 0px) * .70 - 7px))
+                   rotate(calc(var(--cd-rot, -14deg) * .74)) scale(.94); }
+  46% { transform: translate(calc(var(--cd-dx, 0px) * .43), calc(var(--cd-dy, 0px) * .43 - 10px))
+                   rotate(calc(var(--cd-rot, -14deg) * .47)) scale(.962); }
+  66% { transform: translate(calc(var(--cd-dx, 0px) * .19), calc(var(--cd-dy, 0px) * .19 - 7px))
+                   rotate(calc(var(--cd-rot, -14deg) * .21)) scale(.983); }
+  84% { transform: translate(calc(var(--cd-dx, 0px) * .05), calc(var(--cd-dy, 0px) * .05 - 2px))
+                   rotate(calc(var(--cd-rot, -14deg) * .05)) scale(.996); }
+  100% { opacity: 1; transform: none; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
 }
 
 /* One deliberate reach per card: the right hand goes out with the card and
@@ -3366,7 +3405,7 @@ html[data-skin="boneyard"] .lobby-host {
 .card-dealer::after {
   content: "";
   position: absolute; left: 50%; transform: translateX(-50%);
-  bottom: calc(-1 * clamp(70px, 19vh, 190px) - 6px); width: min(620px, 94%); height: 46px;
+  bottom: calc(-1 * clamp(48px, 13vh, 132px) - 6px); width: min(700px, 96%); height: 52px;
   border-radius: 50% / 100% 100% 0 0;
   background: radial-gradient(60% 100% at 50% 0%, rgba(var(--accent-rgb), .10), transparent 72%);
   border-top: 1px solid rgba(var(--accent-rgb), .16);
@@ -3374,30 +3413,31 @@ html[data-skin="boneyard"] .lobby-host {
 }
 .card-dealer { position: relative; }
 
-@media (max-width: 720px) { .cd-bones { width: 150px; } }
+@media (max-width: 720px) { .cd-bones { width: 196px; } }
 
 /* The table depth has to give way when the window is short, or the croupier's
    head is clipped off the top of the stage and the player's row drops below the
    bottom of it. Measured: at 700px tall the untamed gap pushed 10px off the top
    and 6px off the bottom; by 520px it was 83px. */
 @media (max-height: 820px) {
-  .card-dealer { margin-bottom: clamp(40px, 10vh, 110px); }
-  .card-dealer::after { bottom: calc(-1 * clamp(40px, 10vh, 110px) - 6px); }
+  .card-dealer { margin-bottom: clamp(30px, 7vh, 78px); }
+  .card-dealer::after { bottom: calc(-1 * clamp(30px, 7vh, 78px) - 6px); }
+  .cd-bones { width: 240px; }
 }
 @media (max-height: 700px) {
-  .card-dealer { margin-bottom: 34px; }
-  .card-dealer::after { bottom: -40px; }
-  .cd-bones { width: 150px; }
+  .card-dealer { margin-bottom: 24px; }
+  .card-dealer::after { bottom: -30px; }
+  .cd-bones { width: 196px; }
 }
 @media (max-height: 600px) {
-  .card-dealer { margin-bottom: 18px; }
-  .card-dealer::after { bottom: -24px; }
-  .cd-bones { width: 116px; }
+  .card-dealer { margin-bottom: 14px; }
+  .card-dealer::after { bottom: -20px; }
+  .cd-bones { width: 150px; }
 }
 @media (max-height: 560px) {
-  .card-dealer { margin-bottom: 8px; }
-  .card-dealer::after { bottom: -14px; }
-  .cd-bones { width: 96px; }
+  .card-dealer { margin-bottom: 6px; }
+  .card-dealer::after { bottom: -12px; }
+  .cd-bones { width: 120px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cd-body, .cd-lid, .pcard.cd-deal,
