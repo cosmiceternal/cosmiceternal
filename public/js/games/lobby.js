@@ -68,7 +68,7 @@
         return;
       }
       grid.innerHTML = list.map(g => `
-        <button class="lobby-card" data-game="${g.key}">
+        <button class="lobby-card" data-game="${g.key}" data-cat="${g.cat}">
           <span class="lobby-star${favs.has(g.key) ? ' on' : ''}" data-star="${g.key}" title="Favorite">★</span>
           <span class="lobby-icon">${g.icon}</span>
           <span class="lobby-name">${g.name}</span>
