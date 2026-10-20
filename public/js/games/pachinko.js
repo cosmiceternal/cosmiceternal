@@ -47,29 +47,71 @@
     let busy = false, alive = true, animFrame = null;
     GameKit.wireBet(container, betInput);
 
+    // The ball used to hop between pegs in 110ms steps, so it read as a
+    // sequence of positions rather than something falling. It now falls on a
+    // single rAF timeline: gravity down the board, an eased sidestep off each
+    // peg, and a last drop right into the slot it lands in.
     function animateDrop(path, slot, onDone) {
-      // Start the ball above the first peg, drift left/right per path bit.
+      const startX = 50;        // centre, in %
+      const dx = 6;             // % of board width per peg deflection
+      const topY = 4, pegGap = 13;
+      const slotEl = slotRow.querySelector(`[data-slot="${slot}"]`);
+
+      // Horizontal waypoint after each peg, plus a final nudge onto the slot.
+      const xs = [startX];
+      for (let i = 0; i < ROWS; i++) xs.push(xs[i] + dx * (path[i] === 1 ? 1 : -1));
+      const slotX = slotEl
+        ? ((slotEl.offsetLeft + slotEl.offsetWidth / 2) / slotRow.offsetWidth) * 100
+        : xs[ROWS];
+      xs.push(slotX);
+
+      const PEG_MS = 110;                       // pace of the original drop
+      const DROP_MS = 260;                      // the fall into the slot
+      const total = ROWS * PEG_MS + DROP_MS;
+      const bottomY = topY + ROWS * pegGap;
+
       ball.classList.remove('hidden');
-      const startX = 50; // center, in %
-      const dx = 6;      // % per step
-      let x = startX, y = 4;
-      const step = (i) => {
-        if (!alive) return;
+      // Place the ball before it is shown, so a new drop never starts by
+      // sliding across from where the last one finished.
+      place(startX, topY);
+
+      function place(x, y) {
         ball.style.left = x + '%';
-        ball.style.top  = y + '%';
-        if (i >= ROWS) {
-          // Snap to the final slot's centre.
-          const slotEl = slotRow.querySelector(`[data-slot="${slot}"]`);
-          if (slotEl) slotEl.classList.add('hit');
-          onDone();
-          return;
+        ball.style.top = y + '%';
+      }
+
+      const start = performance.now();
+      function frame(now) {
+        if (!alive) return;
+        const t = Math.min(1, (now - start) / total);
+        const elapsed = t * total;
+        let x, y;
+        if (elapsed < ROWS * PEG_MS) {
+          const seg = elapsed / PEG_MS;         // which peg gap we are in
+          const i = Math.min(ROWS - 1, Math.floor(seg));
+          const f = seg - i;
+          // Sideways eases between pegs; downward accelerates like a fall.
+          const ease = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
+          x = xs[i] + (xs[i + 1] - xs[i]) * ease;
+          y = topY + (i + f * f * 0.5 + (1 - Math.pow(1 - f, 2)) * 0.5) * pegGap;
+        } else {
+          const f = (elapsed - ROWS * PEG_MS) / DROP_MS;
+          x = xs[ROWS] + (xs[ROWS + 1] - xs[ROWS]) * (1 - Math.pow(1 - f, 2));
+          y = bottomY + f * f * 9;
         }
-        const dir = path[i] === 1 ? 1 : -1;
-        x += dx * dir;
-        y += 13;
-        animFrame = setTimeout(() => step(i + 1), 110);
-      };
-      step(0);
+        place(x, y);
+        if (t < 1) { animFrame = requestAnimationFrame(frame); return; }
+        if (slotEl) slotEl.classList.add('hit');
+        onDone();
+      }
+
+      if (GameKit.reduceMotion()) {
+        place(xs[ROWS + 1], bottomY + 9);
+        if (slotEl) slotEl.classList.add('hit');
+        animFrame = setTimeout(onDone, 120);
+        return;
+      }
+      animFrame = requestAnimationFrame(frame);
     }
 
     async function play() {
@@ -94,7 +136,7 @@
     }
 
     action.addEventListener('click', play);
-    return function () { alive = false; if (animFrame) clearTimeout(animFrame); };
+    return function () { alive = false; if (animFrame) { cancelAnimationFrame(animFrame); clearTimeout(animFrame); } };
   }
 
   global.Games = global.Games || {};

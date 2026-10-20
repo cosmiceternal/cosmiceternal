@@ -37,16 +37,11 @@
       topEl.textContent = ICON[ALL[ALL.length - 1]] + ' ' + t['frost'].top.toFixed(2) + '×';
     }).catch(() => { if (alive) topEl.textContent = '—'; });
 
+    // Real reel motion lives in GameKit.spinReel: a strip of symbols scrolled
+    // to a stop, rather than a glyph swapped in place every 70ms.
+    const POOL = ALL.map(k => ICON[k]);
     function spinReel(el, stopIcon, delay) {
-      const iv = setInterval(() => { el.textContent = ICON[ALL[Math.floor(Math.random() * ALL.length)]]; }, 70);
-      spins.push(iv);
-      setTimeout(() => {
-        if (!alive) return;
-        clearInterval(iv);
-        el.textContent = stopIcon;
-        el.classList.add('land');
-        setTimeout(() => el.classList.remove('land'), 300);
-      }, delay);
+      spins.push(GameKit.spinReel(el, stopIcon, POOL, delay));
     }
 
     async function play() {
@@ -75,7 +70,7 @@
       } catch (e) { Toast.error(e.message); busy = false; action.disabled = false; }
     }
     action.addEventListener('click', play);
-    return function () { alive = false; spins.forEach(clearInterval); };
+    return function () { alive = false; spins.forEach(fn => fn()); };
   }
   global.Games = global.Games || {};
   global.Games.frost = mount;

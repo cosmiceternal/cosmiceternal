@@ -38,20 +38,21 @@
     let roundId = null, busy = false, alive = true, stake = 0, spins = [];
     GameKit.wireBet(container, betInput);
 
+    // Two dice thrown together: each tumbles, slows, and settles on its
+    // face — the second a beat after the first.
     function rollAnim(dice, onDone) {
-      const iv = setInterval(() => {
-        d1.textContent = DIE[1 + Math.floor(Math.random() * 6)];
-        d2.textContent = DIE[1 + Math.floor(Math.random() * 6)];
-      }, 70);
-      spins.push(iv);
-      setTimeout(() => {
+      const handles = [d1, d2].map((el, n) => GameKit.spinSteps(
+        () => { el.textContent = DIE[1 + Math.floor(Math.random() * 6)]; },
+        900 + n * 160, { pulse: el, pulseClass: 'die-tumble' }));
+      handles.forEach(h => spins.push(h));
+      handles.forEach((h, i) => h.landOn(() => {
         if (!alive) return;
-        clearInterval(iv);
-        d1.textContent = DIE[dice[0]];
-        d2.textContent = DIE[dice[1]];
-        [d1, d2].forEach(el => { el.classList.add('land'); setTimeout(() => el.classList.remove('land'), 300); });
-        onDone();
-      }, 650);
+        const el = i === 0 ? d1 : d2;
+        el.textContent = DIE[dice[i]];
+        el.classList.add('land');
+        setTimeout(() => el.classList.remove('land'), 300);
+        if (i === 1) onDone();
+      }));
     }
     function setPuck(point) {
       container.querySelectorAll('.craps-puck').forEach(p =>
@@ -109,7 +110,7 @@
       } catch (e) { Toast.error(e.message); busy = false; }
     });
 
-    return function () { alive = false; spins.forEach(clearInterval); };
+    return function () { alive = false; spins.forEach(h => h()); };
   }
   global.Games = global.Games || {};
   global.Games.craps = mount;

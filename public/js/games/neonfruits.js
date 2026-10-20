@@ -31,21 +31,21 @@
     const cell = (c, r) => container.querySelector(`#nf-${c}-${r}`);
     GameKit.wireBet(container, betInput);
 
+    // Each column scrolls a strip of fruit to a stop (GameKit.spinColumn)
+    // instead of strobing all three cells at once.
+    const POOL = ALL.map(k => EMOJI[k]);
     function spinReel(col, stopGrid, delay) {
-      const iv = setInterval(() => {
-        for (let r = 0; r < 3; r++) cell(col, r).textContent = EMOJI[ALL[Math.floor(Math.random() * ALL.length)]];
-      }, 70);
-      spins.push(iv);
-      timers.push(setTimeout(() => {
+      const stops = [0, 1, 2].map(r => EMOJI[stopGrid[col][r]]);
+      const colEl = cell(col, 0).parentNode;
+      spins.push(GameKit.spinColumn(colEl, stops, POOL, delay, 'nf-cell', () => {
         if (!alive) return;
-        clearInterval(iv);
         for (let r = 0; r < 3; r++) {
           const el = cell(col, r);
-          el.textContent = EMOJI[stopGrid[col][r]];
+          el.textContent = stops[r];
           el.classList.add('land');
           setTimeout(() => el.classList.remove('land'), 300);
         }
-      }, delay));
+      }));
     }
 
     spinBtn.addEventListener('click', async () => {
@@ -86,7 +86,7 @@
       } catch (e) { Toast.error(e.message); busy = false; spinBtn.disabled = false; }
     });
 
-    return function () { alive = false; spins.forEach(clearInterval); timers.forEach(clearTimeout); };
+    return function () { alive = false; spins.forEach(fn => fn()); timers.forEach(clearTimeout); };
   }
   global.Games = global.Games || {};
   global.Games.neonfruits = mount;
