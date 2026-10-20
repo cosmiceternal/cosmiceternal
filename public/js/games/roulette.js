@@ -52,25 +52,29 @@
       if (bet == null) return;
       busy = true; action.disabled = true;
       pocket.className = 'roulette-pocket';
-      spin = setInterval(() => { const n = Math.floor(Math.random() * 37); pocket.textContent = n; pocket.dataset.c = color(n); }, 70);
+      // The pocket runs down to a stop and the result is its last frame,
+      // rather than a 70ms strobe cut off and replaced.
+      spin = GameKit.spinSteps((i) => {
+        const n = Math.floor(Math.random() * 37);
+        pocket.textContent = n; pocket.dataset.c = color(n);
+      }, 1500, { pulse: pocket });
       try {
         const body = { bet, betType };
         if (betType === 'straight') body.number = +numInput.value;
         const res = await API.roulette(body);
-        setTimeout(() => {
+        spin.landOn(() => {
           if (!alive) return;
-          clearInterval(spin);
           pocket.textContent = res.pocket;
           pocket.dataset.c = res.color;
           pocket.classList.add(res.win ? 'win' : 'loss');
           statusEl.textContent = `${res.pocket} ${res.color} — ${res.win ? 'won ' + Bankroll.fmt(res.payout - bet) : 'no win'}`;
           GameKit.settle('roulette', bet, res);
           busy = false; action.disabled = false;
-        }, 900);
-      } catch (e) { clearInterval(spin); Toast.error(e.message); busy = false; action.disabled = false; }
+        });
+      } catch (e) { if (spin) spin(); Toast.error(e.message); busy = false; action.disabled = false; }
     }
     action.addEventListener('click', play);
-    return function () { alive = false; if (spin) clearInterval(spin); };
+    return function () { alive = false; if (spin) spin(); };
   }
   global.Games = global.Games || {};
   global.Games.roulette = mount;

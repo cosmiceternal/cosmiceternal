@@ -42,7 +42,27 @@
     const POS = { 0: '18%', 1: '50%', 2: '82%' };
 
     function endRound() { roundId = null; busy = false; shoot.classList.add('hidden'); cash.classList.add('hidden'); action.classList.remove('hidden'); betInput.disabled = false; }
-    function resetVisual() { keeper.style.left = '50%'; ball.style.left = '50%'; ball.style.bottom = '12%'; ball.style.opacity = '1'; }
+    // Put keeper and ball back on their marks with the transition suppressed,
+    // so a reset is a cut rather than a visible slide.
+    function placeReset() {
+      const kt = keeper.style.transition, bt = ball.style.transition;
+      keeper.style.transition = 'none'; ball.style.transition = 'none';
+      keeper.style.left = '50%'; ball.style.left = '50%'; ball.style.bottom = '12%';
+      void ball.offsetWidth;
+      keeper.style.transition = kt; ball.style.transition = bt;
+    }
+    function resetVisual() { placeReset(); ball.style.opacity = '1'; }
+    // Between shots the ball used to rewind out of the net along the path it
+    // had just taken. Now it is fetched: fade out at the goal, reappear on
+    // the spot.
+    function recycleBall() {
+      ball.style.opacity = '0';
+      setTimeout(() => {
+        if (!alive) return;
+        placeReset();
+        ball.style.opacity = '1';
+      }, 300);
+    }
 
     async function start() {
       if (busy || roundId) return;
@@ -88,7 +108,7 @@
           statusEl.textContent = `GOAL! Perfect 5/5 — ${res.mult.toFixed(2)}×`;
           endRound(); return;
         }
-        setTimeout(() => { if (alive) resetVisual(); }, 350);
+        recycleBall();
         cash.classList.remove('hidden'); cash.textContent = `Cashout — ${Bankroll.fmt(res.cashout)}`;
         shoot.classList.remove('hidden');
         statusEl.textContent = `GOAL! ${goals} scored — shoot again or cash out`;

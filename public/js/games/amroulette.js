@@ -76,15 +76,18 @@
       busy = true; action.disabled = true;
       pocket.className = 'ar-pocket';
       let i = 0;
-      spin = setInterval(() => { const p = ORDER[i++ % ORDER.length]; pocket.textContent = label(p); pocket.dataset.c = color(p); }, 65);
+      // Pockets pass in wheel order, slowing to a stop on the winner.
+      spin = GameKit.spinSteps((n) => {
+        const p = ORDER[(i + n) % ORDER.length];
+        pocket.textContent = label(p); pocket.dataset.c = color(p);
+      }, 1600, { pulse: pocket });
       if (global.Sound) Sound.play('spin');
       try {
         const body = { bet, betType };
         if (betType === 'straight') body.number = straightNum;
         const res = await API.amroulette(body);
-        setTimeout(() => {
+        spin.landOn(() => {
           if (!alive) return;
-          clearInterval(spin);
           pocket.textContent = res.label;
           pocket.dataset.c = res.color;
           pocket.classList.add(res.win ? 'win' : 'loss');
@@ -94,11 +97,11 @@
             : `${res.label} ${res.color} — no win.`;
           GameKit.settle('amroulette', bet, res);
           busy = false; action.disabled = false;
-        }, 950);
-      } catch (e) { clearInterval(spin); Toast.error(e.message); busy = false; action.disabled = false; }
+        });
+      } catch (e) { if (spin) spin(); Toast.error(e.message); busy = false; action.disabled = false; }
     }
     action.addEventListener('click', play);
-    return function () { alive = false; if (spin) clearInterval(spin); };
+    return function () { alive = false; if (spin) spin(); };
   }
   global.Games = global.Games || {};
   global.Games.amroulette = mount;
