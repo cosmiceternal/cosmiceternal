@@ -49,7 +49,7 @@ test('parallel login attempts cannot outrun the lockout', async (t) => {
       SECURE_COOKIES: '0', RATE_API_MAX: '100000', RATE_AUTH_MAX: '100000',
       LOCKOUT_THRESHOLD: String(THRESHOLD)
     },
-    stdio: ['ignore', 'ignore', 'inherit']
+    stdio: ['ignore', 'pipe', 'pipe']   // piped so server-ready.js can report a stalled boot
   });
   try {
     await waitForReady(`${BASE}/healthz`, { child });

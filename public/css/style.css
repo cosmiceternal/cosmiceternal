@@ -21,6 +21,10 @@
   --violet-rgb: 160, 123, 255;
   --gold-rgb: 255, 192, 97;
   --teal-rgb: 95, 227, 192;
+  /* Lobby category hue for the card tables. Its own channel because in the
+     Boneyard skin --accent and --teal resolve to the same teal, which left two
+     of the four categories indistinguishable. */
+  --cat-cards-rgb: 255, 94, 156;
   /* Ink for text sitting ON an accent fill. Light text on a bright accent is
      unreadable (the active auth tab measured 1.35:1), so anything filled with
      the accent takes this dark ink instead of --text. */
@@ -874,7 +878,10 @@ input { font-family: inherit; }
 }
 .toggle button.active {
   background: var(--accent);
-  color: var(--text);
+  /* --on-accent, not --text: near-white on the teal fill measures 1.35:1, which
+     is unreadable, and these segmented toggles are the primary control in
+     Plinko, Dice, Coin Flip and Andar Bahar. */
+  color: var(--on-accent);
 }
 
 /* Mines selector pills */
@@ -1091,10 +1098,44 @@ input { font-family: inherit; }
 
 /* Cards (video poker + blackjack) */
 .cards-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.pcard { width: 62px; height: 88px; border-radius: 8px; background: #f5f7fa; color: #1a2530; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+/* Card stock, not a white rectangle: a faint warm gradient, a gloss along the
+   top edge and a hairline rim so the card reads as a physical object against
+   the dark felt. Nine games and the whole dealing animation render through
+   this one rule. */
+.pcard {
+  position: relative;
+  width: 62px; height: 88px; border-radius: 8px;
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,0) 42%),
+    linear-gradient(180deg, #fdfdfb 0%, #f1f1ee 62%, #e4e5e6 100%);
+  color: #16202b;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-weight: 800;
+  box-shadow:
+    0 4px 12px rgba(0,0,0,.34),
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 0 0 1px rgba(10,16,24,.16);
+}
 .pcard .pc-r { font-size: 26px; line-height: 1; } .pcard .pc-s { font-size: 22px; }
-.pcard.red { color: #d83a5b; }
-.pcard.back { background: repeating-linear-gradient(45deg, #1c2a52, #1c2a52 6px, #243266 6px, #243266 12px); border: 2px solid #2d3e66; }
+.pcard.red { color: #d2283f; }
+/* The back carries the house colour, so a face-down card belongs to the table
+   it is dealt on rather than being generic blue. */
+.pcard.back {
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(var(--accent-rgb), .16) 0 6px, rgba(var(--accent-rgb), .05) 6px 12px),
+    linear-gradient(180deg, var(--bg-4), var(--bg-2));
+  box-shadow:
+    0 4px 12px rgba(0,0,0,.34),
+    0 0 0 1px rgba(var(--accent-rgb), .34) inset;
+  border: none;
+}
+.pcard.back::after {
+  content: "";
+  position: absolute; inset: 5px;
+  border-radius: 5px;
+  border: 1px solid rgba(var(--accent-rgb), .26);
+}
 .vp-slot { position: relative; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .vp-slot .hold-tag { font-size: 9px; font-weight: 800; letter-spacing: 1px; color: var(--muted); }
 .vp-slot.held .pcard { box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(0,0,0,0.3); transform: translateY(-6px); }
@@ -3081,6 +3122,7 @@ html[data-skin="boneyard"] {
   --violet-rgb: 157, 132, 238;   /* amethyst */
   --gold-rgb: 255, 207, 122;     /* candle gold */
   --teal-rgb: 124, 224, 192;
+  --cat-cards-rgb: 244, 136, 158; /* dried rose — the card tables */
   --on-accent: #04140f;          /* deep green-black ink on the teal fills */
   --accent: #7ce0c0;           /* ghost teal — primary glow */
   --accent-2: #a6ecd8;
@@ -3128,9 +3170,32 @@ html[data-skin="boneyard"] .lobby-card::after {
   border-bottom: none; border-radius: 40px 40px 0 0;
   pointer-events: none;
 }
+/* The floor was one flat teal, so nothing drew the eye. Each category now
+   carries its own light — the arch glow, the hover ring and the tag — while the
+   stone itself stays the house colour, so the grid reads as one set rather than
+   four. Channels, not hexes, so both skins stay in step. */
+.lobby-card { --cat-rgb: var(--accent-rgb); }
+.lobby-card[data-cat="slots"]     { --cat-rgb: var(--gold-rgb); }
+.lobby-card[data-cat="cards"]     { --cat-rgb: var(--cat-cards-rgb); }
+.lobby-card[data-cat="tables"]    { --cat-rgb: var(--violet-rgb); }
+.lobby-card[data-cat="originals"] { --cat-rgb: var(--teal-rgb); }
+
+html[data-skin="boneyard"] .lobby-card::before {
+  content: "";
+  position: absolute; left: 50%; top: 6px; transform: translateX(-50%);
+  width: 72%; height: 54px;
+  border-radius: 50% 50% 40% 40%;
+  background: radial-gradient(60% 100% at 50% 0%, rgba(var(--cat-rgb), .22), transparent 72%);
+  pointer-events: none;
+  transition: opacity .18s ease;
+  opacity: .75;
+}
+.lobby-card:hover::before { opacity: 1; }
+.lobby-tag { color: rgba(var(--cat-rgb), .92); }
+
 html[data-skin="boneyard"] .lobby-card:hover {
-  border-color: var(--accent);
-  box-shadow: 0 12px 28px -10px rgba(124, 224, 192, 0.5), 0 0 0 1px var(--accent-glow);
+  border-color: rgba(var(--cat-rgb), .85);
+  box-shadow: 0 12px 28px -10px rgba(var(--cat-rgb), .55), 0 0 0 1px rgba(var(--cat-rgb), .45);
 }
 
 /* ---- Atmosphere layer (moon, stars, drifting fog). Hidden off-skin. ---- */
