@@ -592,6 +592,11 @@
       clearTimeout(wakeHint);
       document.getElementById('wakeHint')?.remove();
     }
+    // Keep the "N games" badge honest: read the real catalog count rather
+    // than trusting a hand-typed number that drifts every time a game is added.
+    const countEl = document.getElementById('authGameCount');
+    const n = global.GameCatalog && global.GameCatalog.GAMES && global.GameCatalog.GAMES.length;
+    if (countEl && n) countEl.textContent = `🎰 ${n} games`;
     authGate.classList.remove('hidden');
     authUser.focus();
   })();
