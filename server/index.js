@@ -100,6 +100,16 @@ const authLimiter = limiter(
   Number(process.env.RATE_AUTH_WINDOW_MS) || 900_000,
   Number(process.env.RATE_AUTH_MAX) || 40
 );
+// Registration is a once-per-visitor action, so it gets a far tighter per-IP
+// budget than sign-in. A username-based signup can't avoid disclosing, per
+// request, whether a chosen name is taken (the person needs to know to pick
+// another), but this stops that disclosure being harvested in bulk to enumerate
+// accounts, and bounds automated mass account creation. A real person registers
+// once; the default never bites them. Stacks on top of authLimiter + apiLimiter.
+const registerLimiter = limiter(
+  Number(process.env.RATE_REGISTER_WINDOW_MS) || 3_600_000,
+  Number(process.env.RATE_REGISTER_MAX) || 20
+);
 // Per-IP rate limit on /api — except the CoinPayments IPN webhook, which is
 // delivered from a small set of gateway IPs and would otherwise eat the budget
 // during a retry storm and silently drop confirmations.
@@ -107,6 +117,7 @@ app.use('/api', (req, res, next) => {
   if (req.path === '/vault/webhook') return next();
   return apiLimiter(req, res, next);
 });
+app.use('/api/auth/register', registerLimiter);
 app.use(['/api/auth/login', '/api/auth/register'], authLimiter);
 
 // Lightweight health check for uptime monitors (must be before CSRF; GET only).
