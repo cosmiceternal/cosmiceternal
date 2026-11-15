@@ -282,6 +282,12 @@ function toCents(dollars) {
   // the shared chokepoint every game's stake passes through.
   const cents = Math.round(n * 100);
   if (cents <= 0) throw httpError(400, 'Bet is too small.');
+  // Upper bound at the chokepoint. A stake this large can only ever lose to the
+  // balance check, but `n * 100` on an absurd input (e.g. 1e308) overflows to a
+  // non-finite value, and binding Infinity into the debit UPDATE is a portability
+  // landmine — harmless on SQLite, a 500 on Postgres. Reject anything that isn't
+  // an exact, in-range integer so the value handed to the driver is always sane.
+  if (!Number.isSafeInteger(cents)) throw httpError(400, 'Bet is too large.');
   return cents;
 }
 

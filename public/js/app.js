@@ -79,6 +79,19 @@
     try { await API.logout(); } catch (e) {}
     location.reload();
   });
+  // Sign out of every OTHER device: bumps the account's session epoch server-side
+  // so any other session (including a stolen token) is killed on its next request,
+  // while this device stays signed in. Useful if the player thinks their account
+  // is compromised.
+  document.getElementById('btnLogoutAll')?.addEventListener('click', async () => {
+    userDropdown.classList.add('hidden');
+    try {
+      await API.logoutEverywhere();
+      makeToast('Signed out of all other devices.', '');
+    } catch (e) {
+      makeToast('Could not sign out other devices. Try again.', 'error');
+    }
+  });
   document.getElementById('btnMenuHelp')?.addEventListener('click', () => {
     userDropdown.classList.add('hidden');
     if (window.Help) Help.open();
@@ -592,6 +605,11 @@
       clearTimeout(wakeHint);
       document.getElementById('wakeHint')?.remove();
     }
+    // Keep the "N games" badge honest: read the real catalog count rather
+    // than trusting a hand-typed number that drifts every time a game is added.
+    const countEl = document.getElementById('authGameCount');
+    const n = global.GameCatalog && global.GameCatalog.GAMES && global.GameCatalog.GAMES.length;
+    if (countEl && n) countEl.textContent = `🎰 ${n} games`;
     authGate.classList.remove('hidden');
     authUser.focus();
   })();

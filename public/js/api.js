@@ -55,6 +55,7 @@
     register:       (u, p)   => request('POST', '/api/auth/register', { username: u, password: p }),
     login:          (u, p)   => request('POST', '/api/auth/login', { username: u, password: p }),
     logout:         ()       => request('POST', '/api/auth/logout'),
+    logoutEverywhere: ()     => request('POST', '/api/auth/logout', { all: true }),
     changePassword: (cur, n) => request('POST', '/api/auth/password', { current: cur, next: n }),
     auditLog:       (n)      => request('GET', '/api/auth/audit?limit=' + (n || 25)),
 
