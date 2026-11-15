@@ -230,11 +230,23 @@ app.post('/api/auth/login', h(async (req, res) => {
   res.json({ user: auth.publicUser(user) });
 }));
 
-app.post('/api/auth/logout', (req, res) => {
+app.post('/api/auth/logout', h(async (req, res) => {
+  // "Sign out everywhere" (body { all: true }): bump the session epoch so every
+  // token this account ever handed out — this device and any other, including a
+  // captured one — fails its next request, then re-mint THIS device's cookie at
+  // the new epoch so the person pulling the lever stays signed in. Needs an
+  // authenticated session to know whose sessions to revoke; it's CSRF-protected
+  // by the global middleware, so it can't be forced on a victim. A plain logout
+  // just drops this device's cookie.
+  if (req.body && req.body.all && req.user) {
+    const newEpoch = await auth.revokeOtherSessions(req, req.user.id);
+    auth.setSessionCookie(res, req.user.id, newEpoch);
+    return { ok: true, scope: 'all' };
+  }
   auth.logAudit(req, 'auth.logout', req.user?.id, null);
   auth.clearSessionCookie(res);
-  res.json({ ok: true });
-});
+  return { ok: true };
+}));
 
 app.get('/api/me', (req, res) => {
   res.json({ user: req.user ? auth.publicUser(req.user) : null });

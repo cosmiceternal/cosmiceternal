@@ -318,6 +318,22 @@ async function changePassword(req, userId, currentPassword, newPassword) {
   return { newEpoch };
 }
 
+// Revoke every session for this user by bumping the session epoch: every token
+// minted before now (on any other device, including one that was captured)
+// fails the epoch check in authenticate() on its next request. Returns the new
+// epoch so the caller can re-mint the current device's cookie and stay signed
+// in — the same read-compute-write the password change uses, and the same
+// counter the admin force-logout bumps. A user who suspects their account is
+// compromised can pull this lever themselves instead of waiting for an admin.
+async function revokeOtherSessions(req, userId) {
+  const { rows } = await db.query('SELECT session_epoch FROM users WHERE id = ?', [userId]);
+  if (!rows[0]) throw httpError(404, 'User not found.');
+  const newEpoch = Number(rows[0].session_epoch || 0) + 1;
+  await db.query('UPDATE users SET session_epoch = ? WHERE id = ?', [newEpoch, userId]);
+  logAudit(req, 'auth.logout_all', userId, null);
+  return newEpoch;
+}
+
 async function userAuditLog(userId, limit = 25) {
   limit = Math.max(1, Math.min(100, Number(limit) || 25));
   const { rows } = await db.query(
@@ -376,7 +392,7 @@ function httpError(status, message) {
 }
 
 module.exports = {
-  register, login, changePassword, userAuditLog,
+  register, login, changePassword, revokeOtherSessions, userAuditLog,
   authenticate, requireAuth, requireAdmin, ensureAdminUser, getUserById,
   setSessionCookie, clearSessionCookie, publicUser, httpError,
   logAudit, clientIp,

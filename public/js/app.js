@@ -79,6 +79,19 @@
     try { await API.logout(); } catch (e) {}
     location.reload();
   });
+  // Sign out of every OTHER device: bumps the account's session epoch server-side
+  // so any other session (including a stolen token) is killed on its next request,
+  // while this device stays signed in. Useful if the player thinks their account
+  // is compromised.
+  document.getElementById('btnLogoutAll')?.addEventListener('click', async () => {
+    userDropdown.classList.add('hidden');
+    try {
+      await API.logoutEverywhere();
+      makeToast('Signed out of all other devices.', '');
+    } catch (e) {
+      makeToast('Could not sign out other devices. Try again.', 'error');
+    }
+  });
   document.getElementById('btnMenuHelp')?.addEventListener('click', () => {
     userDropdown.classList.add('hidden');
     if (window.Help) Help.open();
