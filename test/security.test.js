@@ -64,7 +64,7 @@ test('security suite', async (t) => {
       LOCKOUT_THRESHOLD: '5',
       STARTING_BALANCE: '1000'
     },
-    stdio: ['ignore', 'ignore', 'inherit']
+    stdio: ['ignore', 'pipe', 'pipe']   // piped so server-ready.js can report a stalled boot
   });
 
   try {

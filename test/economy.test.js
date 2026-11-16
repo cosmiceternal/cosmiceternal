@@ -48,7 +48,7 @@ test('economy suite', async (t) => {
       RATE_API_MAX: '100000',
       STARTING_BALANCE: '10000'
     },
-    stdio: ['ignore', 'ignore', 'inherit']
+    stdio: ['ignore', 'pipe', 'pipe']   // piped so server-ready.js can report a stalled boot
   });
 
   try {

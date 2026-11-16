@@ -34,7 +34,7 @@ function boot(extraEnv) {
       DB_CONNECT_ATTEMPTS: '1', DB_CONNECT_TIMEOUT_MS: '1500',
       ...extraEnv
     },
-    stdio: ['ignore', 'ignore', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe']
   });
 }
 

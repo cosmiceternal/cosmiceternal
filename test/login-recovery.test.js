@@ -63,7 +63,7 @@ test('sign-in survives a fumbling player but still stops brute force', async (t)
       LOCKOUT_THRESHOLD: '10',
       LOCKOUT_WINDOW_MS: String(WINDOW_MS)
     },
-    stdio: ['ignore', 'ignore', 'inherit']
+    stdio: ['ignore', 'pipe', 'pipe']   // piped so server-ready.js can report a stalled boot
   });
 
   try {
