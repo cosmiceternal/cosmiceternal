@@ -51,24 +51,32 @@
       const bet = GameKit.bet(betInput);
       if (bet == null) return;
       busy = true; action.disabled = true;
-      const iv = dice.map(d => setInterval(() => { d.textContent = PIP[1 + Math.floor(Math.random() * 6)]; }, 70));
+      // Each die tumbles and comes to rest on its face, instead of flickering
+      // at a fixed 70ms and being overwritten.
+      const iv = dice.map((d, n) => GameKit.spinSteps(
+        () => { d.textContent = PIP[1 + Math.floor(Math.random() * 6)]; },
+        1000 + n * 120, { pulse: d, pulseClass: 'die-tumble' }));
       timers = iv;
       try {
         const body = { bet, betType };
         if (betType === 'total') body.total = +totalInput.value;
         const res = await API.sicbo(body);
-        setTimeout(() => {
+        const last = iv.length - 1;
+        iv.forEach((h, i) => h.landOn(() => {
           if (!alive) return;
-          iv.forEach(clearInterval);
-          res.dice.forEach((d, i) => dice[i].textContent = PIP[d]);
+          dice[i].textContent = PIP[res.dice[i]];
+          dice[i].classList.add('die-land');
+          setTimeout(() => { if (alive) dice[i].classList.remove('die-land'); }, 300);
+          if (i !== last) return;
+          // The last die to settle closes the roll out.
           statusEl.textContent = `Rolled ${res.dice.join(' · ')} = ${res.sum}${res.triple ? ' (triple!)' : ''} — ${res.win ? 'win ' + res.mult + '×' : 'no win'}`;
           GameKit.settle('sicbo', bet, res);
           busy = false; action.disabled = false;
-        }, 700);
-      } catch (e) { iv.forEach(clearInterval); Toast.error(e.message); busy = false; action.disabled = false; }
+        }));
+      } catch (e) { iv.forEach(h => h()); Toast.error(e.message); busy = false; action.disabled = false; }
     }
     action.addEventListener('click', play);
-    return function () { alive = false; timers.forEach(clearInterval); };
+    return function () { alive = false; timers.forEach(h => h()); };
   }
   global.Games = global.Games || {};
   global.Games.sicbo = mount;

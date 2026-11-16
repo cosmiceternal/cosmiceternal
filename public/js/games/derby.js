@@ -38,6 +38,7 @@
     const betInput = container.querySelector('#dbBet');
     const go = container.querySelector('#dbGo');
     const statusEl = container.querySelector('#dbStatus');
+    const track = container.querySelector('#dbTrack');
     const runners = HORSES.map((_, i) => container.querySelector('#dbRun' + i));
     GameKit.wireBet(container, betInput);
 
@@ -53,34 +54,43 @@
       const b = GameKit.bet(betInput);
       if (b == null) return;
       busy = true; go.disabled = true;
-      runners.forEach(r => { r.style.left = '2%'; });
+      runners.forEach(r => { r.style.translate = '0px'; });
       statusEl.textContent = 'And they\'re off!';
       try {
         const res = await API.derby({ bet: b, pick });
         // Give each horse a random pace, but force the winner to arrive first.
-        const paces = HORSES.map(() => 0.55 + Math.random() * 0.4);
+        const paces = HORSES.map(() => 0.62 + Math.random() * 0.33);
         paces[res.winner] = 1.0;
+        // A little surge and fade per horse, so the field shuffles mid-race
+        // instead of holding one fixed order from gate to post.
+        const surge = HORSES.map(() => ({ amp: 0.04 + Math.random() * 0.05, phase: Math.random() * Math.PI * 2 }));
+        const lane = track.getBoundingClientRect().width || 1;
+        const RUN = 0.88;                    // gate to post, as a fraction of the lane
         const start = performance.now();
         const DURATION = 3200;
+        runners.forEach(r => r.classList.add('galloping'));
         function frame(now) {
           if (!alive) return;
           const t = Math.min(1, (now - start) / DURATION);
+          // Break fast, settle into a gallop, drive for the line.
           const ease = 1 - Math.pow(1 - t, 2);
           runners.forEach((r, i) => {
-            const prog = Math.min(0.9, ease * paces[i]);
-            r.style.left = (2 + prog * 86) + '%';
-            r.classList.toggle('galloping', t < 1);
+            const s = surge[i];
+            const wobble = i === res.winner ? 0 : Math.sin(t * Math.PI * 2 + s.phase) * s.amp * t;
+            const prog = Math.max(0, Math.min(1, ease * paces[i] + wobble));
+            r.style.translate = (prog * RUN * lane) + 'px';
           });
           if (t < 1) { raf = requestAnimationFrame(frame); }
-          else finish(res, b);
+          else finish(res, b, lane, RUN);
         }
         raf = requestAnimationFrame(frame);
       } catch (e) { Toast.error(e.message); busy = false; go.disabled = false; }
     });
 
-    function finish(res, b) {
+    function finish(res, b, lane, RUN) {
       const wr = runners[res.winner];
-      wr.style.left = '90%';
+      wr.style.translate = (RUN * lane) + 'px';
+      runners.forEach(r => r.classList.remove('galloping'));
       wr.classList.add('winner');
       container.querySelector(`[data-lane="${res.winner}"]`).classList.add('won-lane');
       statusEl.textContent = res.won

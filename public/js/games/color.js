@@ -39,22 +39,23 @@
       if (b == null) return;
       busy = true; action.disabled = true;
       digitEl.className = 'color-digit';
-      spin = setInterval(() => { digitEl.textContent = Math.floor(Math.random() * 10); }, 60);
+      // Digits roll past and slow to a halt on the drawn one.
+      spin = GameKit.spinSteps((i) => { digitEl.textContent = (i + 1) % 10; },
+        1200, { pulse: digitEl });
       try {
         const res = await API.color({ bet: b, choice });
-        setTimeout(() => {
+        spin.landOn(() => {
           if (!alive) return;
-          clearInterval(spin);
           digitEl.textContent = res.digit;
           digitEl.classList.add(res.color, res.win ? 'win' : 'loss');
           statusEl.textContent = `${res.digit} is ${res.color} — ${res.win ? 'you won!' : 'you lost'}`;
           GameKit.settle('color', b, res);
           busy = false; action.disabled = false;
-        }, 700);
-      } catch (e) { clearInterval(spin); Toast.error(e.message); busy = false; action.disabled = false; }
+        });
+      } catch (e) { if (spin) spin(); Toast.error(e.message); busy = false; action.disabled = false; }
     }
     action.addEventListener('click', play);
-    return function () { alive = false; if (spin) clearInterval(spin); };
+    return function () { alive = false; if (spin) spin(); };
   }
   global.Games = global.Games || {};
   global.Games.color = mount;

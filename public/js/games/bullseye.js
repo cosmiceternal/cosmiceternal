@@ -51,6 +51,10 @@
             marker.style.left = (50 + Math.cos(theta) * (rFrac + jitter) * 46) + '%';
             marker.style.top = (50 + Math.sin(theta) * (rFrac + jitter) * 46) + '%';
             board.appendChild(marker);
+            // Let the board recoil as the dart bites (restart the animation
+            // each time so three darts in a row each land with a thud).
+            board.classList.remove('struck'); void board.offsetWidth; board.classList.add('struck');
+            if (global.Sound) Sound.play('chip');
             if (i === res.darts.length - 1) {
               timers.push(setTimeout(() => {
                 if (!alive) return;
@@ -60,7 +64,7 @@
                   : `Only ${res.mult.toFixed(2)}× this round.`;
                 GameKit.settle('bullseye', b, res);
                 busy = false; throwBtn.disabled = false;
-              }, 400));
+              }, 520));
             }
           }, i * 500));
         });
