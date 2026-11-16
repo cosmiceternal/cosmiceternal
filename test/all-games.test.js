@@ -101,7 +101,7 @@ test('every game and feature is functional', async (t) => {
       ...process.env, PORT: String(PORT), DB_PATH: DB, SESSION_SECRET: 'allgames-test',
       SECURE_COOKIES: '0', RATE_API_MAX: '1000000', RATE_AUTH_MAX: '10000', STARTING_BALANCE: '100000'
     },
-    stdio: ['ignore', 'ignore', 'inherit']
+    stdio: ['ignore', 'pipe', 'pipe']   // piped so server-ready.js can report a stalled boot
   });
   try {
     await waitForReady(`${BASE}/healthz`, { child });

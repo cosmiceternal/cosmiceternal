@@ -482,7 +482,19 @@ db.init()
     // this timer is the backstop so winners get paid even on a quiet server.
     race.settlePrevious().catch(() => {});
     setInterval(() => race.settlePrevious().catch(() => {}), 60_000).unref();
-    const server = app.listen(PORT, () => console.log(`Crypt Casino listening on http://localhost:${PORT}`));
+    const server = app.listen(PORT, () => {
+      // Log the port the OS actually gave us, not the one we asked for, so
+      // PORT=0 is usable and the line never lies.
+      const got = server.address();
+      console.log(`Crypt Casino listening on http://localhost:${got && got.port ? got.port : PORT}`);
+    });
+    // Without this, a bind failure (EADDRINUSE, EACCES) surfaces as an
+    // unhandled 'error' event — an uncaught exception with a stack and no
+    // explanation. Say what happened in one line and exit.
+    server.on('error', (e) => {
+      console.error(`Cannot listen on port ${PORT}: ${e.code || e.message}`);
+      process.exit(1);
+    });
     // Graceful shutdown: let in-flight requests (wager transactions!) finish
     // before the process exits on a deploy or Ctrl+C. Hard-exit after 8s.
     const shutdown = (sig) => {

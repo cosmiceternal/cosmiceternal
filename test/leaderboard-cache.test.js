@@ -48,7 +48,7 @@ test('leaderboard cache: per-viewer rank/value stays correct across viewers', as
   rmDb();
   const child = spawn(process.execPath, [path.join(REPO, 'server/index.js')], {
     env: { ...process.env, PORT: String(PORT), DB_PATH: DB, SESSION_SECRET: 'lb-test', SECURE_COOKIES: '0', RATE_API_MAX: '100000', STARTING_BALANCE: '1000' },
-    stdio: ['ignore', 'ignore', 'inherit']
+    stdio: ['ignore', 'pipe', 'pipe']   // piped so server-ready.js can report a stalled boot
   });
   try {
     await waitForReady(`${BASE}/healthz`, { child });

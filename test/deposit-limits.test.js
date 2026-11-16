@@ -49,7 +49,7 @@ test('graduated deposit limits + admin controls', async (t) => {
       // pin the ramp defaults so the assertions are deterministic
       DEPOSIT_NEW_CAP_CRYPT: '500', DEPOSIT_UNLOCK_CRYPT: '2500', DAILY_DEPOSIT_CAP_CRYPT: '5000'
     },
-    stdio: ['ignore', 'ignore', 'inherit']
+    stdio: ['ignore', 'pipe', 'pipe']   // piped so server-ready.js can report a stalled boot
   });
 
   try {

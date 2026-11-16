@@ -46,7 +46,7 @@ test('responsible gaming suite', async (t) => {
       SESSION_SECRET: 'limits-test', SECURE_COOKIES: '0',
       RATE_API_MAX: '100000', STARTING_BALANCE: '1000'
     },
-    stdio: ['ignore', 'ignore', 'inherit']
+    stdio: ['ignore', 'pipe', 'pipe']   // piped so server-ready.js can report a stalled boot
   });
 
   try {
