@@ -136,8 +136,9 @@
     }, delay || 0);
   }
 
-  // Fly one card from the dealer's hands into its slot.
-  function flyIn(card, stage, order) {
+  // Fly one card from the dealer's hands into its slot. `lead` holds the deal
+  // back while a scroll brings the table into view.
+  function flyIn(card, stage, order, lead) {
     const host = stage.querySelector(':scope > .card-dealer');
     const cr = card.getBoundingClientRect();
     if (!cr.width) return;
@@ -164,7 +165,7 @@
     const jitter = -16 + ((order * 5) % 7);
     card.style.setProperty('--cd-rot', jitter + 'deg');
     card.style.setProperty('--cd-dur', (DEAL_MS + ((order * 23) % 110)) + 'ms');
-    card.style.animationDelay = (order * STAGGER_MS) + 'ms';
+    card.style.animationDelay = ((lead || 0) + order * STAGGER_MS) + 'ms';
     card.classList.add('cd-deal');
     const done = () => {
       card.classList.remove('cd-deal');
@@ -174,7 +175,74 @@
       card.style.removeProperty('--cd-rot');
       card.style.removeProperty('--cd-dur');
     };
-    setTimeout(done, DEAL_MS + 90 + order * STAGGER_MS + 120);
+    setTimeout(done, (lead || 0) + DEAL_MS + 90 + order * STAGGER_MS + 120);
+  }
+
+  // Bring the table into view before dealing, and report how long to hold the
+  // deal back so the cards are on screen by the time they start moving.
+  //
+  // The mobile breakpoint stacks the controls ABOVE the stage, so a game with a
+  // tall control column pushes the felt off the bottom of the page: measured on
+  // a 390x664 viewport, Let It Ride's stage started at y=665 and all five cards
+  // dealt at y=731-960, i.e. the entire animation played below the fold. This
+  // is a fix for every card game at once, and a no-op on desktop, where the
+  // cards are already in view and the function returns 0.
+  const SCROLL_LEAD_MS = 320;      // roughly how long a smooth scroll takes
+  const EDGE = 12;                 // don't park a card flush against the edge
+
+  // The desktop shell scrolls inside the pane; the mobile breakpoint switches
+  // to document scrolling. Find whichever one actually moves.
+  function scrollerFor(el) {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const oy = global.getComputedStyle(p).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight + 1) return p;
+    }
+    const doc = document.scrollingElement || document.documentElement;
+    return (doc && doc.scrollHeight > doc.clientHeight + 1) ? doc : null;
+  }
+
+  function bringIntoView(stage, fresh) {
+    const scroller = scrollerFor(stage);
+    if (!scroller) return 0;
+    const view = scroller === (document.scrollingElement || document.documentElement)
+      ? { top: 0, bottom: global.innerHeight || scroller.clientHeight }
+      : (() => { const r = scroller.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; })();
+    const height = view.bottom - view.top;
+
+    let top = Infinity, bottom = -Infinity;
+    fresh.forEach((c) => {
+      const r = c.getBoundingClientRect();
+      if (!r.height) return;
+      top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom);
+    });
+    if (!isFinite(top)) return 0;
+    // Show the croupier too when he fits — the deal reads as coming out of his
+    // hands, so cards arriving from off the top of the screen is half the gag
+    // lost. If he doesn't fit, the cards win: they are what is being dealt.
+    const host = stage.querySelector(':scope > .card-dealer');
+    if (host) {
+      const hr = host.getBoundingClientRect();
+      if (hr.height && bottom - hr.top <= height - 2 * EDGE) top = Math.min(top, hr.top);
+    }
+    if (top >= view.top + EDGE && bottom <= view.bottom - EDGE) return 0;   // already visible
+
+    const delta = (bottom - top > height - 2 * EDGE)
+      ? top - (view.top + EDGE)                        // too tall to centre: pin the top
+      : (top + bottom) / 2 - (view.top + height / 2);  // centre it
+    if (Math.abs(delta) < 4) return 0;
+    const before = scroller.scrollTop;
+    const limit = scroller.scrollHeight - scroller.clientHeight;
+    const moved = Math.max(0, Math.min(limit, before + delta)) - before;
+    if (Math.abs(moved) < 4) return 0;                 // nowhere left to scroll
+    try {
+      scroller.scrollBy({ top: moved, behavior: reduced() ? 'auto' : 'smooth' });
+    } catch (e) {
+      scroller.scrollTop = before + moved;             // older Safari: no options object
+    }
+    // Transforms are relative to the card's own box and both the deck and the
+    // card move together with the scroll, so the dx/dy flyIn measures before
+    // the scroll stays correct through it.
+    return reduced() ? 0 : SCROLL_LEAD_MS;
   }
 
   // Card containers differ per game: most use .cards-row, reddog drops .pcard
@@ -187,11 +255,42 @@
   // ELEMENTS broke blackjack, which rebuilds its whole row with innerHTML, so
   // hitting replaced every element and re-dealt the entire hand.
   //
-  // What actually identifies a card is its face. Remember the faces a container
-  // last held, keep the matching prefix, and deal the rest.
+  // Matching the faces a container last held as a PREFIX, the fourth try, broke
+  // video poker from the other end: see the slot-key comment below.
   const CARD_SEL = '.pcard, .war-card';
-  const lastFaces = new WeakMap();          // container -> [face, ...]
   const faceOf = (c) => c.className + '|' + (c.textContent || '');
+
+  // What actually identifies a card is its FACE in a SLOT. Elements are not
+  // stable — the games rebuild rows with innerHTML — but the slot a card sits
+  // in is, so remember face-per-slot and deal the slots whose face changed.
+  //
+  // Prefix matching per container, what this did before, got video poker wrong:
+  // a draw rebuilds the whole hand, and because each card sits in a fresh
+  // .vp-slot wrapper the per-container memory was lost outright, so the three
+  // cards the player had just HELD flew out of the dealer's hands again
+  // alongside the two new ones. Measured before this change: hold 0, 1 and 2,
+  // draw, and all five re-dealt.
+  //
+  // The slot key is the nearest id'd ancestor plus the child-index chain down
+  // to the card. Every card row in the repo carries an id (#bjPlayer, #vpHand,
+  // #rdC1, #wrDealer...), so the key survives an innerHTML rebuild of that row
+  // and is unaffected by anything appearing or disappearing elsewhere in the
+  // stage. A row that GAINS a card leaves the existing slots untouched, which
+  // is what keeps blackjack from re-dealing the whole hand on a hit.
+  const lastFaces = new WeakMap();          // stage -> Map(slot key -> face)
+
+  function slotKey(stage, card) {
+    const idx = [];
+    let el = card;
+    while (el && el !== stage) {
+      if (el.id) return el.id + (idx.length ? '/' + idx.join('/') : '');
+      const parent = el.parentElement;
+      if (!parent) break;
+      idx.unshift([].indexOf.call(parent.children, el));
+      el = parent;
+    }
+    return '@' + (idx.length ? '/' + idx.join('/') : '');
+  }
 
   // Which stages are card tables. Keyed on the stage class the game passes to
   // GameKit.frame, so the croupier is present the moment the game opens rather
@@ -200,12 +299,6 @@
   const CARD_STAGES = ['bj-stage', 'cards-stage', 'tcp-stage', 'andar-stage', 'war-stage', 'reddog-stage'];
   const isCardStage = (st) => CARD_STAGES.some((c) => st.classList.contains(c));
 
-  function containersIn(stage) {
-    const set = new Set();
-    stage.querySelectorAll(CARD_SEL).forEach((c) => { if (c.parentElement) set.add(c.parentElement); });
-    return set;
-  }
-
   function refresh() {
     const pane = document.getElementById('gamePane');
     if (!pane) return;
@@ -213,30 +306,40 @@
       if (stage.classList.contains('aidealer-stage')) return;
       if (!isCardStage(stage) && !stage.querySelector(CARD_SEL)) return;
       mountDealer(stage);
-      if (reduced()) return;
 
       // Collect what to deal first, then stagger across the whole table, so a
-      // hand spread over several containers still deals one card at a time.
-      const fresh = [];
-      containersIn(stage).forEach((box) => {
-        const cards = [...box.children].filter((c) => c.matches && c.matches(CARD_SEL));
-        if (!cards.length) return;
-        const faces = cards.map(faceOf);
-        const prev = lastFaces.get(box) || [];
-        let keep = 0;
-        while (keep < faces.length && keep < prev.length && faces[keep] === prev[keep]) keep++;
-        lastFaces.set(box, faces);
-        for (let i = keep; i < cards.length; i++) fresh.push(cards[i]);
-      });
+      // hand spread over several rows still deals one card at a time.
+      const cards = [...stage.querySelectorAll(CARD_SEL)];
+      // No memory yet means this is the first look at a freshly mounted game:
+      // deal whatever is already on the felt, so opening a table that starts
+      // with face-down placeholders (Red Dog's posts, Video Poker's five) shows
+      // the croupier setting them out.
+      const prev = lastFaces.get(stage) || new Map();
+      const next = new Map();
+      cards.forEach((c) => next.set(slotKey(stage, c), faceOf(c)));
+      lastFaces.set(stage, next);
+      // A slot that disappeared means the table was cleared for a new round, so
+      // deal the lot — otherwise a new hand that happens to repeat a card in the
+      // same slot would have that one card appear without being dealt.
+      let cleared = false;
+      prev.forEach((_, k) => { if (!next.has(k)) cleared = true; });
+      const fresh = cards.filter((c) => cleared || prev.get(slotKey(stage, c)) !== faceOf(c));
       if (!fresh.length) return;
-      // Deal in visual order rather than container order.
+      // Deal in visual order rather than DOM order.
       fresh.sort((a, b) => {
         const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
         return (ra.top - rb.top) || (ra.left - rb.left);
       });
+      // On a phone the table can sit well below the fold — Let It Ride's control
+      // column pushes it past the bottom of the page entirely — and the whole
+      // deal would otherwise play where nobody can see it.
+      // Scroll even when motion is reduced: a player on a phone who taps Deal
+      // should see the cards land, animation or not.
+      const lead = bringIntoView(stage, fresh);
+      if (reduced()) return;
       fresh.forEach((card, order) => {
-        flyIn(card, stage, order);
-        dealGesture(stage, order * STAGGER_MS);
+        flyIn(card, stage, order, lead);
+        dealGesture(stage, lead + order * STAGGER_MS);
       });
     });
   }
