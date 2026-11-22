@@ -184,6 +184,12 @@ async function createDeposit(req, userId, { currency, amount }) {
   if (units < cfg.min) throw httpError(400, `Minimum ${currency} deposit is ${fmtCurrency(currency, cfg.min)}.`);
   const funCents = Math.round(units * cfg.rate * 100);
   if (funCents <= 0) throw httpError(400, 'Amount too small to credit any CRYPT.');
+  // Out-of-range / non-finite stakes must never reach the ledger write. The
+  // daily cap below already rejects an absurd amount in the normal case, but an
+  // admin-raised cap could let a huge value through; an exact, in-range integer
+  // keeps the balance math precise and the DB bind portable (same guard as the
+  // wager chokepoint).
+  if (!Number.isSafeInteger(funCents)) throw httpError(400, 'Amount is too large.');
 
   // Daily cap (applied across all completed deposits today + this in-flight one).
   // The cap is the user's effective cap: a reduced ramp for new accounts, the

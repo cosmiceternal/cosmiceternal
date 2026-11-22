@@ -13,19 +13,33 @@ and similar regulatory work. See the README's warning paragraph.
   cutover. Legacy hashes are transparently upgraded to argon2id on the next
   successful login.
 - **Password policy:** ≥ 8 characters, top-22 common-password blocklist,
-  rejects passwords containing the username.
+  rejects passwords containing the username, and rejects the low-entropy shapes
+  a fixed blocklist can't enumerate — fewer than 5 distinct characters
+  (`aaaaaaaa`, `ab12ab12`) and long ascending/descending runs (`12345678`,
+  `abcdefgh`).
+- **Session-secret guard:** `SESSION_SECRET` is the HMAC key behind every
+  session token, so a weak one makes tokens forgeable. In a real deployment
+  (`SECURE_COOKIES=1`) the server refuses to boot on a secret shorter than 16
+  characters and warns below 32; in local dev it only warns. With no secret
+  set, a 32-byte random one is generated and persisted.
 - **Username-enumeration timing:** an argon2 verify is performed against a
   dummy hash even when the user doesn't exist, so login latency doesn't
   reveal whether the username is registered.
-- **Account lockout:** per-username, 5 failed attempts within 15 min
+- **Account lockout:** per-username, 10 failed attempts within 15 min
   (configurable via `LOCKOUT_THRESHOLD` / `LOCKOUT_WINDOW_MS`) returns 429.
+  The bar is deliberately a backstop rather than a tripwire — argon2 plus the
+  per-IP auth limit already make online guessing hopeless, and a low
+  per-username threshold is grief-able (anyone can lock a known name out).
   Lockout-deflected attempts are intentionally not counted as new fails.
 - **Sessions:** stateless signed cookie (`cs_session`), HMAC-SHA256 with a
   per-instance `SESSION_SECRET`. Tokens are versioned (`v2`) and carry an
   issued-at timestamp — enforced server-side (30 days), so a stolen token
   expires even if the cookie attributes are stripped — plus a per-user
   `session_epoch`. Changing your password bumps the epoch, which instantly
-  invalidates every other session for that account. `HttpOnly`,
+  invalidates every other session for that account; a player can also bump it
+  themselves with **"sign out of all other devices"** (`POST /api/auth/logout`
+  with `{ "all": true }`), which kills every other session — including a
+  captured token — while keeping the current device signed in. `HttpOnly`,
   `SameSite=Lax`, `Secure` when `SECURE_COOKIES=1`.
 - **Lockout integrity:** the failed-attempt write is awaited before the
   response is sent, so rapid parallel login attempts can't race past the
@@ -68,9 +82,14 @@ and similar regulatory work. See the README's warning paragraph.
 
 ## Rate limiting
 
-- In-memory, per-IP fixed window. Defaults: global API 300/min, auth
-  (login + register) 40 / 15 min, dealer AI line 30/min. All overridable
-  via env vars (`RATE_API_MAX`, `RATE_AUTH_MAX`, `RATE_DEALER_MAX`).
+- In-memory, per-IP fixed window. Defaults: global API 300/min, sign-in
+  40 / 15 min, and **registration a tighter 20 / hour** on top of that —
+  sign-in needs headroom for a fumbling player, but registration is a
+  once-per-visitor action, so the tighter budget bounds bulk username
+  enumeration and automated account creation without ever biting a real
+  person. Dealer AI line 30/min. All overridable via env vars
+  (`RATE_API_MAX`, `RATE_AUTH_MAX`, `RATE_REGISTER_MAX` /
+  `RATE_REGISTER_WINDOW_MS`, `RATE_DEALER_MAX`).
 - For multi-instance deploys, replace this with a shared store
   (Redis/Memcached) so limits hold across replicas.
 
@@ -79,6 +98,11 @@ and similar regulatory work. See the README's warning paragraph.
 - Every wager is debited atomically with a conditional `UPDATE` that doubles
   as both an availability check and a balance write — no two parallel bets
   can overdraw the same account.
+- Every amount that moves the ledger — wager stakes, deposits, and admin
+  balance adjustments — is validated to an exact, in-range integer number of
+  cents (`Number.isSafeInteger`) before any write, so a non-finite or
+  out-of-range value can neither corrupt a balance nor reach the database
+  driver.
 - All draws come from a per-user provably-fair HMAC stream
   (`HMAC-SHA256(server_seed, "clientSeed:nonce:round")`); the server seed is
   pre-committed (SHA-256 hash exposed) and the player can rotate at any time
@@ -87,7 +111,7 @@ and similar regulatory work. See the README's warning paragraph.
 ## Audit log
 
 - `audit_log` table records: `user.register`, `auth.login_success`,
-  `auth.login_fail`, `auth.lockout_hit`, `auth.logout`,
+  `auth.login_fail`, `auth.lockout_hit`, `auth.logout`, `auth.logout_all`,
   `auth.password_change`, `auth.password_change_fail`, `security.csrf_fail`,
   `vault.deposit_created`, `vault.deposit_completed`,
   `vault.deposit_cancelled`. Each entry includes IP, User-Agent, JSON meta,

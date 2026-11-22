@@ -110,6 +110,10 @@ async function adjustBalance(req, userId, { mode, amount }) {
   const a = Number(amount);
   if (!isFinite(a)) throw httpError(400, 'Amount must be a number.');
   const cents = Math.round(a * 100);
+  // Even an admin value must land as an exact, in-range integer — an absurd or
+  // non-finite amount would corrupt the ledger or bind a non-finite value into
+  // the balance UPDATE (a 500 on Postgres). Keep it sane before any write.
+  if (!Number.isSafeInteger(cents)) throw httpError(400, 'Amount is out of range.');
   if (mode !== 'set' && mode !== 'add') throw httpError(400, "mode must be 'set' or 'add'.");
   return db.tx(async (q) => {
     const { rows } = await q('SELECT balance_cents FROM users WHERE id = ?', [userId]);
