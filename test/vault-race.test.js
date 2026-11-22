@@ -54,7 +54,7 @@ test('parallel /api/vault/confirm credits exactly once', async () => {
 
     await req('GET', '/api/me');
     const u = 'race' + Date.now().toString(36);
-    let r = await req('POST', '/api/auth/register', { username: u, password: 'pwdpwdpwd1' });
+    let r = await req('POST', '/api/auth/register', { username: u, password: 'longpassword1' });
     assert.equal(r.status, 200);
     const startBal = r.data.user.balance;
 

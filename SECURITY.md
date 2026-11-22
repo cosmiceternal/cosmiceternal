@@ -13,7 +13,15 @@ and similar regulatory work. See the README's warning paragraph.
   cutover. Legacy hashes are transparently upgraded to argon2id on the next
   successful login.
 - **Password policy:** ≥ 8 characters, top-22 common-password blocklist,
-  rejects passwords containing the username.
+  rejects passwords containing the username, and rejects the low-entropy shapes
+  a fixed blocklist can't enumerate — fewer than 5 distinct characters
+  (`aaaaaaaa`, `ab12ab12`) and long ascending/descending runs (`12345678`,
+  `abcdefgh`).
+- **Session-secret guard:** `SESSION_SECRET` is the HMAC key behind every
+  session token, so a weak one makes tokens forgeable. In a real deployment
+  (`SECURE_COOKIES=1`) the server refuses to boot on a secret shorter than 16
+  characters and warns below 32; in local dev it only warns. With no secret
+  set, a 32-byte random one is generated and persisted.
 - **Username-enumeration timing:** an argon2 verify is performed against a
   dummy hash even when the user doesn't exist, so login latency doesn't
   reveal whether the username is registered.
@@ -90,6 +98,11 @@ and similar regulatory work. See the README's warning paragraph.
 - Every wager is debited atomically with a conditional `UPDATE` that doubles
   as both an availability check and a balance write — no two parallel bets
   can overdraw the same account.
+- Every amount that moves the ledger — wager stakes, deposits, and admin
+  balance adjustments — is validated to an exact, in-range integer number of
+  cents (`Number.isSafeInteger`) before any write, so a non-finite or
+  out-of-range value can neither corrupt a balance nor reach the database
+  driver.
 - All draws come from a per-user provably-fair HMAC stream
   (`HMAC-SHA256(server_seed, "clientSeed:nonce:round")`); the server seed is
   pre-committed (SHA-256 hash exposed) and the player can rotate at any time

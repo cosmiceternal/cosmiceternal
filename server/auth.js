@@ -57,6 +57,21 @@ async function checkPassword(user, password) {
   if (user.pass_hash.startsWith('$argon2')) return verifyPassword(user.pass_hash, password);
   return verifyLegacyScrypt(password, user.pass_salt, user.pass_hash);
 }
+// Longest run of consecutive code points, ascending or descending ("1234",
+// "dcba"). Lets the policy reject sequence/keyboard-walk passwords the
+// fixed blocklist can never enumerate.
+function longestSequentialRun(s) {
+  let best = 1, asc = 1, desc = 1;
+  for (let i = 1; i < s.length; i++) {
+    const d = s.charCodeAt(i) - s.charCodeAt(i - 1);
+    asc = d === 1 ? asc + 1 : 1;
+    desc = d === -1 ? desc + 1 : 1;
+    if (asc > best) best = asc;
+    if (desc > best) best = desc;
+  }
+  return best;
+}
+
 // Enforce the shared password policy. Throws an httpError; otherwise returns.
 function validatePasswordPolicy(password, username) {
   if (typeof password !== 'string' || password.length < MIN_PASSWORD || password.length > 200) {
@@ -67,6 +82,17 @@ function validatePasswordPolicy(password, username) {
   }
   if (username && password.toLowerCase().includes(username.toLowerCase())) {
     throw httpError(400, 'Password must not contain your username.');
+  }
+  // Low-entropy shapes the blocklist can't enumerate: a password built from one
+  // or two repeated characters ("aaaaaaaa", "ab12ab12" has 4 distinct) or a long
+  // keyboard/number run ("12345678", "abcdefgh") is trivially guessable even
+  // though it isn't a dictionary word. Catch the obvious cases cheaply, without
+  // pulling in a heavyweight entropy library.
+  if (new Set(password).size < 5) {
+    throw httpError(400, 'Too repetitive — use at least 5 different characters.');
+  }
+  if (longestSequentialRun(password.toLowerCase()) >= 6) {
+    throw httpError(400, 'Avoid long sequences like 123456 or abcdef.');
   }
 }
 
@@ -393,6 +419,7 @@ function httpError(status, message) {
 
 module.exports = {
   register, login, changePassword, revokeOtherSessions, userAuditLog,
+  validatePasswordPolicy,
   authenticate, requireAuth, requireAdmin, ensureAdminUser, getUserById,
   setSessionCookie, clearSessionCookie, publicUser, httpError,
   logAudit, clientIp,

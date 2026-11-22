@@ -415,7 +415,27 @@ async function setSetting(key, value) {
 }
 
 async function ensureSecret() {
-  if (process.env.SESSION_SECRET) { _secret = process.env.SESSION_SECRET; return; }
+  const provided = process.env.SESSION_SECRET;
+  if (provided) {
+    // A guessable or low-entropy session secret makes every HMAC-signed session
+    // token forgeable — full account takeover without a password. Entropy can't
+    // be measured directly, but length is a usable floor. Refuse to boot in a
+    // real deployment (SECURE_COOKIES=1 signals TLS/production) on an obviously
+    // weak secret, and warn loudly otherwise so a dev placeholder can never
+    // reach production silently.
+    const secureDeploy = process.env.SECURE_COOKIES === '1';
+    if (provided.length < 16) {
+      const msg = `SESSION_SECRET is only ${provided.length} characters — far too weak; `
+        + 'session tokens would be forgeable. Use 32+ random characters '
+        + '(e.g. `openssl rand -hex 32`).';
+      if (secureDeploy) throw new Error(msg);
+      console.error('WARNING: ' + msg + ' Allowed only because SECURE_COOKIES is not set — never ship this.');
+    } else if (provided.length < 32) {
+      console.error(`WARNING: SESSION_SECRET is ${provided.length} characters; 32+ is recommended for a signing key.`);
+    }
+    _secret = provided;
+    return;
+  }
   let s = await getSetting('session_secret');
   if (!s) {
     s = crypto.randomBytes(32).toString('hex');
